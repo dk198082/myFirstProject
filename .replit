@@ -30,3 +30,11 @@ externalPort = 80
 [[ports]]
 localPort = 25302
 externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+FS_DB_HOST = "fs-postgresql-prod.postgres.database.azure.com"
+FS_DB_PORT = "5432"
+FS_DB_NAME = "fieldservice"
+FS_DB_USER = "crmadmin"
