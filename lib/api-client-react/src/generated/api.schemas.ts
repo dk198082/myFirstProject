@@ -185,6 +185,52 @@ export interface DashboardSummary {
   top_technicians: TechnicianWorkOrderCount[];
 }
 
+export interface ScheduledJob {
+  booking_id: string;
+  /** @nullable */
+  work_order_id?: string | null;
+  /** @nullable */
+  work_order_number?: string | null;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  priority?: string | null;
+  /** @nullable */
+  system_status?: string | null;
+  /** @nullable */
+  booking_status?: string | null;
+  /** @nullable */
+  service_address?: string | null;
+  /** @nullable */
+  customer_name?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  country?: string | null;
+  /** @nullable */
+  start_time?: string | null;
+  /** @nullable */
+  end_time?: string | null;
+  /** @nullable */
+  duration_minutes?: number | null;
+}
+
+export interface TechnicianJobGroup {
+  technician_id: string;
+  /** @nullable */
+  resource_name?: string | null;
+  /** @nullable */
+  user_email?: string | null;
+  jobs: ScheduledJob[];
+}
+
+export interface RegionGroup {
+  region: string;
+  technicians: TechnicianJobGroup[];
+}
+
 export type GetTechnicianByEmailParams = {
 email: string;
 };

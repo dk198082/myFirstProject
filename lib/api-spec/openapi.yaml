@@ -133,6 +133,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /scheduled-jobs:
+    get:
+      operationId: getScheduledJobs
+      tags: [dashboard]
+      summary: Get all scheduled jobs grouped by region and technician
+      responses:
+        "200":
+          description: Scheduled jobs grouped by region then technician
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegionGroup"
+
   /dashboard/summary:
     get:
       operationId: getDashboardSummary
@@ -414,6 +429,72 @@ components:
       required:
         - label
         - count
+
+    ScheduledJob:
+      type: object
+      properties:
+        booking_id:
+          type: string
+        work_order_id:
+          type: ["string", "null"]
+        work_order_number:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        system_status:
+          type: ["string", "null"]
+        booking_status:
+          type: ["string", "null"]
+        service_address:
+          type: ["string", "null"]
+        customer_name:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+        end_time:
+          type: ["string", "null"]
+        duration_minutes:
+          type: ["integer", "null"]
+      required:
+        - booking_id
+
+    TechnicianJobGroup:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        user_email:
+          type: ["string", "null"]
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduledJob"
+      required:
+        - technician_id
+        - jobs
+
+    RegionGroup:
+      type: object
+      properties:
+        region:
+          type: string
+        technicians:
+          type: array
+          items:
+            $ref: "#/components/schemas/TechnicianJobGroup"
+      required:
+        - region
+        - technicians
 
     TechnicianWorkOrderCount:
       type: object

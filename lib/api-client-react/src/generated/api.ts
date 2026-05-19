@@ -20,6 +20,7 @@ import type {
   ErrorResponse,
   GetTechnicianByEmailParams,
   HealthStatus,
+  RegionGroup,
   Technician,
   TechnicianJobsResponse,
   TechnicianSummary,
@@ -495,6 +496,83 @@ export function useGetWorkOrderDetail<TData = Awaited<ReturnType<typeof getWorkO
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetWorkOrderDetailQueryOptions(workOrderId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetScheduledJobsUrl = () => {
+
+
+
+
+  return `/api/scheduled-jobs`
+}
+
+/**
+ * @summary Get all scheduled jobs grouped by region and technician
+ */
+export const getScheduledJobs = async ( options?: RequestInit): Promise<RegionGroup[]> => {
+
+  return customFetch<RegionGroup[]>(getGetScheduledJobsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetScheduledJobsQueryKey = () => {
+    return [
+    `/api/scheduled-jobs`
+    ] as const;
+    }
+
+
+export const getGetScheduledJobsQueryOptions = <TData = Awaited<ReturnType<typeof getScheduledJobs>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScheduledJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetScheduledJobsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getScheduledJobs>>> = ({ signal }) => getScheduledJobs({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getScheduledJobs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetScheduledJobsQueryResult = NonNullable<Awaited<ReturnType<typeof getScheduledJobs>>>
+export type GetScheduledJobsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get all scheduled jobs grouped by region and technician
+ */
+
+export function useGetScheduledJobs<TData = Awaited<ReturnType<typeof getScheduledJobs>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScheduledJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetScheduledJobsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Clock, User, AlertTriangle, Briefcase, CalendarClock, CheckCircle2, ClipboardList } from "lucide-react";
+import { MapPin, Clock, User, AlertTriangle, Briefcase, CalendarClock, CheckCircle2, ClipboardList, Globe } from "lucide-react";
 
 function priorityColor(priority: string | null | undefined) {
   switch ((priority ?? "").toLowerCase()) {
@@ -224,7 +224,15 @@ export default function Dashboard() {
       <header className="bg-sidebar text-sidebar-foreground shadow-md sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
           <Briefcase className="h-6 w-6 text-sidebar-primary shrink-0" />
-          <h1 className="text-xl font-bold tracking-tight">Technician Job Dashboard</h1>
+          <h1 className="text-xl font-bold tracking-tight flex-1">Technician Job Dashboard</h1>
+          <Link
+            href="/scheduled-jobs"
+            data-testid="link-scheduled-jobs"
+            className="flex items-center gap-1.5 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors font-medium"
+          >
+            <Globe className="h-4 w-4" />
+            <span className="hidden sm:inline">By Region</span>
+          </Link>
         </div>
       </header>
 
