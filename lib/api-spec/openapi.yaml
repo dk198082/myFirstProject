@@ -3,20 +3,25 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Technician Dashboard API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: technicians
+    description: Technician operations
+  - name: workOrders
+    description: Work order operations
+  - name: dashboard
+    description: Dashboard summary operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +29,123 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /technicians:
+    get:
+      operationId: listTechnicians
+      tags: [technicians]
+      summary: List all active technicians
+      responses:
+        "200":
+          description: List of technicians
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Technician"
+
+  /technicians/by-email:
+    get:
+      operationId: getTechnicianByEmail
+      tags: [technicians]
+      summary: Get technician work orders by email
+      parameters:
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Work orders for the technician
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicianJobsResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /technicians/{technicianId}/work-orders:
+    get:
+      operationId: getTechnicianWorkOrders
+      tags: [technicians]
+      summary: Get work orders assigned to a technician by ID
+      parameters:
+        - name: technicianId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of work orders for the technician
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicianJobsResponse"
+
+  /technicians/{technicianId}/summary:
+    get:
+      operationId: getTechnicianSummary
+      tags: [technicians]
+      summary: Get summary stats for a technician
+      parameters:
+        - name: technicianId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Technician summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicianSummary"
+
+  /work-orders/{workOrderId}:
+    get:
+      operationId: getWorkOrderDetail
+      tags: [workOrders]
+      summary: Get detailed info about a work order
+      parameters:
+        - name: workOrderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Work order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkOrderDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get overall dashboard summary stats
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +156,274 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Technician:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        user_email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        resource_type:
+          type: ["string", "null"]
+        is_active:
+          type: ["boolean", "null"]
+      required:
+        - technician_id
+
+    Job:
+      type: object
+      properties:
+        booking_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        user_email:
+          type: ["string", "null"]
+        work_order_number:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        customer_name:
+          type: ["string", "null"]
+        service_address:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        system_status:
+          type: ["string", "null"]
+        booking_status:
+          type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+        end_time:
+          type: ["string", "null"]
+        duration_minutes:
+          type: ["integer", "null"]
+        work_order_id:
+          type: ["string", "null"]
+      required:
+        - booking_id
+
+    TechnicianJobsResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
+        technicianEmail:
+          type: ["string", "null"]
+        technicianName:
+          type: ["string", "null"]
+      required:
+        - jobs
+
+    WorkOrderDetail:
+      type: object
+      properties:
+        work_order_id:
+          type: string
+        work_order_number:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        service_address:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        system_status:
+          type: ["string", "null"]
+        sub_status:
+          type: ["string", "null"]
+        incident_type:
+          type: ["string", "null"]
+        created_on:
+          type: ["string", "null"]
+        modified_on:
+          type: ["string", "null"]
+        customer:
+          $ref: "#/components/schemas/Customer"
+          nullable: true
+        booking:
+          $ref: "#/components/schemas/Booking"
+          nullable: true
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkOrderProduct"
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkOrderService"
+      required:
+        - work_order_id
+        - products
+        - services
+
+    Customer:
+      type: object
+      properties:
+        customer_id:
+          type: string
+        customer_name:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        postal_code:
+          type: ["string", "null"]
+      required:
+        - customer_id
+
+    Booking:
+      type: object
+      properties:
+        booking_id:
+          type: string
+        booking_status:
+          type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+        end_time:
+          type: ["string", "null"]
+        estimated_arrival_time:
+          type: ["string", "null"]
+        actual_arrival_time:
+          type: ["string", "null"]
+        actual_start_time:
+          type: ["string", "null"]
+        actual_end_time:
+          type: ["string", "null"]
+        duration_minutes:
+          type: ["integer", "null"]
+        technician_id:
+          type: ["string", "null"]
+      required:
+        - booking_id
+
+    WorkOrderProduct:
+      type: object
+      properties:
+        id:
+          type: string
+        product_name:
+          type: ["string", "null"]
+        quantity:
+          type: ["number", "null"]
+        unit:
+          type: ["string", "null"]
+        line_status:
+          type: ["string", "null"]
+      required:
+        - id
+
+    WorkOrderService:
+      type: object
+      properties:
+        id:
+          type: string
+        service_name:
+          type: ["string", "null"]
+        duration_minutes:
+          type: ["integer", "null"]
+        line_status:
+          type: ["string", "null"]
+      required:
+        - id
+
+    TechnicianSummary:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        total:
+          type: integer
+        by_status:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountByLabel"
+        by_priority:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountByLabel"
+        upcoming_today:
+          type: integer
+      required:
+        - technician_id
+        - total
+        - by_status
+        - by_priority
+        - upcoming_today
+
+    DashboardSummary:
+      type: object
+      properties:
+        total_technicians:
+          type: integer
+        total_work_orders:
+          type: integer
+        by_status:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountByLabel"
+        by_priority:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountByLabel"
+        top_technicians:
+          type: array
+          items:
+            $ref: "#/components/schemas/TechnicianWorkOrderCount"
+      required:
+        - total_technicians
+        - total_work_orders
+        - by_status
+        - by_priority
+        - top_technicians
+
+    CountByLabel:
+      type: object
+      properties:
+        label:
+          type: string
+        count:
+          type: integer
+      required:
+        - label
+        - count
+
+    TechnicianWorkOrderCount:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        count:
+          type: integer
+      required:
+        - technician_id
+        - count
