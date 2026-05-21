@@ -16,19 +16,39 @@ function toTimeOnly(v: unknown): string | null {
 }
 
 router.get("/schedule-board", async (req, res) => {
-  const weekStartRaw = (req.query.weekStart as string | undefined) ?? "";
-  const weekStart = /^\d{4}-\d{2}-\d{2}$/.test(weekStartRaw) ? weekStartRaw : null;
+  const viewRaw = (req.query.view as string | undefined) ?? "week";
+  const view: "week" | "month" = viewRaw === "month" ? "month" : "week";
 
-  if (!weekStart) {
-    res.status(400).json({ error: "weekStart query param required (YYYY-MM-DD)" });
+  // Accept `start` (preferred) or legacy `weekStart`
+  const startRaw =
+    ((req.query.start as string | undefined) ??
+      (req.query.weekStart as string | undefined) ??
+      "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startRaw)) {
+    res.status(400).json({
+      error: "start query param required (YYYY-MM-DD)",
+    });
     return;
   }
 
-  // weekEnd is exclusive (Mon..Sun + 1 day)
-  const start = new Date(weekStart + "T00:00:00Z");
-  const endDate = new Date(start);
-  endDate.setUTCDate(endDate.getUTCDate() + 7);
-  const weekEnd = endDate.toISOString().slice(0, 10);
+  // Compute the actual range based on view.
+  // - week:  start = given date, end = start + 7 days (exclusive)
+  // - month: start = first day of given date's month, end = first day of next month
+  const seed = new Date(startRaw + "T00:00:00Z");
+  let start: Date;
+  let endDate: Date;
+  if (view === "month") {
+    start = new Date(Date.UTC(seed.getUTCFullYear(), seed.getUTCMonth(), 1));
+    endDate = new Date(Date.UTC(seed.getUTCFullYear(), seed.getUTCMonth() + 1, 1));
+  } else {
+    start = seed;
+    endDate = new Date(start);
+    endDate.setUTCDate(endDate.getUTCDate() + 7);
+  }
+  const rangeStart = start.toISOString().slice(0, 10);
+  const rangeEnd = endDate.toISOString().slice(0, 10);
+  const dayCount = Math.round((endDate.getTime() - start.getTime()) / 86_400_000);
 
   try {
     const result = await pool.query(
@@ -66,7 +86,7 @@ router.get("/schedule-board", async (req, res) => {
       WHERE r.is_active = true
       ORDER BY r.region ASC, t.resource_name ASC, b.crmstart_time ASC NULLS LAST, b.crmstarttime ASC NULLS LAST
       `,
-      [weekStart, weekEnd]
+      [rangeStart, rangeEnd]
     );
 
     type TechRow = {
@@ -83,7 +103,8 @@ router.get("/schedule-board", async (req, res) => {
     };
 
     const regionMap = new Map<string, RegionRow>();
-    const weekStartMs = start.getTime();
+    const rangeStartMs = start.getTime();
+    const maxDayIndex = dayCount - 1;
 
     for (const row of result.rows) {
       const rid = row.regionid_id as string;
@@ -115,7 +136,7 @@ router.get("/schedule-board", async (req, res) => {
         : new Date(row.crmstart_time);
       const dayIndex = Math.floor(
         (Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()) -
-          weekStartMs) /
+          rangeStartMs) /
           (24 * 60 * 60 * 1000)
       );
 
@@ -134,7 +155,7 @@ router.get("/schedule-board", async (req, res) => {
         crmstarttime: toTimeOnly(row.crmstarttime),
         crmend_time: toDateOnly(row.crmend_time),
         crmendtime: toTimeOnly(row.crmendtime),
-        day_index: Math.max(0, Math.min(6, dayIndex)),
+        day_index: Math.max(0, Math.min(maxDayIndex, dayIndex)),
       });
     }
 
@@ -145,7 +166,16 @@ router.get("/schedule-board", async (req, res) => {
       technicians: Array.from(rg.technicians.values()),
     }));
 
-    res.json({ week_start: weekStart, week_end: weekEnd, regions });
+    res.json({
+      view,
+      range_start: rangeStart,
+      range_end: rangeEnd,
+      day_count: dayCount,
+      // legacy fields (kept for backwards compatibility)
+      week_start: rangeStart,
+      week_end: rangeEnd,
+      regions,
+    });
   } catch (err) {
     req.log.error({ err }, "Failed to get schedule board");
     res.status(500).json({ error: "Failed to get schedule board" });

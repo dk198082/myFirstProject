@@ -229,6 +229,14 @@ export interface WorkOrderDetail {
   equipment: Equipment[];
 }
 
+export type ScheduleBoardView = typeof ScheduleBoardView[keyof typeof ScheduleBoardView];
+
+
+export const ScheduleBoardView = {
+  week: 'week',
+  month: 'month',
+} as const;
+
 export interface ScheduleJob {
   booking_id: string;
   /** @nullable */
@@ -257,7 +265,7 @@ export interface ScheduleJob {
   crmend_time?: string | null;
   /** @nullable */
   crmendtime?: string | null;
-  /** 0=Monday … 6=Sunday for the column it belongs to */
+  /** 0-based offset from `range_start` (0 = first day in range) */
   day_index: number;
 }
 
@@ -279,7 +287,13 @@ export interface ScheduleRegion {
 }
 
 export interface ScheduleBoard {
+  view: ScheduleBoardView;
+  range_start: string;
+  range_end: string;
+  day_count: number;
+  /** Legacy alias for `range_start` */
   week_start: string;
+  /** Legacy alias for `range_end` */
   week_end: string;
   regions: ScheduleRegion[];
 }
@@ -424,8 +438,24 @@ status?: string;
 
 export type GetScheduleBoardParams = {
 /**
- * ISO date (YYYY-MM-DD) for the Monday of the week to display
+ * ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month. Falls back to legacy `weekStart` when absent.
  */
-weekStart: string;
+start?: string;
+/**
+ * Legacy alias for `start` (week view only).
+ */
+weekStart?: string;
+/**
+ * Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.
+ */
+view?: GetScheduleBoardView;
 };
+
+export type GetScheduleBoardView = typeof GetScheduleBoardView[keyof typeof GetScheduleBoardView];
+
+
+export const GetScheduleBoardView = {
+  week: 'week',
+  month: 'month',
+} as const;
 

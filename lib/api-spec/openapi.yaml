@@ -173,17 +173,30 @@ paths:
     get:
       operationId: getScheduleBoard
       tags: [dashboard]
-      summary: Get the week's schedule board grouped by region then technician
+      summary: Get the schedule board (weekly or monthly) grouped by region then technician
       parameters:
-        - name: weekStart
+        - name: start
           in: query
-          required: true
+          required: false
           schema:
             type: string
-          description: ISO date (YYYY-MM-DD) for the Monday of the week to display
+          description: ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month. Falls back to legacy `weekStart` when absent.
+        - name: weekStart
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Legacy alias for `start` (week view only).
+        - name: view
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [week, month]
+          description: "Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`."
       responses:
         "200":
-          description: Schedule board grouped by region then technician for the given week
+          description: Schedule board grouped by region then technician for the given range
           content:
             application/json:
               schema:
@@ -431,15 +444,30 @@ components:
     ScheduleBoard:
       type: object
       properties:
+        view:
+          type: string
+          enum: [week, month]
+        range_start:
+          type: string
+        range_end:
+          type: string
+        day_count:
+          type: integer
         week_start:
           type: string
+          description: Legacy alias for `range_start`
         week_end:
           type: string
+          description: Legacy alias for `range_end`
         regions:
           type: array
           items:
             $ref: "#/components/schemas/ScheduleRegion"
       required:
+        - view
+        - range_start
+        - range_end
+        - day_count
         - week_start
         - week_end
         - regions
@@ -512,7 +540,7 @@ components:
           type: ["string", "null"]
         day_index:
           type: integer
-          description: 0=Monday … 6=Sunday for the column it belongs to
+          description: 0-based offset from `range_start` (0 = first day in range)
       required:
         - booking_id
         - day_index

@@ -13,13 +13,18 @@ import {
   Globe, User, Phone, Briefcase, AlertTriangle,
 } from "lucide-react";
 
+type ViewMode = "week" | "month";
+
 function startOfWeekISO(d: Date): string {
-  // Monday as week start
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const day = date.getUTCDay(); // 0=Sun..6=Sat
+  const day = date.getUTCDay();
   const diff = (day === 0 ? -6 : 1 - day);
   date.setUTCDate(date.getUTCDate() + diff);
   return date.toISOString().slice(0, 10);
+}
+
+function startOfMonthISO(d: Date): string {
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), 1)).toISOString().slice(0, 10);
 }
 
 function addDaysISO(iso: string, days: number): string {
@@ -28,26 +33,36 @@ function addDaysISO(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function fmtDayHeader(iso: string): { dow: string; date: string } {
+function addMonthsISO(iso: string, months: number): string {
+  const d = new Date(iso + "T00:00:00Z");
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, 1))
+    .toISOString().slice(0, 10);
+}
+
+function fmtDayHeader(iso: string, mode: ViewMode): { dow: string; date: string } {
   const d = new Date(iso + "T00:00:00Z");
   return {
     dow: d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" }),
-    date: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+    date: mode === "week"
+      ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
+      : String(d.getUTCDate()),
   };
 }
 
-function fmtWeekRange(weekStart: string): string {
-  const start = new Date(weekStart + "T00:00:00Z");
-  const end = new Date(weekStart + "T00:00:00Z");
-  end.setUTCDate(end.getUTCDate() + 6);
+function fmtRangeLabel(start: string, dayCount: number, mode: ViewMode): string {
+  const s = new Date(start + "T00:00:00Z");
+  if (mode === "month") {
+    return s.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  }
+  const e = new Date(start + "T00:00:00Z");
+  e.setUTCDate(e.getUTCDate() + Math.max(0, dayCount - 1));
   const fmt = (d: Date) =>
     d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-  return `${fmt(start)} – ${fmt(end)}, ${start.getUTCFullYear()}`;
+  return `${fmt(s)} – ${fmt(e)}, ${s.getUTCFullYear()}`;
 }
 
 function fmtTime(t: string | null | undefined): string {
   if (!t) return "";
-  // "HH:MM:SS" → "HH:MM"
   return t.length >= 5 ? t.slice(0, 5) : t;
 }
 
@@ -80,19 +95,21 @@ type ScheduleJob = {
   day_index: number;
 };
 
-function JobChip({ job }: { job: ScheduleJob }) {
+function JobChip({ job, compact }: { job: ScheduleJob; compact: boolean }) {
   const chip = (
     <div
-      className={`text-[11px] leading-tight rounded border px-1.5 py-1 cursor-default transition-colors ${statusColor(job.system_status)}`}
+      className={`text-[11px] leading-tight rounded border ${compact ? "px-1 py-0.5" : "px-1.5 py-1"} cursor-default transition-colors ${statusColor(job.system_status)}`}
       data-testid={`chip-job-${job.booking_id}`}
     >
       <div className="font-semibold truncate">{job.work_order_number ?? "WO"}</div>
-      {(job.crmstarttime || job.crmendtime) && (
+      {!compact && (job.crmstarttime || job.crmendtime) && (
         <div className="opacity-80 truncate">
           {fmtTime(job.crmstarttime)}{job.crmendtime ? `–${fmtTime(job.crmendtime)}` : ""}
         </div>
       )}
-      <div className="opacity-90 truncate">{job.customer_name ?? "—"}</div>
+      {!compact && (
+        <div className="opacity-90 truncate">{job.customer_name ?? "—"}</div>
+      )}
     </div>
   );
 
@@ -137,19 +154,24 @@ function JobChip({ job }: { job: ScheduleJob }) {
   );
 }
 
-const DAYS = [0, 1, 2, 3, 4, 5, 6];
-
 export default function ScheduleBoard() {
-  const [weekStart, setWeekStart] = useState<string>(() => startOfWeekISO(new Date()));
-
-  const dayHeaders = useMemo(
-    () => DAYS.map((i) => ({ iso: addDaysISO(weekStart, i), ...fmtDayHeader(addDaysISO(weekStart, i)) })),
-    [weekStart]
-  );
+  const [view, setView] = useState<ViewMode>("week");
+  const [start, setStart] = useState<string>(() => startOfWeekISO(new Date()));
 
   const { data, isLoading, error } = useGetScheduleBoard(
-    { weekStart },
-    { query: { queryKey: ["getScheduleBoard", weekStart] } }
+    { start, view },
+    { query: { queryKey: ["getScheduleBoard", view, start] } }
+  );
+
+  const dayCount = data?.day_count ?? (view === "week" ? 7 : 30);
+  const rangeStart = data?.range_start ?? start;
+
+  const dayHeaders = useMemo(
+    () => Array.from({ length: dayCount }, (_, i) => {
+      const iso = addDaysISO(rangeStart, i);
+      return { iso, ...fmtDayHeader(iso, view) };
+    }),
+    [rangeStart, dayCount, view]
   );
 
   const regions = data?.regions ?? [];
@@ -159,10 +181,28 @@ export default function ScheduleBoard() {
     0
   );
 
+  const goPrev = () => setStart(view === "week" ? addDaysISO(start, -7) : addMonthsISO(start, -1));
+  const goNext = () => setStart(view === "week" ? addDaysISO(start, 7) : addMonthsISO(start, 1));
+  const goToday = () => setStart(view === "week" ? startOfWeekISO(new Date()) : startOfMonthISO(new Date()));
+
+  const onChangeView = (next: ViewMode) => {
+    if (next === view) return;
+    // When switching, anchor to the equivalent start for the new mode
+    const seed = new Date(start + "T00:00:00Z");
+    setStart(next === "week" ? startOfWeekISO(seed) : startOfMonthISO(seed));
+    setView(next);
+  };
+
+  // Grid column template: tech label + N day cells
+  // Per-day min width: week → 1fr; month → 80px (forces horizontal scroll)
+  const dayColTemplate = view === "week"
+    ? `180px repeat(${dayCount}, minmax(0, 1fr))`
+    : `180px repeat(${dayCount}, minmax(80px, 1fr))`;
+  const minBoardWidth = view === "week" ? 1000 : 180 + dayCount * 80;
+
   return (
     <TooltipProvider delayDuration={120}>
       <div className="min-h-screen bg-background">
-        {/* Header */}
         <header className="bg-sidebar text-sidebar-foreground shadow-md sticky top-0 z-20">
           <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
             <Link href="/" data-testid="link-back" className="flex items-center gap-1.5 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
@@ -184,55 +224,89 @@ export default function ScheduleBoard() {
         </header>
 
         <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6">
-          {/* Week controls */}
+          {/* Controls */}
           <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
             <div className="flex items-center gap-2">
               <Button
                 variant="outline" size="icon"
-                onClick={() => setWeekStart(addDaysISO(weekStart, -7))}
-                data-testid="btn-prev-week" aria-label="Previous week"
+                onClick={goPrev}
+                data-testid="btn-prev"
+                aria-label={view === "week" ? "Previous week" : "Previous month"}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <div className="text-base font-semibold tabular-nums px-2 min-w-[180px] text-center" data-testid="text-week-range">
-                {fmtWeekRange(weekStart)}
+              <div className="text-base font-semibold tabular-nums px-2 min-w-[200px] text-center" data-testid="text-range">
+                {fmtRangeLabel(rangeStart, dayCount, view)}
               </div>
               <Button
                 variant="outline" size="icon"
-                onClick={() => setWeekStart(addDaysISO(weekStart, 7))}
-                data-testid="btn-next-week" aria-label="Next week"
+                onClick={goNext}
+                data-testid="btn-next"
+                aria-label={view === "week" ? "Next week" : "Next month"}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost" size="sm"
-                onClick={() => setWeekStart(startOfWeekISO(new Date()))}
+                onClick={goToday}
                 data-testid="btn-today"
               >
                 Today
               </Button>
             </div>
-            {!isLoading && data && (
-              <div className="text-sm text-muted-foreground flex gap-3">
-                <span><span className="font-semibold text-foreground">{regions.length}</span> regions</span>
-                <span>·</span>
-                <span><span className="font-semibold text-foreground">
-                  {regions.reduce((s, r) => s + r.technicians.length, 0)}
-                </span> techs</span>
-                <span>·</span>
-                <span><span className="font-semibold text-foreground">{totalJobs}</span> jobs</span>
+
+            {/* View toggle */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="inline-flex rounded-md border border-border bg-card overflow-hidden" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={view === "week"}
+                  onClick={() => onChangeView("week")}
+                  data-testid="btn-view-week"
+                  className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                    view === "week"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground hover:bg-accent"
+                  }`}
+                >
+                  Week
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={view === "month"}
+                  onClick={() => onChangeView("month")}
+                  data-testid="btn-view-month"
+                  className={`px-3 py-1.5 text-sm font-medium border-l border-border transition-colors ${
+                    view === "month"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground hover:bg-accent"
+                  }`}
+                >
+                  Month
+                </button>
               </div>
-            )}
+              {!isLoading && data && (
+                <div className="text-sm text-muted-foreground flex gap-3">
+                  <span><span className="font-semibold text-foreground">{regions.length}</span> regions</span>
+                  <span>·</span>
+                  <span><span className="font-semibold text-foreground">
+                    {regions.reduce((s, r) => s + r.technicians.length, 0)}
+                  </span> techs</span>
+                  <span>·</span>
+                  <span><span className="font-semibold text-foreground">{totalJobs}</span> jobs</span>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Loading */}
           {isLoading && (
             <div className="space-y-4">
               {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-56 rounded-xl" />)}
             </div>
           )}
 
-          {/* Error */}
           {error && (
             <div className="text-center py-20 text-destructive" data-testid="error-schedule-board">
               <AlertTriangle className="mx-auto h-10 w-10 mb-3" />
@@ -240,7 +314,6 @@ export default function ScheduleBoard() {
             </div>
           )}
 
-          {/* Empty */}
           {!isLoading && !error && regions.length === 0 && (
             <div className="text-center py-20 text-muted-foreground" data-testid="empty-schedule">
               <CalendarClock className="mx-auto h-12 w-12 mb-4 opacity-30" />
@@ -248,7 +321,6 @@ export default function ScheduleBoard() {
             </div>
           )}
 
-          {/* Regions */}
           {!isLoading && !error && regions.length > 0 && (
             <div className="space-y-6">
               {regions.map((rg) => {
@@ -256,7 +328,6 @@ export default function ScheduleBoard() {
 
                 return (
                   <Card key={rg.regionid_id} className="overflow-hidden border border-card-border shadow-sm" data-testid={`region-${rg.region}`}>
-                    {/* Region header */}
                     <div className="bg-sidebar text-sidebar-foreground px-4 py-3 flex items-center gap-3 flex-wrap">
                       <Globe className="h-5 w-5 text-sidebar-primary" />
                       <span className="text-lg font-bold">{rg.region}</span>
@@ -273,11 +344,13 @@ export default function ScheduleBoard() {
                       </Badge>
                     </div>
 
-                    {/* Week grid */}
                     <CardContent className="p-0 overflow-x-auto">
-                      <div className="min-w-[1000px]">
+                      <div style={{ minWidth: `${minBoardWidth}px` }}>
                         {/* Day headers */}
-                        <div className="grid grid-cols-[180px_repeat(7,minmax(0,1fr))] bg-muted border-b border-border">
+                        <div
+                          className="grid bg-muted border-b border-border"
+                          style={{ gridTemplateColumns: dayColTemplate }}
+                        >
                           <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-r border-border">
                             Technician
                           </div>
@@ -289,22 +362,22 @@ export default function ScheduleBoard() {
                           ))}
                         </div>
 
-                        {/* Technician rows */}
                         {rg.technicians.length === 0 && (
                           <div className="px-4 py-6 text-sm text-muted-foreground italic">
                             No technicians in this region.
                           </div>
                         )}
                         {rg.technicians.map((tech) => {
-                          const jobsByDay: ScheduleJob[][] = DAYS.map(() => []);
+                          const jobsByDay: ScheduleJob[][] = Array.from({ length: dayCount }, () => []);
                           for (const j of tech.jobs) {
-                            const idx = Math.max(0, Math.min(6, j.day_index ?? 0));
+                            const idx = Math.max(0, Math.min(dayCount - 1, j.day_index ?? 0));
                             jobsByDay[idx].push(j as ScheduleJob);
                           }
                           return (
                             <div
                               key={tech.technician_id}
-                              className="grid grid-cols-[180px_repeat(7,minmax(0,1fr))] border-b border-border last:border-b-0 hover:bg-accent/20"
+                              className="grid border-b border-border last:border-b-0 hover:bg-accent/20"
+                              style={{ gridTemplateColumns: dayColTemplate }}
                               data-testid={`row-tech-${tech.technician_id}`}
                             >
                               <div className="px-3 py-2 border-r border-border flex items-start gap-1.5">
@@ -324,7 +397,7 @@ export default function ScheduleBoard() {
                                   className="border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px]"
                                   data-testid={`cell-${tech.technician_id}-${i}`}
                                 >
-                                  {jobs.map((j) => <JobChip key={j.booking_id} job={j} />)}
+                                  {jobs.map((j) => <JobChip key={j.booking_id} job={j} compact={view === "month"} />)}
                                 </div>
                               ))}
                             </div>
@@ -341,7 +414,7 @@ export default function ScheduleBoard() {
           {!isLoading && totalJobs === 0 && regions.length > 0 && (
             <div className="mt-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
               <Briefcase className="h-4 w-4" />
-              No jobs scheduled this week. Try a different week.
+              No jobs scheduled this {view}. Try a different {view}.
             </div>
           )}
         </main>

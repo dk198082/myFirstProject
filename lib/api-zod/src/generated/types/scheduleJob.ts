@@ -34,6 +34,6 @@ export interface ScheduleJob {
   crmend_time?: string | null;
   /** @nullable */
   crmendtime?: string | null;
-  /** 0=Monday … 6=Sunday for the column it belongs to */
+  /** 0-based offset from `range_start` (0 = first day in range) */
   day_index: number;
 }

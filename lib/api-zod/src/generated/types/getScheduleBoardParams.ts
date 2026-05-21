@@ -5,10 +5,19 @@
  * Technician Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+import type { GetScheduleBoardView } from './getScheduleBoardView';
 
 export type GetScheduleBoardParams = {
 /**
- * ISO date (YYYY-MM-DD) for the Monday of the week to display
+ * ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month. Falls back to legacy `weekStart` when absent.
  */
-weekStart: string;
+start?: string;
+/**
+ * Legacy alias for `start` (week view only).
+ */
+weekStart?: string;
+/**
+ * Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.
+ */
+view?: GetScheduleBoardView;
 };

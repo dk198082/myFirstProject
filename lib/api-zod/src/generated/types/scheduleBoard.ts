@@ -5,10 +5,17 @@
  * Technician Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+import type { ScheduleBoardView } from './scheduleBoardView';
 import type { ScheduleRegion } from './scheduleRegion';
 
 export interface ScheduleBoard {
+  view: ScheduleBoardView;
+  range_start: string;
+  range_end: string;
+  day_count: number;
+  /** Legacy alias for `range_start` */
   week_start: string;
+  /** Legacy alias for `range_end` */
   week_end: string;
   regions: ScheduleRegion[];
 }

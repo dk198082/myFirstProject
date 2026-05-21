@@ -276,15 +276,21 @@ export const GetScheduledJobsResponse = zod.array(GetScheduledJobsResponseItem)
 
 
 /**
- * @summary Get the week's schedule board grouped by region then technician
+ * @summary Get the schedule board (weekly or monthly) grouped by region then technician
  */
 export const GetScheduleBoardQueryParams = zod.object({
-  "weekStart": zod.coerce.string().describe('ISO date (YYYY-MM-DD) for the Monday of the week to display')
+  "start": zod.coerce.string().optional().describe('ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month. Falls back to legacy `weekStart` when absent.'),
+  "weekStart": zod.coerce.string().optional().describe('Legacy alias for `start` (week view only).'),
+  "view": zod.enum(['week', 'month']).optional().describe('Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.')
 })
 
 export const GetScheduleBoardResponse = zod.object({
-  "week_start": zod.string(),
-  "week_end": zod.string(),
+  "view": zod.enum(['week', 'month']),
+  "range_start": zod.string(),
+  "range_end": zod.string(),
+  "day_count": zod.number(),
+  "week_start": zod.string().describe('Legacy alias for `range_start`'),
+  "week_end": zod.string().describe('Legacy alias for `range_end`'),
   "regions": zod.array(zod.object({
   "regionid_id": zod.string(),
   "region": zod.string(),
@@ -308,7 +314,7 @@ export const GetScheduleBoardResponse = zod.object({
   "crmstarttime": zod.string().nullish(),
   "crmend_time": zod.string().nullish(),
   "crmendtime": zod.string().nullish(),
-  "day_index": zod.number().describe('0=Monday … 6=Sunday for the column it belongs to')
+  "day_index": zod.number().describe('0-based offset from `range_start` (0 = first day in range)')
 }))
 }))
 }))
