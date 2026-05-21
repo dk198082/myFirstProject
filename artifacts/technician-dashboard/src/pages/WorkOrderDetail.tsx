@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft, MapPin, Phone, Mail, Clock, User,
-  Package, Wrench, AlertTriangle, CalendarClock, Contact as ContactIcon
+  Package, Wrench, AlertTriangle, CalendarClock, Contact as ContactIcon,
+  Gauge
 } from "lucide-react";
 
 function Row({ label, value }: { label: string; value?: string | number | null }) {
@@ -261,6 +262,52 @@ export default function WorkOrderDetail() {
                       </div>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Equipment */}
+            {wo.equipment && wo.equipment.length > 0 && (
+              <Card className="border border-card-border shadow-sm" data-testid="card-equipment">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Gauge className="h-5 w-5 text-primary" />
+                    Equipment ({wo.equipment.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="overflow-x-auto p-0">
+                  <table className="w-full text-sm border-collapse min-w-[900px]">
+                    <thead className="bg-muted">
+                      <tr className="text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <th className="px-4 py-2 border-b border-border">Name</th>
+                        <th className="px-4 py-2 border-b border-border">Serial Number</th>
+                        <th className="px-4 py-2 border-b border-border whitespace-nowrap">Last Calibration</th>
+                        <th className="px-4 py-2 border-b border-border whitespace-nowrap">Next Calibration</th>
+                        <th className="px-4 py-2 border-b border-border text-right whitespace-nowrap">Cal Interval</th>
+                        <th className="px-4 py-2 border-b border-border">Machine Capacity</th>
+                        <th className="px-4 py-2 border-b border-border whitespace-nowrap">Calibration Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {wo.equipment.map((e) => (
+                        <tr
+                          key={e.equipmentid}
+                          className="border-b border-border last:border-b-0 hover:bg-accent/30"
+                          data-testid={`row-equipment-${e.equipmentid}`}
+                        >
+                          <td className="px-4 py-2.5 font-medium text-foreground">{e.name ?? "—"}</td>
+                          <td className="px-4 py-2.5 font-mono text-xs">{e.serialnumber ?? "—"}</td>
+                          <td className="px-4 py-2.5 tabular-nums whitespace-nowrap">{e.lastcalibrationdate ?? "—"}</td>
+                          <td className="px-4 py-2.5 tabular-nums whitespace-nowrap">{e.nextcalibrationdate ?? "—"}</td>
+                          <td className="px-4 py-2.5 tabular-nums text-right">
+                            {e.calinterval != null ? `${e.calinterval} mo` : "—"}
+                          </td>
+                          <td className="px-4 py-2.5">{e.machinecapacity ?? "—"}</td>
+                          <td className="px-4 py-2.5 tabular-nums whitespace-nowrap">{e.calibrationdate ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </CardContent>
               </Card>
             )}

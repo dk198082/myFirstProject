@@ -191,6 +191,16 @@ export const GetWorkOrderDetailResponse = zod.object({
   "service_name": zod.string().nullish(),
   "duration_minutes": zod.number().nullish(),
   "line_status": zod.string().nullish()
+})),
+  "equipment": zod.array(zod.object({
+  "equipmentid": zod.string(),
+  "name": zod.string().nullish(),
+  "serialnumber": zod.string().nullish(),
+  "lastcalibrationdate": zod.string().nullish(),
+  "nextcalibrationdate": zod.string().nullish(),
+  "calinterval": zod.number().nullish(),
+  "machinecapacity": zod.string().nullish(),
+  "calibrationdate": zod.string().nullish()
 }))
 })
 

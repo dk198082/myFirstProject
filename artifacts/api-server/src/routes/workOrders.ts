@@ -7,7 +7,7 @@ router.get("/work-orders/:workOrderId", async (req, res) => {
   const { workOrderId } = req.params;
 
   try {
-    const [woRes, productsRes, servicesRes, bookingRes, contactRes] = await Promise.all([
+    const [woRes, productsRes, servicesRes, bookingRes, contactRes, equipmentRes] = await Promise.all([
       pool.query(
         `SELECT wo.*, c.customer_id, c.customer_name, c.email, c.phone,
                 c.address, c.city, c.state, c.country, c.postal_code
@@ -49,7 +49,25 @@ router.get("/work-orders/:workOrderId", async (req, res) => {
          WHERE wo.work_order_id = $1`,
         [workOrderId]
       ),
+      pool.query(
+        `SELECT equipmentid, name, serialnumber,
+                lastcalibrationdate, nextcalibrationdate,
+                calinterval, machinecapacity, calibrationdate
+         FROM equipment
+         WHERE work_order_id = $1
+         ORDER BY name ASC NULLS LAST, serialnumber ASC NULLS LAST`,
+        [workOrderId]
+      ),
     ]);
+
+    const toDateOnly = (v: unknown) =>
+      v instanceof Date ? v.toISOString().slice(0, 10) : v ?? null;
+    const equipment = equipmentRes.rows.map((e) => ({
+      ...e,
+      lastcalibrationdate: toDateOnly(e.lastcalibrationdate),
+      nextcalibrationdate: toDateOnly(e.nextcalibrationdate),
+      calibrationdate: toDateOnly(e.calibrationdate),
+    }));
 
     const wo = woRes.rows[0];
     if (!wo) {
@@ -123,6 +141,7 @@ router.get("/work-orders/:workOrderId", async (req, res) => {
       booking,
       products: productsRes.rows,
       services: servicesRes.rows,
+      equipment,
     });
   } catch (err) {
     req.log.error({ err }, "Failed to get work order detail");

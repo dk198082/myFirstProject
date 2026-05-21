@@ -11,6 +11,7 @@ export * from './contact';
 export * from './countByLabel';
 export * from './customer';
 export * from './dashboardSummary';
+export * from './equipment';
 export * from './errorResponse';
 export * from './getJobsByRegionParams';
 export * from './getScheduleBoardParams';

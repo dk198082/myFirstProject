@@ -8,6 +8,7 @@
 import type { Booking } from './booking';
 import type { Contact } from './contact';
 import type { Customer } from './customer';
+import type { Equipment } from './equipment';
 import type { WorkOrderProduct } from './workOrderProduct';
 import type { WorkOrderService } from './workOrderService';
 
@@ -52,4 +53,5 @@ export interface WorkOrderDetail {
   booking?: Booking | null;
   products: WorkOrderProduct[];
   services: WorkOrderService[];
+  equipment: Equipment[];
 }

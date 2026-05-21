@@ -167,6 +167,24 @@ export interface WorkOrderService {
   line_status?: string | null;
 }
 
+export interface Equipment {
+  equipmentid: string;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  serialnumber?: string | null;
+  /** @nullable */
+  lastcalibrationdate?: string | null;
+  /** @nullable */
+  nextcalibrationdate?: string | null;
+  /** @nullable */
+  calinterval?: number | null;
+  /** @nullable */
+  machinecapacity?: string | null;
+  /** @nullable */
+  calibrationdate?: string | null;
+}
+
 export interface WorkOrderDetail {
   work_order_id: string;
   /** @nullable */
@@ -208,6 +226,7 @@ export interface WorkOrderDetail {
   booking?: Booking | null;
   products: WorkOrderProduct[];
   services: WorkOrderService[];
+  equipment: Equipment[];
 }
 
 export interface ScheduleJob {

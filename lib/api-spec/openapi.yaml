@@ -342,10 +342,37 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WorkOrderService"
+        equipment:
+          type: array
+          items:
+            $ref: "#/components/schemas/Equipment"
       required:
         - work_order_id
         - products
         - services
+        - equipment
+
+    Equipment:
+      type: object
+      properties:
+        equipmentid:
+          type: string
+        name:
+          type: ["string", "null"]
+        serialnumber:
+          type: ["string", "null"]
+        lastcalibrationdate:
+          type: ["string", "null"]
+        nextcalibrationdate:
+          type: ["string", "null"]
+        calinterval:
+          type: ["integer", "null"]
+        machinecapacity:
+          type: ["string", "null"]
+        calibrationdate:
+          type: ["string", "null"]
+      required:
+        - equipmentid
 
     Customer:
       type: object
