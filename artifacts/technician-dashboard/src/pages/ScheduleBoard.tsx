@@ -662,11 +662,12 @@ export default function ScheduleBoard() {
                   </div>
                 </div>
 
-                <CardContent className="p-0">
+                <CardContent className="p-0 overflow-x-auto">
+                  <div style={{ minWidth: "1060px" }}>
                   {/* Day headers Mon-Fri */}
                   <div
                     className="grid border-b-2 border-foreground/80 bg-white"
-                    style={{ gridTemplateColumns: "60px repeat(5, 1fr)" }}
+                    style={{ gridTemplateColumns: "60px repeat(5, 200px)" }}
                   >
                     <div className="border-r border-foreground/40" />
                     {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((d) => (
@@ -688,7 +689,7 @@ export default function ScheduleBoard() {
                       <div
                         key={row.mondayISO}
                         className="grid border-b border-foreground/40 last:border-b-0 min-h-[140px]"
-                        style={{ gridTemplateColumns: "60px repeat(5, 1fr)" }}
+                        style={{ gridTemplateColumns: "60px repeat(5, 200px)" }}
                         data-testid={`week-row-${row.mondayISO}`}
                       >
                         <div className="px-2 py-3 border-r border-foreground/40 text-sm font-bold text-foreground/70 tabular-nums">
@@ -742,6 +743,7 @@ export default function ScheduleBoard() {
                       </div>
                     );
                   })}
+                  </div>
                 </CardContent>
 
                 {/* Footer: month + year */}
