@@ -70,6 +70,8 @@ router.get("/schedule-board", async (req, res) => {
         wo.work_order_number,
         wo.title,
         wo.system_status,
+        wo.city,
+        wo.state,
         c.customer_name,
         ct.fullname     AS contact_name,
         ct.businessphone AS contact_businessphone
@@ -155,6 +157,8 @@ router.get("/schedule-board", async (req, res) => {
         crmstarttime: toTimeOnly(row.crmstarttime),
         crmend_time: toDateOnly(row.crmend_time),
         crmendtime: toTimeOnly(row.crmendtime),
+        city: row.city ?? null,
+        state: row.state ?? null,
         day_index: Math.max(0, Math.min(maxDayIndex, dayIndex)),
       });
     }

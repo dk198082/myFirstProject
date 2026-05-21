@@ -74,7 +74,13 @@ function fmtRangeLabel(start: string, dayCount: number, mode: ViewMode): string 
 
 function fmtTime(t: string | null | undefined): string {
   if (!t) return "";
-  return t.length >= 5 ? t.slice(0, 5) : t;
+  const hhmm = t.length >= 5 ? t.slice(0, 5) : t;
+  const [hStr, mStr] = hhmm.split(":");
+  const h = Number(hStr);
+  if (!Number.isFinite(h)) return hhmm;
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = ((h + 11) % 12) + 1;
+  return `${h12}:${mStr ?? "00"} ${period}`;
 }
 
 function fmtDuration(start: string | null | undefined, end: string | null | undefined): string {
@@ -142,6 +148,8 @@ type ScheduleJob = {
   crmstarttime?: string | null;
   crmend_time?: string | null;
   crmendtime?: string | null;
+  city?: string | null;
+  state?: string | null;
   day_index: number;
 };
 
@@ -721,6 +729,11 @@ export default function ScheduleBoard() {
                                   <div className="font-bold text-foreground truncate">
                                     {j.customer_name ?? "—"}
                                   </div>
+                                  {(j.city || j.state) && (
+                                    <div className="text-foreground/70 truncate">
+                                      {[j.city, j.state].filter(Boolean).join(", ")}
+                                    </div>
+                                  )}
                                   {(j.crmstarttime || j.crmendtime) && (
                                     <div className="text-foreground/70 tabular-nums">
                                       {fmtTime(j.crmstarttime)}{j.crmendtime ? `–${fmtTime(j.crmendtime)}` : ""}

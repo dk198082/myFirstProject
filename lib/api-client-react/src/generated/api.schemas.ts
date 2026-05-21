@@ -265,6 +265,10 @@ export interface ScheduleJob {
   crmend_time?: string | null;
   /** @nullable */
   crmendtime?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
   /** 0-based offset from `range_start` (0 = first day in range) */
   day_index: number;
 }

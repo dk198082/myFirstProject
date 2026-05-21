@@ -314,6 +314,8 @@ export const GetScheduleBoardResponse = zod.object({
   "crmstarttime": zod.string().nullish(),
   "crmend_time": zod.string().nullish(),
   "crmendtime": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
   "day_index": zod.number().describe('0-based offset from `range_start` (0 = first day in range)')
 }))
 }))
