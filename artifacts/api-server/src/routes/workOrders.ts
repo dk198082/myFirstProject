@@ -7,7 +7,7 @@ router.get("/work-orders/:workOrderId", async (req, res) => {
   const { workOrderId } = req.params;
 
   try {
-    const [woRes, productsRes, servicesRes, bookingRes] = await Promise.all([
+    const [woRes, productsRes, servicesRes, bookingRes, contactRes] = await Promise.all([
       pool.query(
         `SELECT wo.*, c.customer_id, c.customer_name, c.email, c.phone,
                 c.address, c.city, c.state, c.country, c.postal_code
@@ -38,6 +38,15 @@ router.get("/work-orders/:workOrderId", async (req, res) => {
          WHERE work_order_id = $1
          ORDER BY start_time ASC
          LIMIT 1`,
+        [workOrderId]
+      ),
+      pool.query(
+        `SELECT ct.contact_id, ct.fullname, ct.firstname, ct.lastname,
+                ct.email, ct.businessphone, ct.homephone, ct.mobilephone,
+                ct.street1, ct.city, ct.state, ct.country
+         FROM work_orders wo
+         JOIN contact ct ON ct.contact_id = wo.contact_id
+         WHERE wo.work_order_id = $1`,
         [workOrderId]
       ),
     ]);
@@ -110,6 +119,7 @@ router.get("/work-orders/:workOrderId", async (req, res) => {
       created_on: wo.created_on,
       modified_on: wo.modified_on,
       customer,
+      contact: contactRes.rows[0] ?? null,
       booking,
       products: productsRes.rows,
       services: servicesRes.rows,

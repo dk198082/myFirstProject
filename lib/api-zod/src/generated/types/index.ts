@@ -7,18 +7,24 @@
  */
 
 export * from './booking';
+export * from './contact';
 export * from './countByLabel';
 export * from './customer';
 export * from './dashboardSummary';
 export * from './errorResponse';
 export * from './getJobsByRegionParams';
+export * from './getScheduleBoardParams';
 export * from './getTechnicianByEmailParams';
 export * from './healthStatus';
 export * from './job';
 export * from './regionGroup';
 export * from './regionJob';
 export * from './regionJobGroup';
+export * from './scheduleBoard';
 export * from './scheduledJob';
+export * from './scheduleJob';
+export * from './scheduleRegion';
+export * from './scheduleTechnician';
 export * from './technician';
 export * from './technicianJobGroup';
 export * from './technicianJobsResponse';

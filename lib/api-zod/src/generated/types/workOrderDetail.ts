@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Booking } from './booking';
+import type { Contact } from './contact';
 import type { Customer } from './customer';
 import type { WorkOrderProduct } from './workOrderProduct';
 import type { WorkOrderService } from './workOrderService';
@@ -47,6 +48,7 @@ export interface WorkOrderDetail {
   /** @nullable */
   modified_on?: string | null;
   customer?: Customer | null;
+  contact?: Contact | null;
   booking?: Booking | null;
   products: WorkOrderProduct[];
   services: WorkOrderService[];

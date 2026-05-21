@@ -169,6 +169,26 @@ paths:
                 items:
                   $ref: "#/components/schemas/RegionGroup"
 
+  /schedule-board:
+    get:
+      operationId: getScheduleBoard
+      tags: [dashboard]
+      summary: Get the week's schedule board grouped by region then technician
+      parameters:
+        - name: weekStart
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD) for the Monday of the week to display
+      responses:
+        "200":
+          description: Schedule board grouped by region then technician for the given week
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleBoard"
+
   /dashboard/summary:
     get:
       operationId: getDashboardSummary
@@ -308,6 +328,9 @@ components:
         customer:
           $ref: "#/components/schemas/Customer"
           nullable: true
+        contact:
+          $ref: "#/components/schemas/Contact"
+          nullable: true
         booking:
           $ref: "#/components/schemas/Booking"
           nullable: true
@@ -347,6 +370,125 @@ components:
           type: ["string", "null"]
       required:
         - customer_id
+
+    Contact:
+      type: object
+      properties:
+        contact_id:
+          type: string
+        fullname:
+          type: ["string", "null"]
+        firstname:
+          type: ["string", "null"]
+        lastname:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        businessphone:
+          type: ["string", "null"]
+        homephone:
+          type: ["string", "null"]
+        mobilephone:
+          type: ["string", "null"]
+        street1:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+      required:
+        - contact_id
+
+    ScheduleBoard:
+      type: object
+      properties:
+        week_start:
+          type: string
+        week_end:
+          type: string
+        regions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleRegion"
+      required:
+        - week_start
+        - week_end
+        - regions
+
+    ScheduleRegion:
+      type: object
+      properties:
+        regionid_id:
+          type: string
+        region:
+          type: string
+        company:
+          type: ["string", "null"]
+        technicians:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleTechnician"
+      required:
+        - regionid_id
+        - region
+        - technicians
+
+    ScheduleTechnician:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        user_email:
+          type: ["string", "null"]
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleJob"
+      required:
+        - technician_id
+        - jobs
+
+    ScheduleJob:
+      type: object
+      properties:
+        booking_id:
+          type: string
+        work_order_id:
+          type: ["string", "null"]
+        work_order_number:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        system_status:
+          type: ["string", "null"]
+        booking_status:
+          type: ["string", "null"]
+        customer_name:
+          type: ["string", "null"]
+        technician_name:
+          type: ["string", "null"]
+        contact_name:
+          type: ["string", "null"]
+        contact_businessphone:
+          type: ["string", "null"]
+        crmstart_time:
+          type: ["string", "null"]
+        crmstarttime:
+          type: ["string", "null"]
+        crmend_time:
+          type: ["string", "null"]
+        crmendtime:
+          type: ["string", "null"]
+        day_index:
+          type: integer
+          description: 0=Monday … 6=Sunday for the column it belongs to
+      required:
+        - booking_id
+        - day_index
 
     Booking:
       type: object

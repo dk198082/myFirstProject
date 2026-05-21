@@ -85,6 +85,32 @@ export interface Customer {
   postal_code?: string | null;
 }
 
+export interface Contact {
+  contact_id: string;
+  /** @nullable */
+  fullname?: string | null;
+  /** @nullable */
+  firstname?: string | null;
+  /** @nullable */
+  lastname?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  businessphone?: string | null;
+  /** @nullable */
+  homephone?: string | null;
+  /** @nullable */
+  mobilephone?: string | null;
+  /** @nullable */
+  street1?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  country?: string | null;
+}
+
 export interface Booking {
   booking_id: string;
   /** @nullable */
@@ -178,9 +204,65 @@ export interface WorkOrderDetail {
   /** @nullable */
   modified_on?: string | null;
   customer?: Customer | null;
+  contact?: Contact | null;
   booking?: Booking | null;
   products: WorkOrderProduct[];
   services: WorkOrderService[];
+}
+
+export interface ScheduleJob {
+  booking_id: string;
+  /** @nullable */
+  work_order_id?: string | null;
+  /** @nullable */
+  work_order_number?: string | null;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  system_status?: string | null;
+  /** @nullable */
+  booking_status?: string | null;
+  /** @nullable */
+  customer_name?: string | null;
+  /** @nullable */
+  technician_name?: string | null;
+  /** @nullable */
+  contact_name?: string | null;
+  /** @nullable */
+  contact_businessphone?: string | null;
+  /** @nullable */
+  crmstart_time?: string | null;
+  /** @nullable */
+  crmstarttime?: string | null;
+  /** @nullable */
+  crmend_time?: string | null;
+  /** @nullable */
+  crmendtime?: string | null;
+  /** 0=Monday … 6=Sunday for the column it belongs to */
+  day_index: number;
+}
+
+export interface ScheduleTechnician {
+  technician_id: string;
+  /** @nullable */
+  resource_name?: string | null;
+  /** @nullable */
+  user_email?: string | null;
+  jobs: ScheduleJob[];
+}
+
+export interface ScheduleRegion {
+  regionid_id: string;
+  region: string;
+  /** @nullable */
+  company?: string | null;
+  technicians: ScheduleTechnician[];
+}
+
+export interface ScheduleBoard {
+  week_start: string;
+  week_end: string;
+  regions: ScheduleRegion[];
 }
 
 export interface CountByLabel {
@@ -319,5 +401,12 @@ export type GetJobsByRegionParams = {
  * Filter by work order system_status (e.g. Scheduled, Completed)
  */
 status?: string;
+};
+
+export type GetScheduleBoardParams = {
+/**
+ * ISO date (YYYY-MM-DD) for the Monday of the week to display
+ */
+weekStart: string;
 };
 

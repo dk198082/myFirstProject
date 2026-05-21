@@ -19,10 +19,12 @@ import type {
   DashboardSummary,
   ErrorResponse,
   GetJobsByRegionParams,
+  GetScheduleBoardParams,
   GetTechnicianByEmailParams,
   HealthStatus,
   RegionGroup,
   RegionJobGroup,
+  ScheduleBoard,
   Technician,
   TechnicianJobsResponse,
   TechnicianSummary,
@@ -659,6 +661,90 @@ export function useGetScheduledJobs<TData = Awaited<ReturnType<typeof getSchedul
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetScheduledJobsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetScheduleBoardUrl = (params: GetScheduleBoardParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/schedule-board?${stringifiedParams}` : `/api/schedule-board`
+}
+
+/**
+ * @summary Get the week's schedule board grouped by region then technician
+ */
+export const getScheduleBoard = async (params: GetScheduleBoardParams, options?: RequestInit): Promise<ScheduleBoard> => {
+
+  return customFetch<ScheduleBoard>(getGetScheduleBoardUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetScheduleBoardQueryKey = (params?: GetScheduleBoardParams,) => {
+    return [
+    `/api/schedule-board`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetScheduleBoardQueryOptions = <TData = Awaited<ReturnType<typeof getScheduleBoard>>, TError = ErrorType<unknown>>(params: GetScheduleBoardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScheduleBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetScheduleBoardQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getScheduleBoard>>> = ({ signal }) => getScheduleBoard(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getScheduleBoard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetScheduleBoardQueryResult = NonNullable<Awaited<ReturnType<typeof getScheduleBoard>>>
+export type GetScheduleBoardQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the week's schedule board grouped by region then technician
+ */
+
+export function useGetScheduleBoard<TData = Awaited<ReturnType<typeof getScheduleBoard>>, TError = ErrorType<unknown>>(
+ params: GetScheduleBoardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScheduleBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetScheduleBoardQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

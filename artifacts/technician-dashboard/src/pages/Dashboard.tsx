@@ -226,6 +226,14 @@ export default function Dashboard() {
           <Briefcase className="h-6 w-6 text-sidebar-primary shrink-0" />
           <h1 className="text-xl font-bold tracking-tight flex-1">Technician Job Dashboard</h1>
           <Link
+            href="/schedule-board"
+            data-testid="link-schedule-board"
+            className="flex items-center gap-1.5 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors font-medium"
+          >
+            <CalendarClock className="h-4 w-4" />
+            <span className="hidden sm:inline">Schedule Board</span>
+          </Link>
+          <Link
             href="/jobs-by-region"
             data-testid="link-jobs-by-region"
             className="flex items-center gap-1.5 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors font-medium"

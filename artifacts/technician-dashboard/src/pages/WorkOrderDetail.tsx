@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft, MapPin, Phone, Mail, Clock, User,
-  Package, Wrench, AlertTriangle, CalendarClock
+  Package, Wrench, AlertTriangle, CalendarClock, Contact as ContactIcon
 } from "lucide-react";
 
 function Row({ label, value }: { label: string; value?: string | number | null }) {
@@ -184,6 +184,51 @@ export default function WorkOrderDetail() {
                       </div>
                     )}
                     <Row label="Address" value={[wo.customer.address, wo.customer.city, wo.customer.state, wo.customer.country, wo.customer.postal_code].filter(Boolean).join(", ") || null} />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Contact */}
+            {wo.contact && (
+              <Card className="border border-card-border shadow-sm" data-testid="card-contact">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <ContactIcon className="h-5 w-5 text-primary" />
+                    Contact
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="divide-y divide-border">
+                    <Row label="Name" value={wo.contact.fullname ?? [wo.contact.firstname, wo.contact.lastname].filter(Boolean).join(" ")} />
+                    {wo.contact.email && (
+                      <div className="flex items-center gap-2 py-2 text-sm">
+                        <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <a href={`mailto:${wo.contact.email}`} className="text-primary hover:underline" data-testid="link-contact-email">{wo.contact.email}</a>
+                      </div>
+                    )}
+                    {wo.contact.businessphone && (
+                      <div className="flex items-center gap-2 py-2 text-sm">
+                        <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <a href={`tel:${wo.contact.businessphone}`} className="text-primary hover:underline" data-testid="link-contact-business">
+                          {wo.contact.businessphone}
+                        </a>
+                        <span className="text-xs text-muted-foreground">(business)</span>
+                      </div>
+                    )}
+                    {wo.contact.mobilephone && (
+                      <div className="flex items-center gap-2 py-2 text-sm">
+                        <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <a href={`tel:${wo.contact.mobilephone}`} className="text-primary hover:underline" data-testid="link-contact-mobile">
+                          {wo.contact.mobilephone}
+                        </a>
+                        <span className="text-xs text-muted-foreground">(mobile)</span>
+                      </div>
+                    )}
+                    {wo.contact.homephone && (
+                      <Row label="Home Phone" value={wo.contact.homephone} />
+                    )}
+                    <Row label="Address" value={[wo.contact.street1, wo.contact.city, wo.contact.state, wo.contact.country].filter(Boolean).join(", ") || null} />
                   </div>
                 </CardContent>
               </Card>

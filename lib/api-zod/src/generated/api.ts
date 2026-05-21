@@ -147,6 +147,20 @@ export const GetWorkOrderDetailResponse = zod.object({
   "country": zod.string().nullish(),
   "postal_code": zod.string().nullish()
 }).nullish(),
+  "contact": zod.object({
+  "contact_id": zod.string(),
+  "fullname": zod.string().nullish(),
+  "firstname": zod.string().nullish(),
+  "lastname": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "businessphone": zod.string().nullish(),
+  "homephone": zod.string().nullish(),
+  "mobilephone": zod.string().nullish(),
+  "street1": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "country": zod.string().nullish()
+}).nullish(),
   "booking": zod.object({
   "booking_id": zod.string(),
   "booking_status": zod.string().nullish(),
@@ -249,6 +263,46 @@ export const GetScheduledJobsResponseItem = zod.object({
 }))
 })
 export const GetScheduledJobsResponse = zod.array(GetScheduledJobsResponseItem)
+
+
+/**
+ * @summary Get the week's schedule board grouped by region then technician
+ */
+export const GetScheduleBoardQueryParams = zod.object({
+  "weekStart": zod.coerce.string().describe('ISO date (YYYY-MM-DD) for the Monday of the week to display')
+})
+
+export const GetScheduleBoardResponse = zod.object({
+  "week_start": zod.string(),
+  "week_end": zod.string(),
+  "regions": zod.array(zod.object({
+  "regionid_id": zod.string(),
+  "region": zod.string(),
+  "company": zod.string().nullish(),
+  "technicians": zod.array(zod.object({
+  "technician_id": zod.string(),
+  "resource_name": zod.string().nullish(),
+  "user_email": zod.string().nullish(),
+  "jobs": zod.array(zod.object({
+  "booking_id": zod.string(),
+  "work_order_id": zod.string().nullish(),
+  "work_order_number": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "system_status": zod.string().nullish(),
+  "booking_status": zod.string().nullish(),
+  "customer_name": zod.string().nullish(),
+  "technician_name": zod.string().nullish(),
+  "contact_name": zod.string().nullish(),
+  "contact_businessphone": zod.string().nullish(),
+  "crmstart_time": zod.string().nullish(),
+  "crmstarttime": zod.string().nullish(),
+  "crmend_time": zod.string().nullish(),
+  "crmendtime": zod.string().nullish(),
+  "day_index": zod.number().describe('0=Monday … 6=Sunday for the column it belongs to')
+}))
+}))
+}))
+})
 
 
 /**
