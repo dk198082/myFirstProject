@@ -292,7 +292,7 @@ export default function WorkOrderDetail() {
                       {wo.equipment.map((e) => (
                         <tr
                           key={e.equipmentid}
-                          className="border-b border-border last:border-b-0 hover:bg-accent/30"
+                          className="border-b border-border last:border-b-0 hover:bg-green-200 hover:text-black [&>td]:hover:text-black"
                           data-testid={`row-equipment-${e.equipmentid}`}
                         >
                           <td className="px-4 py-2.5 font-medium text-foreground">{e.name ?? "—"}</td>
