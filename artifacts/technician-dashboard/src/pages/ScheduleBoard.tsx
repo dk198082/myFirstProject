@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   ArrowLeft, CalendarClock, ChevronLeft, ChevronRight,
-  Globe, User, Phone, Briefcase, AlertTriangle,
+  Globe, Phone, Briefcase, AlertTriangle,
 } from "lucide-react";
 
 type ViewMode = "week" | "month";
@@ -66,15 +66,39 @@ function fmtTime(t: string | null | undefined): string {
   return t.length >= 5 ? t.slice(0, 5) : t;
 }
 
-function statusColor(s: string | null | undefined) {
-  switch ((s ?? "").toLowerCase()) {
-    case "completed":   return "bg-green-100 text-green-800 border-green-300 hover:bg-green-200";
-    case "scheduled":   return "bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200";
-    case "in progress": return "bg-purple-100 text-purple-800 border-purple-300 hover:bg-purple-200";
-    case "cancelled":   return "bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200";
-    case "invoiced":    return "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200";
-    default:            return "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200";
-  }
+// Distinct, accessible palette for technicians. Each entry pairs a
+// chip background/border with a matching dot for the technician label.
+const TECH_PALETTE = [
+  { chip: "bg-blue-100   text-blue-900   border-blue-400   hover:bg-blue-200",   dot: "bg-blue-500" },
+  { chip: "bg-emerald-100 text-emerald-900 border-emerald-400 hover:bg-emerald-200", dot: "bg-emerald-500" },
+  { chip: "bg-amber-100  text-amber-900  border-amber-400  hover:bg-amber-200",  dot: "bg-amber-500" },
+  { chip: "bg-rose-100   text-rose-900   border-rose-400   hover:bg-rose-200",   dot: "bg-rose-500" },
+  { chip: "bg-violet-100 text-violet-900 border-violet-400 hover:bg-violet-200", dot: "bg-violet-500" },
+  { chip: "bg-cyan-100   text-cyan-900   border-cyan-400   hover:bg-cyan-200",   dot: "bg-cyan-500" },
+  { chip: "bg-fuchsia-100 text-fuchsia-900 border-fuchsia-400 hover:bg-fuchsia-200", dot: "bg-fuchsia-500" },
+  { chip: "bg-lime-100   text-lime-900   border-lime-500   hover:bg-lime-200",   dot: "bg-lime-500" },
+  { chip: "bg-orange-100 text-orange-900 border-orange-400 hover:bg-orange-200", dot: "bg-orange-500" },
+  { chip: "bg-teal-100   text-teal-900   border-teal-400   hover:bg-teal-200",   dot: "bg-teal-500" },
+  { chip: "bg-pink-100   text-pink-900   border-pink-400   hover:bg-pink-200",   dot: "bg-pink-500" },
+  { chip: "bg-indigo-100 text-indigo-900 border-indigo-400 hover:bg-indigo-200", dot: "bg-indigo-500" },
+  { chip: "bg-sky-100    text-sky-900    border-sky-400    hover:bg-sky-200",    dot: "bg-sky-500" },
+  { chip: "bg-yellow-100 text-yellow-900 border-yellow-500 hover:bg-yellow-200", dot: "bg-yellow-500" },
+  { chip: "bg-red-100    text-red-900    border-red-400    hover:bg-red-200",    dot: "bg-red-500" },
+];
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function techColor(technicianId: string | null | undefined) {
+  if (!technicianId) return TECH_PALETTE[0];
+  return TECH_PALETTE[hashStr(technicianId) % TECH_PALETTE.length];
+}
+
+function cancelledChipColor() {
+  return "bg-gray-100 text-gray-500 border-gray-300 line-through hover:bg-gray-200";
 }
 
 type ScheduleJob = {
@@ -95,10 +119,11 @@ type ScheduleJob = {
   day_index: number;
 };
 
-function JobChip({ job, compact }: { job: ScheduleJob; compact: boolean }) {
+function JobChip({ job, compact, colorClass }: { job: ScheduleJob; compact: boolean; colorClass: string }) {
+  const isCancelled = (job.system_status ?? "").toLowerCase() === "cancelled";
   const chip = (
     <div
-      className={`text-[11px] leading-tight rounded border ${compact ? "px-1 py-0.5" : "px-1.5 py-1"} cursor-default transition-colors ${statusColor(job.system_status)}`}
+      className={`text-[11px] leading-tight rounded border ${compact ? "px-1 py-0.5" : "px-1.5 py-1"} cursor-default transition-colors ${isCancelled ? cancelledChipColor() : colorClass}`}
       data-testid={`chip-job-${job.booking_id}`}
     >
       <div className="font-semibold truncate">{job.work_order_number ?? "WO"}</div>
@@ -157,6 +182,7 @@ function JobChip({ job, compact }: { job: ScheduleJob; compact: boolean }) {
 export default function ScheduleBoard() {
   const [view, setView] = useState<ViewMode>("week");
   const [start, setStart] = useState<string>(() => startOfWeekISO(new Date()));
+  const [selectedRegions, setSelectedRegions] = useState<Set<string> | null>(null);
 
   const { data, isLoading, error } = useGetScheduleBoard(
     { start, view },
@@ -174,12 +200,34 @@ export default function ScheduleBoard() {
     [rangeStart, dayCount, view]
   );
 
-  const regions = data?.regions ?? [];
+  const allRegions = data?.regions ?? [];
+  const regions = useMemo(
+    () => selectedRegions === null
+      ? allRegions
+      : allRegions.filter((r) => selectedRegions.has(r.regionid_id)),
+    [allRegions, selectedRegions]
+  );
 
   const totalJobs = regions.reduce(
     (s, r) => s + r.technicians.reduce((ts, t) => ts + t.jobs.length, 0),
     0
   );
+
+  const toggleRegion = (id: string) => {
+    setSelectedRegions((prev) => {
+      const current = prev ?? new Set(allRegions.map((r) => r.regionid_id));
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      // If user re-selects everything, drop the filter (back to "all")
+      if (next.size === allRegions.length) return null;
+      return next;
+    });
+  };
+  const selectAllRegions = () => setSelectedRegions(null);
+  const clearRegions = () => setSelectedRegions(new Set());
+  const isRegionSelected = (id: string) =>
+    selectedRegions === null || selectedRegions.has(id);
 
   const goPrev = () => setStart(view === "week" ? addDaysISO(start, -7) : addMonthsISO(start, -1));
   const goNext = () => setStart(view === "week" ? addDaysISO(start, 7) : addMonthsISO(start, 1));
@@ -289,7 +337,7 @@ export default function ScheduleBoard() {
               </div>
               {!isLoading && data && (
                 <div className="text-sm text-muted-foreground flex gap-3">
-                  <span><span className="font-semibold text-foreground">{regions.length}</span> regions</span>
+                  <span><span className="font-semibold text-foreground">{regions.length}</span>{selectedRegions !== null && <span className="text-muted-foreground">/{allRegions.length}</span>} regions</span>
                   <span>·</span>
                   <span><span className="font-semibold text-foreground">
                     {regions.reduce((s, r) => s + r.technicians.length, 0)}
@@ -300,6 +348,54 @@ export default function ScheduleBoard() {
               )}
             </div>
           </div>
+
+          {/* Region filter */}
+          {!isLoading && allRegions.length > 0 && (
+            <div className="mb-5 flex items-center gap-2 flex-wrap" data-testid="region-filter">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mr-1">
+                Filter regions:
+              </span>
+              {allRegions.map((rg) => {
+                const active = isRegionSelected(rg.regionid_id);
+                return (
+                  <button
+                    key={rg.regionid_id}
+                    type="button"
+                    onClick={() => toggleRegion(rg.regionid_id)}
+                    aria-pressed={active}
+                    data-testid={`filter-region-${rg.region}`}
+                    className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card text-muted-foreground border-border hover:bg-accent"
+                    }`}
+                  >
+                    {rg.region}
+                    {rg.company && <span className="ml-1 opacity-70">({rg.company})</span>}
+                  </button>
+                );
+              })}
+              <div className="ml-1 flex gap-1">
+                <button
+                  type="button"
+                  onClick={selectAllRegions}
+                  data-testid="filter-all"
+                  className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                >
+                  All
+                </button>
+                <span className="text-muted-foreground text-xs">|</span>
+                <button
+                  type="button"
+                  onClick={clearRegions}
+                  data-testid="filter-none"
+                  className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                >
+                  None
+                </button>
+              </div>
+            </div>
+          )}
 
           {isLoading && (
             <div className="space-y-4">
@@ -368,6 +464,7 @@ export default function ScheduleBoard() {
                           </div>
                         )}
                         {rg.technicians.map((tech) => {
+                          const palette = techColor(tech.technician_id);
                           const jobsByDay: ScheduleJob[][] = Array.from({ length: dayCount }, () => []);
                           for (const j of tech.jobs) {
                             const idx = Math.max(0, Math.min(dayCount - 1, j.day_index ?? 0));
@@ -380,8 +477,11 @@ export default function ScheduleBoard() {
                               style={{ gridTemplateColumns: dayColTemplate }}
                               data-testid={`row-tech-${tech.technician_id}`}
                             >
-                              <div className="px-3 py-2 border-r border-border flex items-start gap-1.5">
-                                <User className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                              <div className="px-3 py-2 border-r border-border flex items-start gap-2">
+                                <span
+                                  className={`mt-1 h-2.5 w-2.5 rounded-full shrink-0 ${palette.dot}`}
+                                  aria-hidden="true"
+                                />
                                 <div className="min-w-0">
                                   <div className="text-sm font-medium text-foreground truncate">
                                     {tech.resource_name ?? "Unassigned"}
@@ -397,7 +497,14 @@ export default function ScheduleBoard() {
                                   className="border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px]"
                                   data-testid={`cell-${tech.technician_id}-${i}`}
                                 >
-                                  {jobs.map((j) => <JobChip key={j.booking_id} job={j} compact={view === "month"} />)}
+                                  {jobs.map((j) => (
+                                    <JobChip
+                                      key={j.booking_id}
+                                      job={j}
+                                      compact={view === "month"}
+                                      colorClass={palette.chip}
+                                    />
+                                  ))}
                                 </div>
                               ))}
                             </div>
