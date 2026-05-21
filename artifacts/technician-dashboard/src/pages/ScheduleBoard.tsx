@@ -77,6 +77,21 @@ function fmtTime(t: string | null | undefined): string {
   return t.length >= 5 ? t.slice(0, 5) : t;
 }
 
+function fmtDuration(start: string | null | undefined, end: string | null | undefined): string {
+  if (!start || !end) return "";
+  const toMin = (s: string) => {
+    const [h, m] = s.split(":").map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+  const mins = Math.max(0, toMin(end) - toMin(start));
+  if (!mins) return "";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+}
+
 // Distinct, accessible palette for technicians. Each entry pairs a
 // chip background/border with a matching dot for the technician label.
 const TECH_PALETTE = [
@@ -705,9 +720,12 @@ export default function ScheduleBoard() {
                                   <div className="font-bold text-foreground truncate">
                                     {j.customer_name ?? "—"}
                                   </div>
-                                  {j.title && (
-                                    <div className="text-foreground/70 italic truncate">
-                                      ({j.title})
+                                  {(j.crmstarttime || j.crmendtime) && (
+                                    <div className="text-foreground/70 tabular-nums">
+                                      {fmtTime(j.crmstarttime)}{j.crmendtime ? `–${fmtTime(j.crmendtime)}` : ""}
+                                      {fmtDuration(j.crmstarttime, j.crmendtime) && (
+                                        <span className="ml-1 text-foreground/60">· {fmtDuration(j.crmstarttime, j.crmendtime)}</span>
+                                      )}
                                     </div>
                                   )}
                                   <div className="font-mono font-semibold text-foreground tabular-nums">
