@@ -83,6 +83,15 @@ function fmtTime(t: string | null | undefined): string {
   return `${h12}:${mStr ?? "00"} ${period}`;
 }
 
+function timeToMins(t: string | null | undefined): number | null {
+  if (!t) return null;
+  const [hStr, mStr] = t.split(":");
+  const h = Number(hStr);
+  const m = Number(mStr ?? "0");
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return h * 60 + m;
+}
+
 function fmtDuration(start: string | null | undefined, end: string | null | undefined): string {
   if (!start || !end) return "";
   const toMin = (s: string) => {
@@ -153,14 +162,19 @@ type ScheduleJob = {
   day_index: number;
 };
 
-function JobChip({ job, compact, colorClass }: { job: ScheduleJob; compact: boolean; colorClass: string }) {
+function JobChip({ job, compact, colorClass, isConflict }: { job: ScheduleJob; compact: boolean; colorClass: string; isConflict?: boolean }) {
   const isCancelled = (job.system_status ?? "").toLowerCase() === "cancelled";
   const chip = (
     <div
-      className={`text-[11px] leading-tight rounded border ${compact ? "px-1 py-0.5" : "px-1.5 py-1"} cursor-default transition-colors ${isCancelled ? cancelledChipColor() : colorClass}`}
+      className={`text-[11px] leading-tight rounded border ${compact ? "px-1 py-0.5" : "px-1.5 py-1"} cursor-default transition-colors ${isCancelled ? cancelledChipColor() : colorClass} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""}`}
       data-testid={`chip-job-${job.booking_id}`}
     >
-      <div className="font-semibold truncate">{job.work_order_number ?? "WO"}</div>
+      <div className="flex items-center gap-1">
+        <span className="font-semibold truncate">{job.work_order_number ?? "WO"}</span>
+        {isConflict && (
+          <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" aria-label="Double-booked" />
+        )}
+      </div>
       {!compact && (job.crmstarttime || job.crmendtime) && (
         <div className="opacity-80 truncate">
           {fmtTime(job.crmstarttime)}{job.crmendtime ? `–${fmtTime(job.crmendtime)}` : ""}
@@ -207,6 +221,12 @@ function JobChip({ job, compact, colorClass }: { job: ScheduleJob; compact: bool
               <Badge variant="outline" className="text-[10px]">{job.system_status}</Badge>
             </div>
           )}
+          {isConflict && (
+            <div className="flex items-center gap-1 pt-1 text-amber-600 font-semibold">
+              <AlertTriangle className="h-3 w-3" />
+              Double-booked — time conflict
+            </div>
+          )}
         </div>
       </TooltipContent>
     </Tooltip>
@@ -249,6 +269,45 @@ export default function ScheduleBoard() {
     (s, r) => s + r.technicians.reduce((ts, t) => ts + t.jobs.length, 0),
     0
   );
+
+  // Detect double-booked jobs: same tech, same day, overlapping time windows.
+  const conflictedBookingIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of allRegions) {
+      for (const t of r.technicians) {
+        const jobs = (t.jobs ?? []) as ScheduleJob[];
+        // Group by day_index
+        const byDay = new Map<number, ScheduleJob[]>();
+        for (const j of jobs) {
+          const d = j.day_index ?? 0;
+          if (!byDay.has(d)) byDay.set(d, []);
+          byDay.get(d)!.push(j);
+        }
+        for (const dayJobs of byDay.values()) {
+          if (dayJobs.length < 2) continue;
+          for (let a = 0; a < dayJobs.length; a++) {
+            for (let b = a + 1; b < dayJobs.length; b++) {
+              const ja = dayJobs[a];
+              const jb = dayJobs[b];
+              const aStart = timeToMins(ja.crmstarttime);
+              const aEnd   = timeToMins(ja.crmendtime);
+              const bStart = timeToMins(jb.crmstarttime);
+              const bEnd   = timeToMins(jb.crmendtime);
+              // Need at least start times to compare
+              if (aStart == null || bStart == null) continue;
+              const aEndE = aEnd ?? aStart + 1;
+              const bEndE = bEnd ?? bStart + 1;
+              if (aStart < bEndE && aEndE > bStart) {
+                ids.add(ja.booking_id);
+                ids.add(jb.booking_id);
+              }
+            }
+          }
+        }
+      }
+    }
+    return ids;
+  }, [allRegions]);
 
   const toggleRegion = (id: string) => {
     setSelectedRegions((prev) => {
@@ -712,14 +771,21 @@ export default function ScheduleBoard() {
                             {entries.map(({ tech, job: j }) => {
                               const isCancelled = (j.system_status ?? "").toLowerCase() === "cancelled";
                               const palette = techColor(tech.id);
+                              const isConflict = conflictedBookingIds.has(j.booking_id);
                               return (
                                 <Link
                                   key={j.booking_id}
                                   href={j.work_order_id ? `/work-orders/${j.work_order_id}` : "#"}
-                                  className={`block text-[11px] leading-tight rounded border-l-4 pl-1.5 ${palette.chip.replace(/hover:bg-\S+/g, "").trim()} ${isCancelled ? "opacity-50 line-through" : ""}`}
+                                  className={`block text-[11px] leading-tight rounded border-l-4 pl-1.5 ${palette.chip.replace(/hover:bg-\S+/g, "").trim()} ${isCancelled ? "opacity-50 line-through" : ""} ${isConflict ? "ring-2 ring-amber-400" : ""}`}
                                   style={{ borderLeftColor: "currentColor" }}
                                   data-testid={`tech-job-${j.booking_id}`}
                                 >
+                                  {isConflict && (
+                                    <div className="flex items-center gap-0.5 text-amber-600 font-semibold">
+                                      <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                                      <span>Conflict</span>
+                                    </div>
+                                  )}
                                   {techsToPrint.length > 1 && (
                                     <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide opacity-80">
                                       <span className={`h-1.5 w-1.5 rounded-full ${palette.dot}`} aria-hidden />
@@ -860,6 +926,7 @@ export default function ScheduleBoard() {
                                       job={j}
                                       compact={view === "month"}
                                       colorClass={palette.chip}
+                                      isConflict={conflictedBookingIds.has(j.booking_id)}
                                     />
                                   ))}
                                 </div>
