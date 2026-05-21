@@ -4,6 +4,7 @@ import technicianRouter from "./technicians.js";
 import workOrderRouter from "./workOrders.js";
 import dashboardRouter from "./dashboard.js";
 import scheduledJobsRouter from "./scheduledJobs.js";
+import jobsByRegionRouter from "./jobsByRegion.js";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(technicianRouter);
 router.use(workOrderRouter);
 router.use(dashboardRouter);
 router.use(scheduledJobsRouter);
+router.use(jobsByRegionRouter);
 
 export default router;

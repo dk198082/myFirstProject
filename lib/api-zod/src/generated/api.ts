@@ -169,6 +169,45 @@ export const GetWorkOrderDetailResponse = zod.object({
 
 
 /**
+ * @summary Get all jobs grouped by region (from regions table) then by technician
+ */
+export const GetJobsByRegionQueryParams = zod.object({
+  "status": zod.coerce.string().optional().describe('Filter by work order system_status (e.g. Scheduled, Completed)')
+})
+
+export const GetJobsByRegionResponseItem = zod.object({
+  "regionid_id": zod.string(),
+  "region": zod.string(),
+  "owner_name": zod.string().nullish(),
+  "owner_email": zod.string().nullish(),
+  "company": zod.string().nullish(),
+  "technicians": zod.array(zod.object({
+  "technician_id": zod.string(),
+  "resource_name": zod.string().nullish(),
+  "user_email": zod.string().nullish(),
+  "jobs": zod.array(zod.object({
+  "booking_id": zod.string(),
+  "work_order_id": zod.string().nullish(),
+  "work_order_number": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "priority": zod.string().nullish(),
+  "system_status": zod.string().nullish(),
+  "sub_status": zod.string().nullish(),
+  "booking_status": zod.string().nullish(),
+  "service_address": zod.string().nullish(),
+  "customer_name": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "start_time": zod.string().nullish(),
+  "end_time": zod.string().nullish(),
+  "duration_minutes": zod.number().nullish()
+}))
+}))
+})
+export const GetJobsByRegionResponse = zod.array(GetJobsByRegionResponseItem)
+
+
+/**
  * @summary Get all scheduled jobs grouped by region and technician
  */
 export const GetScheduledJobsResponseItem = zod.object({

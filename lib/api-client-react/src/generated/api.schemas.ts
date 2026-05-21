@@ -185,6 +185,59 @@ export interface DashboardSummary {
   top_technicians: TechnicianWorkOrderCount[];
 }
 
+export interface RegionJob {
+  booking_id: string;
+  /** @nullable */
+  work_order_id?: string | null;
+  /** @nullable */
+  work_order_number?: string | null;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  priority?: string | null;
+  /** @nullable */
+  system_status?: string | null;
+  /** @nullable */
+  sub_status?: string | null;
+  /** @nullable */
+  booking_status?: string | null;
+  /** @nullable */
+  service_address?: string | null;
+  /** @nullable */
+  customer_name?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  start_time?: string | null;
+  /** @nullable */
+  end_time?: string | null;
+  /** @nullable */
+  duration_minutes?: number | null;
+}
+
+export interface TechnicianWithJobs {
+  technician_id: string;
+  /** @nullable */
+  resource_name?: string | null;
+  /** @nullable */
+  user_email?: string | null;
+  jobs: RegionJob[];
+}
+
+export interface RegionJobGroup {
+  regionid_id: string;
+  region: string;
+  /** @nullable */
+  owner_name?: string | null;
+  /** @nullable */
+  owner_email?: string | null;
+  /** @nullable */
+  company?: string | null;
+  technicians: TechnicianWithJobs[];
+}
+
 export interface ScheduledJob {
   booking_id: string;
   /** @nullable */
@@ -233,5 +286,12 @@ export interface RegionGroup {
 
 export type GetTechnicianByEmailParams = {
 email: string;
+};
+
+export type GetJobsByRegionParams = {
+/**
+ * Filter by work order system_status (e.g. Scheduled, Completed)
+ */
+status?: string;
 };
 

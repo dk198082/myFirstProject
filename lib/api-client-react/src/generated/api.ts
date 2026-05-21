@@ -18,9 +18,11 @@ import type {
 import type {
   DashboardSummary,
   ErrorResponse,
+  GetJobsByRegionParams,
   GetTechnicianByEmailParams,
   HealthStatus,
   RegionGroup,
+  RegionJobGroup,
   Technician,
   TechnicianJobsResponse,
   TechnicianSummary,
@@ -496,6 +498,90 @@ export function useGetWorkOrderDetail<TData = Awaited<ReturnType<typeof getWorkO
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetWorkOrderDetailQueryOptions(workOrderId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetJobsByRegionUrl = (params?: GetJobsByRegionParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/jobs-by-region?${stringifiedParams}` : `/api/jobs-by-region`
+}
+
+/**
+ * @summary Get all jobs grouped by region (from regions table) then by technician
+ */
+export const getJobsByRegion = async (params?: GetJobsByRegionParams, options?: RequestInit): Promise<RegionJobGroup[]> => {
+
+  return customFetch<RegionJobGroup[]>(getGetJobsByRegionUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetJobsByRegionQueryKey = (params?: GetJobsByRegionParams,) => {
+    return [
+    `/api/jobs-by-region`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetJobsByRegionQueryOptions = <TData = Awaited<ReturnType<typeof getJobsByRegion>>, TError = ErrorType<unknown>>(params?: GetJobsByRegionParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobsByRegion>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetJobsByRegionQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getJobsByRegion>>> = ({ signal }) => getJobsByRegion(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getJobsByRegion>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetJobsByRegionQueryResult = NonNullable<Awaited<ReturnType<typeof getJobsByRegion>>>
+export type GetJobsByRegionQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get all jobs grouped by region (from regions table) then by technician
+ */
+
+export function useGetJobsByRegion<TData = Awaited<ReturnType<typeof getJobsByRegion>>, TError = ErrorType<unknown>>(
+ params?: GetJobsByRegionParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getJobsByRegion>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetJobsByRegionQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -133,6 +133,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /jobs-by-region:
+    get:
+      operationId: getJobsByRegion
+      tags: [dashboard]
+      summary: Get all jobs grouped by region (from regions table) then by technician
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Filter by work order system_status (e.g. Scheduled, Completed)
+      responses:
+        "200":
+          description: Jobs grouped by region then technician
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegionJobGroup"
+
   /scheduled-jobs:
     get:
       operationId: getScheduledJobs
@@ -429,6 +450,81 @@ components:
       required:
         - label
         - count
+
+    RegionJobGroup:
+      type: object
+      properties:
+        regionid_id:
+          type: string
+        region:
+          type: string
+        owner_name:
+          type: ["string", "null"]
+        owner_email:
+          type: ["string", "null"]
+        company:
+          type: ["string", "null"]
+        technicians:
+          type: array
+          items:
+            $ref: "#/components/schemas/TechnicianWithJobs"
+      required:
+        - regionid_id
+        - region
+        - technicians
+
+    TechnicianWithJobs:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        user_email:
+          type: ["string", "null"]
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegionJob"
+      required:
+        - technician_id
+        - jobs
+
+    RegionJob:
+      type: object
+      properties:
+        booking_id:
+          type: string
+        work_order_id:
+          type: ["string", "null"]
+        work_order_number:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        system_status:
+          type: ["string", "null"]
+        sub_status:
+          type: ["string", "null"]
+        booking_status:
+          type: ["string", "null"]
+        service_address:
+          type: ["string", "null"]
+        customer_name:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+        end_time:
+          type: ["string", "null"]
+        duration_minutes:
+          type: ["integer", "null"]
+      required:
+        - booking_id
 
     ScheduledJob:
       type: object
