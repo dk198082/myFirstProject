@@ -21,6 +21,8 @@ export interface WorkOrderDetail {
   /** @nullable */
   service_address?: string | null;
   /** @nullable */
+  serviceaddress?: string | null;
+  /** @nullable */
   priority?: string | null;
   /** @nullable */
   system_status?: string | null;
@@ -28,6 +30,18 @@ export interface WorkOrderDetail {
   sub_status?: string | null;
   /** @nullable */
   incident_type?: string | null;
+  /** @nullable */
+  servicelocation?: string | null;
+  /** @nullable */
+  pricelistname?: string | null;
+  /** @nullable */
+  cf_projectname?: string | null;
+  /** @nullable */
+  cf_ponumber?: string | null;
+  /** @nullable */
+  cf_axserviceorderid?: string | null;
+  /** @nullable */
+  servicetype?: string | null;
   /** @nullable */
   created_on?: string | null;
   /** @nullable */

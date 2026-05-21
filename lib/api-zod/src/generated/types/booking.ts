@@ -26,4 +26,16 @@ export interface Booking {
   duration_minutes?: number | null;
   /** @nullable */
   technician_id?: string | null;
+  /** @nullable */
+  crmstart_time?: string | null;
+  /** @nullable */
+  crmstarttime?: string | null;
+  /** @nullable */
+  crmend_time?: string | null;
+  /** @nullable */
+  crmendtime?: string | null;
+  /** @nullable */
+  modifiedon?: string | null;
+  /** @nullable */
+  modifiedtime?: string | null;
 }

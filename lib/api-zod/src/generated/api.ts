@@ -123,10 +123,17 @@ export const GetWorkOrderDetailResponse = zod.object({
   "title": zod.string().nullish(),
   "description": zod.string().nullish(),
   "service_address": zod.string().nullish(),
+  "serviceaddress": zod.string().nullish(),
   "priority": zod.string().nullish(),
   "system_status": zod.string().nullish(),
   "sub_status": zod.string().nullish(),
   "incident_type": zod.string().nullish(),
+  "servicelocation": zod.string().nullish(),
+  "pricelistname": zod.string().nullish(),
+  "cf_projectname": zod.string().nullish(),
+  "cf_ponumber": zod.string().nullish(),
+  "cf_axserviceorderid": zod.string().nullish(),
+  "servicetype": zod.string().nullish(),
   "created_on": zod.string().nullish(),
   "modified_on": zod.string().nullish(),
   "customer": zod.object({
@@ -150,7 +157,13 @@ export const GetWorkOrderDetailResponse = zod.object({
   "actual_start_time": zod.string().nullish(),
   "actual_end_time": zod.string().nullish(),
   "duration_minutes": zod.number().nullish(),
-  "technician_id": zod.string().nullish()
+  "technician_id": zod.string().nullish(),
+  "crmstart_time": zod.string().nullish(),
+  "crmstarttime": zod.string().nullish(),
+  "crmend_time": zod.string().nullish(),
+  "crmendtime": zod.string().nullish(),
+  "modifiedon": zod.string().nullish(),
+  "modifiedtime": zod.string().nullish()
 }).nullish(),
   "products": zod.array(zod.object({
   "id": zod.string(),

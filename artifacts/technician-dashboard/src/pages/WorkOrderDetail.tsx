@@ -108,12 +108,21 @@ export default function WorkOrderDetail() {
                 )}
                 <div className="divide-y divide-border">
                   <Row label="Incident Type" value={wo.incident_type} />
+                  <Row label="Service Type" value={wo.servicetype} />
+                  <Row label="Service Location" value={wo.servicelocation} />
+                  <Row label="Project Name" value={wo.cf_projectname} />
+                  <Row label="PO Number" value={wo.cf_ponumber} />
+                  <Row label="AX Service Order ID" value={wo.cf_axserviceorderid} />
+                  <Row label="Price List" value={wo.pricelistname} />
                   <Row label="Created" value={formatDateTime(wo.created_on)} />
                   <Row label="Last Modified" value={formatDateTime(wo.modified_on)} />
-                  {wo.service_address && (
+                  {wo.serviceaddress && (
                     <div className="flex items-start gap-2 py-2 text-sm">
                       <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                      <span className="text-foreground">{wo.service_address}</span>
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-0.5">Service Address</p>
+                        <span className="text-foreground">{wo.serviceaddress}</span>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -139,6 +148,12 @@ export default function WorkOrderDetail() {
                     <Row label="Actual Start" value={formatDateTime(wo.booking.actual_start_time)} />
                     <Row label="Actual End" value={formatDateTime(wo.booking.actual_end_time)} />
                     <Row label="Duration" value={wo.booking.duration_minutes != null ? `${wo.booking.duration_minutes} min` : null} />
+                    <Row label="CRM Start Date" value={wo.booking.crmstart_time} />
+                    <Row label="CRM Start Time" value={wo.booking.crmstarttime} />
+                    <Row label="CRM End Date" value={wo.booking.crmend_time} />
+                    <Row label="CRM End Time" value={wo.booking.crmendtime} />
+                    <Row label="Modified On" value={wo.booking.modifiedon} />
+                    <Row label="Modified Time" value={wo.booking.modifiedtime} />
                   </div>
                 </CardContent>
               </Card>

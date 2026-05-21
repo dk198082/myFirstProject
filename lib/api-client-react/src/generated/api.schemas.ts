@@ -105,6 +105,18 @@ export interface Booking {
   duration_minutes?: number | null;
   /** @nullable */
   technician_id?: string | null;
+  /** @nullable */
+  crmstart_time?: string | null;
+  /** @nullable */
+  crmstarttime?: string | null;
+  /** @nullable */
+  crmend_time?: string | null;
+  /** @nullable */
+  crmendtime?: string | null;
+  /** @nullable */
+  modifiedon?: string | null;
+  /** @nullable */
+  modifiedtime?: string | null;
 }
 
 export interface WorkOrderProduct {
@@ -140,6 +152,8 @@ export interface WorkOrderDetail {
   /** @nullable */
   service_address?: string | null;
   /** @nullable */
+  serviceaddress?: string | null;
+  /** @nullable */
   priority?: string | null;
   /** @nullable */
   system_status?: string | null;
@@ -147,6 +161,18 @@ export interface WorkOrderDetail {
   sub_status?: string | null;
   /** @nullable */
   incident_type?: string | null;
+  /** @nullable */
+  servicelocation?: string | null;
+  /** @nullable */
+  pricelistname?: string | null;
+  /** @nullable */
+  cf_projectname?: string | null;
+  /** @nullable */
+  cf_ponumber?: string | null;
+  /** @nullable */
+  cf_axserviceorderid?: string | null;
+  /** @nullable */
+  servicetype?: string | null;
   /** @nullable */
   created_on?: string | null;
   /** @nullable */

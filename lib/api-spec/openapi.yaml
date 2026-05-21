@@ -279,6 +279,8 @@ components:
           type: ["string", "null"]
         service_address:
           type: ["string", "null"]
+        serviceaddress:
+          type: ["string", "null"]
         priority:
           type: ["string", "null"]
         system_status:
@@ -286,6 +288,18 @@ components:
         sub_status:
           type: ["string", "null"]
         incident_type:
+          type: ["string", "null"]
+        servicelocation:
+          type: ["string", "null"]
+        pricelistname:
+          type: ["string", "null"]
+        cf_projectname:
+          type: ["string", "null"]
+        cf_ponumber:
+          type: ["string", "null"]
+        cf_axserviceorderid:
+          type: ["string", "null"]
+        servicetype:
           type: ["string", "null"]
         created_on:
           type: ["string", "null"]
@@ -356,6 +370,18 @@ components:
         duration_minutes:
           type: ["integer", "null"]
         technician_id:
+          type: ["string", "null"]
+        crmstart_time:
+          type: ["string", "null"]
+        crmstarttime:
+          type: ["string", "null"]
+        crmend_time:
+          type: ["string", "null"]
+        crmendtime:
+          type: ["string", "null"]
+        modifiedon:
+          type: ["string", "null"]
+        modifiedtime:
           type: ["string", "null"]
       required:
         - booking_id
