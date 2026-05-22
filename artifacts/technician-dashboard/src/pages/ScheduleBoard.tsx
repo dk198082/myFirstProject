@@ -901,6 +901,17 @@ export default function ScheduleBoard() {
                             const idx = Math.max(0, Math.min(dayCount - 1, j.day_index ?? 0));
                             jobsByDay[idx].push(j as ScheduleJob);
                           }
+                          // Sort jobs within each day by start time ascending
+                          for (const dayJobs of jobsByDay) {
+                            dayJobs.sort((a, b) => {
+                              const am = timeToMins(a.crmstarttime);
+                              const bm = timeToMins(b.crmstarttime);
+                              if (am == null && bm == null) return 0;
+                              if (am == null) return 1;
+                              if (bm == null) return -1;
+                              return am - bm;
+                            });
+                          }
                           return (
                             <div
                               key={tech.technician_id}
