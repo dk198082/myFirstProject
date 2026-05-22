@@ -19,11 +19,13 @@ import type {
   DashboardSummary,
   ErrorResponse,
   GetJobsByRegionParams,
+  GetResourceUtilizationParams,
   GetScheduleBoardParams,
   GetTechnicianByEmailParams,
   HealthStatus,
   RegionGroup,
   RegionJobGroup,
+  ResourceUtilizationResponse,
   ScheduleBoard,
   Technician,
   TechnicianJobsResponse,
@@ -683,7 +685,7 @@ export const getGetUnscheduledJobsUrl = () => {
 }
 
 /**
- * @summary List work orders with status "Unscheduled"
+ * @summary List work orders with status "Unscheduled" enriched with due date, duration, contact, and best-fit techs
  */
 export const getUnscheduledJobs = async ( options?: RequestInit): Promise<UnscheduledJobsResponse> => {
 
@@ -730,7 +732,7 @@ export type GetUnscheduledJobsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List work orders with status "Unscheduled"
+ * @summary List work orders with status "Unscheduled" enriched with due date, duration, contact, and best-fit techs
  */
 
 export function useGetUnscheduledJobs<TData = Awaited<ReturnType<typeof getUnscheduledJobs>>, TError = ErrorType<unknown>>(
@@ -739,6 +741,90 @@ export function useGetUnscheduledJobs<TData = Awaited<ReturnType<typeof getUnsch
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetUnscheduledJobsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetResourceUtilizationUrl = (params: GetResourceUtilizationParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/resource-utilization?${stringifiedParams}` : `/api/resource-utilization`
+}
+
+/**
+ * @summary Per-technician utilization for a given week, grouped by region
+ */
+export const getResourceUtilization = async (params: GetResourceUtilizationParams, options?: RequestInit): Promise<ResourceUtilizationResponse> => {
+
+  return customFetch<ResourceUtilizationResponse>(getGetResourceUtilizationUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetResourceUtilizationQueryKey = (params?: GetResourceUtilizationParams,) => {
+    return [
+    `/api/resource-utilization`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetResourceUtilizationQueryOptions = <TData = Awaited<ReturnType<typeof getResourceUtilization>>, TError = ErrorType<unknown>>(params: GetResourceUtilizationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getResourceUtilization>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetResourceUtilizationQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getResourceUtilization>>> = ({ signal }) => getResourceUtilization(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getResourceUtilization>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetResourceUtilizationQueryResult = NonNullable<Awaited<ReturnType<typeof getResourceUtilization>>>
+export type GetResourceUtilizationQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Per-technician utilization for a given week, grouped by region
+ */
+
+export function useGetResourceUtilization<TData = Awaited<ReturnType<typeof getResourceUtilization>>, TError = ErrorType<unknown>>(
+ params: GetResourceUtilizationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getResourceUtilization>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetResourceUtilizationQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

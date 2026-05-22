@@ -5,6 +5,7 @@
  * Technician Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+import type { BestFitTech } from './bestFitTech';
 
 export interface UnscheduledJob {
   /** @nullable */
@@ -21,4 +22,18 @@ export interface UnscheduledJob {
   state?: string | null;
   /** @nullable */
   region?: string | null;
+  /** @nullable */
+  po_number?: string | null;
+  /** @nullable */
+  contact_name?: string | null;
+  /** @nullable */
+  contact_phone?: string | null;
+  /**
+     * ISO date (YYYY-MM-DD); lowest equipment.nextcalibrationdate for the work order
+     * @nullable
+     */
+  due_date?: string | null;
+  /** @nullable */
+  duration_minutes?: number | null;
+  best_fit_techs?: BestFitTech[];
 }

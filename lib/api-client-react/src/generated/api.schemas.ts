@@ -429,6 +429,22 @@ export interface RegionGroup {
   technicians: TechnicianJobGroup[];
 }
 
+/**
+ * Technician suggested for an unscheduled job. Ranked by region match and historical familiarity with the city/state (DB has no geo coordinates so distance can't be computed).
+ */
+export interface BestFitTech {
+  technician_id: string;
+  /** @nullable */
+  resource_name?: string | null;
+  /** @nullable */
+  region?: string | null;
+  /** Past bookings this tech completed in the same city/state */
+  city_jobs: number;
+  /** Past bookings this tech completed in the same region */
+  region_jobs: number;
+  same_region: boolean;
+}
+
 export interface UnscheduledJob {
   /** @nullable */
   work_order_id?: string | null;
@@ -444,10 +460,47 @@ export interface UnscheduledJob {
   state?: string | null;
   /** @nullable */
   region?: string | null;
+  /** @nullable */
+  po_number?: string | null;
+  /** @nullable */
+  contact_name?: string | null;
+  /** @nullable */
+  contact_phone?: string | null;
+  /**
+     * ISO date (YYYY-MM-DD); lowest equipment.nextcalibrationdate for the work order
+     * @nullable
+     */
+  due_date?: string | null;
+  /** @nullable */
+  duration_minutes?: number | null;
+  best_fit_techs?: BestFitTech[];
 }
 
 export interface UnscheduledJobsResponse {
   jobs: UnscheduledJob[];
+}
+
+export interface UtilizationTech {
+  technician_id: string;
+  /** @nullable */
+  resource_name?: string | null;
+  utilized_minutes: number;
+  capacity_minutes: number;
+  utilization_pct: number;
+  job_count: number;
+}
+
+export interface UtilizationRegion {
+  regionid_id: string;
+  region: string;
+  technicians: UtilizationTech[];
+}
+
+export interface ResourceUtilizationResponse {
+  range_start: string;
+  range_end: string;
+  default_weekly_capacity_hours: number;
+  regions: UtilizationRegion[];
 }
 
 export type GetTechnicianByEmailParams = {
@@ -459,6 +512,13 @@ export type GetJobsByRegionParams = {
  * Filter by work order system_status (e.g. Scheduled, Completed)
  */
 status?: string;
+};
+
+export type GetResourceUtilizationParams = {
+/**
+ * ISO date (YYYY-MM-DD) for the week start (Monday)
+ */
+start: string;
 };
 
 export type GetScheduleBoardParams = {

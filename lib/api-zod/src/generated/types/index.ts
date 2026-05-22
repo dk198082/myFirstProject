@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './bestFitTech';
 export * from './booking';
 export * from './contact';
 export * from './countByLabel';
@@ -14,6 +15,7 @@ export * from './dashboardSummary';
 export * from './equipment';
 export * from './errorResponse';
 export * from './getJobsByRegionParams';
+export * from './getResourceUtilizationParams';
 export * from './getScheduleBoardParams';
 export * from './getScheduleBoardView';
 export * from './getTechnicianByEmailParams';
@@ -22,6 +24,7 @@ export * from './job';
 export * from './regionGroup';
 export * from './regionJob';
 export * from './regionJobGroup';
+export * from './resourceUtilizationResponse';
 export * from './scheduleBoard';
 export * from './scheduleBoardView';
 export * from './scheduledJob';
@@ -36,6 +39,8 @@ export * from './technicianWithJobs';
 export * from './technicianWorkOrderCount';
 export * from './unscheduledJob';
 export * from './unscheduledJobsResponse';
+export * from './utilizationRegion';
+export * from './utilizationTech';
 export * from './workOrderDetail';
 export * from './workOrderProduct';
 export * from './workOrderService';

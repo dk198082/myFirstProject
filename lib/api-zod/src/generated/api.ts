@@ -276,7 +276,7 @@ export const GetScheduledJobsResponse = zod.array(GetScheduledJobsResponseItem)
 
 
 /**
- * @summary List work orders with status "Unscheduled"
+ * @summary List work orders with status "Unscheduled" enriched with due date, duration, contact, and best-fit techs
  */
 export const GetUnscheduledJobsResponse = zod.object({
   "jobs": zod.array(zod.object({
@@ -286,7 +286,46 @@ export const GetUnscheduledJobsResponse = zod.object({
   "customer_name": zod.string().nullish(),
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
-  "region": zod.string().nullish()
+  "region": zod.string().nullish(),
+  "po_number": zod.string().nullish(),
+  "contact_name": zod.string().nullish(),
+  "contact_phone": zod.string().nullish(),
+  "due_date": zod.string().nullish().describe('ISO date (YYYY-MM-DD); lowest equipment.nextcalibrationdate for the work order'),
+  "duration_minutes": zod.number().nullish(),
+  "best_fit_techs": zod.array(zod.object({
+  "technician_id": zod.string(),
+  "resource_name": zod.string().nullish(),
+  "region": zod.string().nullish(),
+  "city_jobs": zod.number().describe('Past bookings this tech completed in the same city\/state'),
+  "region_jobs": zod.number().describe('Past bookings this tech completed in the same region'),
+  "same_region": zod.boolean()
+}).describe('Technician suggested for an unscheduled job. Ranked by region match and historical familiarity with the city\/state (DB has no geo coordinates so distance can\'t be computed).')).optional()
+}))
+})
+
+
+/**
+ * @summary Per-technician utilization for a given week, grouped by region
+ */
+export const GetResourceUtilizationQueryParams = zod.object({
+  "start": zod.coerce.string().describe('ISO date (YYYY-MM-DD) for the week start (Monday)')
+})
+
+export const GetResourceUtilizationResponse = zod.object({
+  "range_start": zod.string(),
+  "range_end": zod.string(),
+  "default_weekly_capacity_hours": zod.number(),
+  "regions": zod.array(zod.object({
+  "regionid_id": zod.string(),
+  "region": zod.string(),
+  "technicians": zod.array(zod.object({
+  "technician_id": zod.string(),
+  "resource_name": zod.string().nullish(),
+  "utilized_minutes": zod.number(),
+  "capacity_minutes": zod.number(),
+  "utilization_pct": zod.number(),
+  "job_count": zod.number()
+}))
 }))
 })
 

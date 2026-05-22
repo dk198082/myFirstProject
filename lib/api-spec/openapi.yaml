@@ -173,7 +173,7 @@ paths:
     get:
       operationId: getUnscheduledJobs
       tags: [dashboard]
-      summary: List work orders with status "Unscheduled"
+      summary: List work orders with status "Unscheduled" enriched with due date, duration, contact, and best-fit techs
       responses:
         "200":
           description: List of unscheduled work orders
@@ -181,6 +181,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UnscheduledJobsResponse"
+
+  /resource-utilization:
+    get:
+      operationId: getResourceUtilization
+      tags: [dashboard]
+      summary: Per-technician utilization for a given week, grouped by region
+      parameters:
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD) for the week start (Monday)
+      responses:
+        "200":
+          description: Utilization grouped by region then technician
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceUtilizationResponse"
 
   /schedule-board:
     get:
@@ -845,6 +865,30 @@ components:
         - technician_id
         - count
 
+    BestFitTech:
+      type: object
+      description: Technician suggested for an unscheduled job. Ranked by region match and historical familiarity with the city/state (DB has no geo coordinates so distance can't be computed).
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        region:
+          type: ["string", "null"]
+        city_jobs:
+          type: integer
+          description: Past bookings this tech completed in the same city/state
+        region_jobs:
+          type: integer
+          description: Past bookings this tech completed in the same region
+        same_region:
+          type: boolean
+      required:
+        - technician_id
+        - city_jobs
+        - region_jobs
+        - same_region
+
     UnscheduledJob:
       type: object
       properties:
@@ -862,6 +906,21 @@ components:
           type: ["string", "null"]
         region:
           type: ["string", "null"]
+        po_number:
+          type: ["string", "null"]
+        contact_name:
+          type: ["string", "null"]
+        contact_phone:
+          type: ["string", "null"]
+        due_date:
+          type: ["string", "null"]
+          description: ISO date (YYYY-MM-DD); lowest equipment.nextcalibrationdate for the work order
+        duration_minutes:
+          type: ["integer", "null"]
+        best_fit_techs:
+          type: array
+          items:
+            $ref: "#/components/schemas/BestFitTech"
 
     UnscheduledJobsResponse:
       type: object
@@ -872,3 +931,60 @@ components:
             $ref: "#/components/schemas/UnscheduledJob"
       required:
         - jobs
+
+    UtilizationTech:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        utilized_minutes:
+          type: integer
+        capacity_minutes:
+          type: integer
+        utilization_pct:
+          type: number
+        job_count:
+          type: integer
+      required:
+        - technician_id
+        - utilized_minutes
+        - capacity_minutes
+        - utilization_pct
+        - job_count
+
+    UtilizationRegion:
+      type: object
+      properties:
+        regionid_id:
+          type: string
+        region:
+          type: string
+        technicians:
+          type: array
+          items:
+            $ref: "#/components/schemas/UtilizationTech"
+      required:
+        - regionid_id
+        - region
+        - technicians
+
+    ResourceUtilizationResponse:
+      type: object
+      properties:
+        range_start:
+          type: string
+        range_end:
+          type: string
+        default_weekly_capacity_hours:
+          type: integer
+        regions:
+          type: array
+          items:
+            $ref: "#/components/schemas/UtilizationRegion"
+      required:
+        - range_start
+        - range_end
+        - default_weekly_capacity_hours
+        - regions

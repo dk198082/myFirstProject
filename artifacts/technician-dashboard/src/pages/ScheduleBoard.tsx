@@ -469,6 +469,22 @@ export default function ScheduleBoard() {
               <Globe className="h-4 w-4" />
               <span className="hidden sm:inline">By Region</span>
             </Link>
+            <Link
+              href="/unscheduled"
+              className="text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground flex items-center gap-1.5 font-medium"
+              data-testid="link-unscheduled"
+            >
+              <Briefcase className="h-4 w-4" />
+              <span className="hidden sm:inline">Unscheduled</span>
+            </Link>
+            <Link
+              href="/utilization"
+              className="text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground flex items-center gap-1.5 font-medium"
+              data-testid="link-utilization"
+            >
+              <User className="h-4 w-4" />
+              <span className="hidden sm:inline">Utilization</span>
+            </Link>
           </div>
         </header>
 

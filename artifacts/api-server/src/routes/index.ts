@@ -7,6 +7,7 @@ import scheduledJobsRouter from "./scheduledJobs.js";
 import jobsByRegionRouter from "./jobsByRegion.js";
 import scheduleBoardRouter from "./scheduleBoard.js";
 import unscheduledJobsRouter from "./unscheduledJobs.js";
+import resourceUtilizationRouter from "./resourceUtilization.js";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(scheduledJobsRouter);
 router.use(jobsByRegionRouter);
 router.use(scheduleBoardRouter);
 router.use(unscheduledJobsRouter);
+router.use(resourceUtilizationRouter);
 
 export default router;

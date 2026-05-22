@@ -7,6 +7,8 @@ import WorkOrderDetail from "@/pages/WorkOrderDetail";
 import ScheduledJobs from "@/pages/ScheduledJobs";
 import JobsByRegion from "@/pages/JobsByRegion";
 import ScheduleBoard from "@/pages/ScheduleBoard";
+import Unscheduled from "@/pages/Unscheduled";
+import ResourceUtilization from "@/pages/ResourceUtilization";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -25,6 +27,8 @@ function Router() {
       <Route path="/scheduled-jobs" component={ScheduledJobs} />
       <Route path="/jobs-by-region" component={JobsByRegion} />
       <Route path="/schedule-board" component={ScheduleBoard} />
+      <Route path="/unscheduled" component={Unscheduled} />
+      <Route path="/utilization" component={ResourceUtilization} />
       <Route path="/work-order/:id" component={WorkOrderDetail} />
       <Route component={NotFound} />
     </Switch>
