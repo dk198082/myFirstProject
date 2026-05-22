@@ -34,6 +34,8 @@ export * from './technicianJobsResponse';
 export * from './technicianSummary';
 export * from './technicianWithJobs';
 export * from './technicianWorkOrderCount';
+export * from './unscheduledJob';
+export * from './unscheduledJobsResponse';
 export * from './workOrderDetail';
 export * from './workOrderProduct';
 export * from './workOrderService';

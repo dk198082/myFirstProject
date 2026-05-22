@@ -28,6 +28,7 @@ import type {
   Technician,
   TechnicianJobsResponse,
   TechnicianSummary,
+  UnscheduledJobsResponse,
   WorkOrderDetail
 } from './api.schemas';
 
@@ -661,6 +662,83 @@ export function useGetScheduledJobs<TData = Awaited<ReturnType<typeof getSchedul
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetScheduledJobsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetUnscheduledJobsUrl = () => {
+
+
+
+
+  return `/api/unscheduled-jobs`
+}
+
+/**
+ * @summary List work orders with status "Unscheduled"
+ */
+export const getUnscheduledJobs = async ( options?: RequestInit): Promise<UnscheduledJobsResponse> => {
+
+  return customFetch<UnscheduledJobsResponse>(getGetUnscheduledJobsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUnscheduledJobsQueryKey = () => {
+    return [
+    `/api/unscheduled-jobs`
+    ] as const;
+    }
+
+
+export const getGetUnscheduledJobsQueryOptions = <TData = Awaited<ReturnType<typeof getUnscheduledJobs>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUnscheduledJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUnscheduledJobsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUnscheduledJobs>>> = ({ signal }) => getUnscheduledJobs({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUnscheduledJobs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetUnscheduledJobsQueryResult = NonNullable<Awaited<ReturnType<typeof getUnscheduledJobs>>>
+export type GetUnscheduledJobsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List work orders with status "Unscheduled"
+ */
+
+export function useGetUnscheduledJobs<TData = Awaited<ReturnType<typeof getUnscheduledJobs>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUnscheduledJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetUnscheduledJobsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

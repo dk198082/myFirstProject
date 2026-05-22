@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { useGetScheduleBoard } from "@workspace/api-client-react";
+import { useGetScheduleBoard, useGetUnscheduledJobs } from "@workspace/api-client-react";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -245,6 +248,11 @@ export default function ScheduleBoard() {
     { start, view: apiView },
     { query: { queryKey: ["getScheduleBoard", apiView, start] } }
   );
+
+  const { data: unscheduledData } = useGetUnscheduledJobs({
+    query: { queryKey: ["getUnscheduledJobs"], enabled: view === "week" },
+  });
+  const unscheduledJobs = unscheduledData?.jobs ?? [];
 
   const dayCount = data?.day_count ?? (view === "week" ? 7 : 30);
   const rangeStart = data?.range_start ?? start;
@@ -940,6 +948,62 @@ export default function ScheduleBoard() {
                 );
               })}
             </div>
+          )}
+
+          {view === "week" && !isLoading && (
+            <Card className="mt-6 border border-card-border shadow-sm" data-testid="card-unscheduled-jobs">
+              <CardContent className="p-0">
+                <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground">
+                    Unscheduled Jobs
+                  </h2>
+                  <Badge variant="secondary" className="ml-1 text-[10px]">
+                    {unscheduledJobs.length}
+                  </Badge>
+                </div>
+                {unscheduledJobs.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-sm text-muted-foreground italic">
+                    No unscheduled jobs.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Work Order #</TableHead>
+                          <TableHead>Service Location</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>City</TableHead>
+                          <TableHead>State</TableHead>
+                          <TableHead>Region</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {unscheduledJobs.map((j, idx) => (
+                          <TableRow key={j.work_order_id ?? `${j.work_order_number}-${idx}`} data-testid={`row-unscheduled-${j.work_order_id ?? idx}`}>
+                            <TableCell className="font-mono font-semibold">
+                              {j.work_order_id ? (
+                                <Link href={`/work-order/${j.work_order_id}`} className="text-primary hover:underline">
+                                  {j.work_order_number ?? "—"}
+                                </Link>
+                              ) : (
+                                j.work_order_number ?? "—"
+                              )}
+                            </TableCell>
+                            <TableCell>{j.servicelocation ?? "—"}</TableCell>
+                            <TableCell>{j.customer_name ?? "—"}</TableCell>
+                            <TableCell>{j.city ?? "—"}</TableCell>
+                            <TableCell>{j.state ?? "—"}</TableCell>
+                            <TableCell>{j.region ?? "—"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
 
           {view !== "tech" && !isLoading && totalJobs === 0 && regions.length > 0 && (

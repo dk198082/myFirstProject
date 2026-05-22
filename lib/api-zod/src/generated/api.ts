@@ -276,6 +276,22 @@ export const GetScheduledJobsResponse = zod.array(GetScheduledJobsResponseItem)
 
 
 /**
+ * @summary List work orders with status "Unscheduled"
+ */
+export const GetUnscheduledJobsResponse = zod.object({
+  "jobs": zod.array(zod.object({
+  "work_order_id": zod.string().nullish(),
+  "work_order_number": zod.string().nullish(),
+  "servicelocation": zod.string().nullish(),
+  "customer_name": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "region": zod.string().nullish()
+}))
+})
+
+
+/**
  * @summary Get the schedule board (weekly or monthly) grouped by region then technician
  */
 export const GetScheduleBoardQueryParams = zod.object({

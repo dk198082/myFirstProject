@@ -169,6 +169,19 @@ paths:
                 items:
                   $ref: "#/components/schemas/RegionGroup"
 
+  /unscheduled-jobs:
+    get:
+      operationId: getUnscheduledJobs
+      tags: [dashboard]
+      summary: List work orders with status "Unscheduled"
+      responses:
+        "200":
+          description: List of unscheduled work orders
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnscheduledJobsResponse"
+
   /schedule-board:
     get:
       operationId: getScheduleBoard
@@ -831,3 +844,31 @@ components:
       required:
         - technician_id
         - count
+
+    UnscheduledJob:
+      type: object
+      properties:
+        work_order_id:
+          type: ["string", "null"]
+        work_order_number:
+          type: ["string", "null"]
+        servicelocation:
+          type: ["string", "null"]
+        customer_name:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        region:
+          type: ["string", "null"]
+
+    UnscheduledJobsResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/UnscheduledJob"
+      required:
+        - jobs

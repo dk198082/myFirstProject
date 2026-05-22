@@ -429,6 +429,27 @@ export interface RegionGroup {
   technicians: TechnicianJobGroup[];
 }
 
+export interface UnscheduledJob {
+  /** @nullable */
+  work_order_id?: string | null;
+  /** @nullable */
+  work_order_number?: string | null;
+  /** @nullable */
+  servicelocation?: string | null;
+  /** @nullable */
+  customer_name?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  region?: string | null;
+}
+
+export interface UnscheduledJobsResponse {
+  jobs: UnscheduledJob[];
+}
+
 export type GetTechnicianByEmailParams = {
 email: string;
 };
