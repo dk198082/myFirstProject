@@ -7,27 +7,86 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, ChevronLeft, ChevronRight, User } from "lucide-react";
 
-function startOfWeekISO(d: Date): string {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const day = date.getUTCDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  date.setUTCDate(date.getUTCDate() + diff);
-  return date.toISOString().slice(0, 10);
-}
+type ViewType = "week" | "month" | "quarter";
 
-function addDaysISO(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
+// ── Date helpers ─────────────────────────────────────────────────────────────
+
+function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-function fmtWeekLabel(startISO: string): string {
-  const s = new Date(startISO + "T00:00:00Z");
-  const e = new Date(s);
+function startOfWeekISO(d: Date): string {
+  const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = utc.getUTCDay();
+  utc.setUTCDate(utc.getUTCDate() + (day === 0 ? -6 : 1 - day));
+  return isoDate(utc);
+}
+
+function startOfMonthISO(d: Date): string {
+  return isoDate(new Date(Date.UTC(d.getFullYear(), d.getMonth(), 1)));
+}
+
+function startOfQuarterISO(d: Date): string {
+  const qm = Math.floor(d.getMonth() / 3) * 3;
+  return isoDate(new Date(Date.UTC(d.getFullYear(), qm, 1)));
+}
+
+function currentPeriodStart(view: ViewType): string {
+  const now = new Date();
+  if (view === "month") return startOfMonthISO(now);
+  if (view === "quarter") return startOfQuarterISO(now);
+  return startOfWeekISO(now);
+}
+
+function stepStart(iso: string, view: ViewType, dir: -1 | 1): string {
+  const d = new Date(iso + "T00:00:00Z");
+  if (view === "week") {
+    d.setUTCDate(d.getUTCDate() + dir * 7);
+    return isoDate(d);
+  }
+  if (view === "month") {
+    return isoDate(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + dir, 1)));
+  }
+  // quarter
+  return isoDate(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + dir * 3, 1)));
+}
+
+// ── Label helpers ─────────────────────────────────────────────────────────────
+
+const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const QUARTER_NAMES = ["Q1","Q2","Q3","Q4"];
+
+function fmtRangeLabel(iso: string, view: ViewType): string {
+  const d = new Date(iso + "T00:00:00Z");
+  if (view === "month") {
+    return `${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  }
+  if (view === "quarter") {
+    const q = Math.floor(d.getUTCMonth() / 3);
+    const startM = MONTH_NAMES[q * 3];
+    const endM = MONTH_NAMES[q * 3 + 2];
+    return `${QUARTER_NAMES[q]} ${d.getUTCFullYear()} (${startM}–${endM})`;
+  }
+  // week
+  const s = d;
+  const e = new Date(d);
   e.setUTCDate(e.getUTCDate() + 6);
-  const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  const fmt = (x: Date) => x.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   return `${fmt(s)} – ${fmt(e)}, ${s.getUTCFullYear()}`;
 }
+
+function fmtCapacityLabel(weeklyHours: number, periodWeeks: number, view: ViewType): string {
+  const total = Math.round(weeklyHours * periodWeeks);
+  if (view === "week") return `${weeklyHours}h/wk capacity`;
+  if (view === "month") return `~${total}h/mo capacity (${weeklyHours}h × ${Math.round(periodWeeks)} wks)`;
+  return `~${total}h/qtr capacity (${weeklyHours}h × ${Math.round(periodWeeks)} wks)`;
+}
+
+function nowLabel(view: ViewType) {
+  return view === "week" ? "This Week" : view === "month" ? "This Month" : "This Quarter";
+}
+
+// ── Util helpers ──────────────────────────────────────────────────────────────
 
 function fmtHours(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -37,29 +96,34 @@ function fmtHours(minutes: number): string {
   return `${m}m`;
 }
 
-function utilColors(pct: number): { bar: string; text: string; bg: string; label: string } {
-  if (pct > 100) {
-    return { bar: "bg-red-500", text: "text-red-700", bg: "bg-red-50", label: "Over capacity" };
-  }
-  if (pct >= 80) {
-    return { bar: "bg-amber-500", text: "text-amber-700", bg: "bg-amber-50", label: "High" };
-  }
-  return { bar: "bg-emerald-500", text: "text-emerald-700", bg: "bg-emerald-50", label: "Healthy" };
+function utilColors(pct: number) {
+  if (pct > 100) return { bar: "bg-red-500", text: "text-red-700", bg: "bg-red-50" };
+  if (pct >= 80) return { bar: "bg-amber-500", text: "text-amber-700", bg: "bg-amber-50" };
+  return { bar: "bg-emerald-500", text: "text-emerald-700", bg: "bg-emerald-50" };
 }
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function ResourceUtilization() {
-  const [start, setStart] = useState<string>(() => startOfWeekISO(new Date()));
+  const [view, setView] = useState<ViewType>("week");
+  const [start, setStart] = useState<string>(() => currentPeriodStart("week"));
+
   const { data, isLoading, error } = useGetResourceUtilization(
-    { start },
-    { query: { queryKey: ["getResourceUtilization", start] } },
+    { start, view },
+    { query: { queryKey: ["getResourceUtilization", start, view] } },
   );
 
   const regions = data?.regions ?? [];
-  const capacityHours = data?.default_weekly_capacity_hours ?? 40;
+  const weeklyHours = data?.default_weekly_capacity_hours ?? 40;
+  const periodWeeks = data?.period_weeks ?? 1;
 
-  const goPrev = () => setStart(addDaysISO(start, -7));
-  const goNext = () => setStart(addDaysISO(start, 7));
-  const goToday = () => setStart(startOfWeekISO(new Date()));
+  const changeView = (v: ViewType) => {
+    setView(v);
+    setStart(currentPeriodStart(v));
+  };
+  const goPrev = () => setStart(stepStart(start, view, -1));
+  const goNext = () => setStart(stepStart(start, view, 1));
+  const goNow = () => setStart(currentPeriodStart(view));
 
   return (
     <div className="min-h-screen bg-background">
@@ -77,25 +141,51 @@ export default function ResourceUtilization() {
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={goPrev} aria-label="Previous week" data-testid="btn-prev">
+          {/* Left: view switcher + nav */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* View toggles */}
+            <div className="flex rounded-md overflow-hidden border border-border">
+              {(["week", "month", "quarter"] as ViewType[]).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => changeView(v)}
+                  data-testid={`view-${v}`}
+                  className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+                    view === v
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+
+            <span className="text-muted-foreground/40">|</span>
+
+            {/* Period navigator */}
+            <Button variant="outline" size="icon" onClick={goPrev} aria-label="Previous" data-testid="btn-prev">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <div className="text-base font-semibold tabular-nums px-2 min-w-[200px] text-center" data-testid="text-range">
-              {fmtWeekLabel(start)}
+            <div className="text-base font-semibold tabular-nums px-2 min-w-[220px] text-center" data-testid="text-range">
+              {fmtRangeLabel(start, view)}
             </div>
-            <Button variant="outline" size="icon" onClick={goNext} aria-label="Next week" data-testid="btn-next">
+            <Button variant="outline" size="icon" onClick={goNext} aria-label="Next" data-testid="btn-next">
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={goToday} data-testid="btn-today">
-              This Week
+            <Button variant="outline" size="sm" onClick={goNow} data-testid="btn-now">
+              {nowLabel(view)}
             </Button>
           </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Healthy (&lt;80%)</div>
-            <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-amber-500" /> High (80–100%)</div>
-            <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-red-500" /> Over (&gt;100%)</div>
-            <span className="text-muted-foreground/70">Capacity: {capacityHours}h/wk</span>
+
+          {/* Right: legend + capacity */}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap justify-end">
+            <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500 inline-block" /> Healthy (&lt;80%)</div>
+            <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-amber-500 inline-block" /> High (80–100%)</div>
+            <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-red-500 inline-block" /> Over (&gt;100%)</div>
+            <span className="text-muted-foreground/60 border-l border-border pl-3">
+              {fmtCapacityLabel(weeklyHours, periodWeeks, view)}
+            </span>
           </div>
         </div>
 
@@ -114,10 +204,11 @@ export default function ResourceUtilization() {
         <div className="space-y-6">
           {regions.map((rg) => {
             const techs = rg.technicians ?? [];
-            const totalUtilMin = techs.reduce((s, t) => s + (t.utilized_minutes ?? 0), 0);
-            const totalCapMin = techs.reduce((s, t) => s + (t.capacity_minutes ?? 0), 0);
-            const regionPct = totalCapMin ? Math.round((totalUtilMin / totalCapMin) * 1000) / 10 : 0;
+            const totalUtil = techs.reduce((s, t) => s + (t.utilized_minutes ?? 0), 0);
+            const totalCap = techs.reduce((s, t) => s + (t.capacity_minutes ?? 0), 0);
+            const regionPct = totalCap ? Math.round((totalUtil / totalCap) * 1000) / 10 : 0;
             const regionColors = utilColors(regionPct);
+            const capHoursTotal = Math.round((totalCap / 60 / Math.max(techs.length, 1)));
             return (
               <Card key={rg.regionid_id} className="border border-card-border shadow-sm" data-testid={`region-${rg.regionid_id}`}>
                 <CardContent className="p-0">
@@ -138,32 +229,24 @@ export default function ResourceUtilization() {
                         const pct = t.utilization_pct ?? 0;
                         const colors = utilColors(pct);
                         const barWidth = Math.min(100, pct);
+                        const capH = Math.round(t.capacity_minutes / 60);
                         return (
-                          <div
-                            key={t.technician_id}
-                            className="px-4 py-3 grid grid-cols-12 gap-3 items-center"
-                            data-testid={`row-tech-${t.technician_id}`}
-                          >
+                          <div key={t.technician_id} className="px-4 py-3 grid grid-cols-12 gap-3 items-center" data-testid={`row-tech-${t.technician_id}`}>
                             <div className="col-span-3 min-w-0">
                               <div className="text-sm font-medium truncate">{t.resource_name ?? "—"}</div>
                               <div className="text-xs text-muted-foreground">{t.job_count} job{t.job_count !== 1 ? "s" : ""}</div>
                             </div>
                             <div className="col-span-6">
                               <div className={`relative h-5 w-full rounded ${colors.bg}`}>
-                                <div
-                                  className={`absolute top-0 left-0 h-5 rounded ${colors.bar} transition-all`}
-                                  style={{ width: `${barWidth}%` }}
-                                />
-                                {pct > 100 && (
-                                  <div className="absolute top-0 right-0 h-5 w-1 bg-red-700 rounded-r" />
-                                )}
+                                <div className={`absolute top-0 left-0 h-5 rounded ${colors.bar} transition-all`} style={{ width: `${barWidth}%` }} />
+                                {pct > 100 && <div className="absolute top-0 right-0 h-5 w-1 bg-red-700 rounded-r" />}
                               </div>
                             </div>
                             <div className={`col-span-2 text-sm font-semibold tabular-nums ${colors.text}`}>
                               {pct.toFixed(1)}%
                             </div>
-                            <div className="col-span-1 text-xs text-muted-foreground text-right tabular-nums">
-                              {fmtHours(t.utilized_minutes)} / {capacityHours}h
+                            <div className="col-span-1 text-xs text-muted-foreground text-right tabular-nums whitespace-nowrap">
+                              {fmtHours(t.utilized_minutes)} / {capH}h
                             </div>
                           </div>
                         );

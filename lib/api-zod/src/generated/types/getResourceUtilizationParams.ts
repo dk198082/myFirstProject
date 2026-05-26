@@ -5,10 +5,15 @@
  * Technician Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+import type { GetResourceUtilizationView } from './getResourceUtilizationView';
 
 export type GetResourceUtilizationParams = {
 /**
- * ISO date (YYYY-MM-DD) for the week start (Monday)
+ * ISO date (YYYY-MM-DD) within the desired period
  */
 start: string;
+/**
+ * Period granularity — week (default), month, or quarter
+ */
+view?: GetResourceUtilizationView;
 };

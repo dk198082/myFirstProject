@@ -3,8 +3,39 @@ import { pool } from "../lib/db.js";
 
 const router = Router();
 
-// Default weekly capacity per tech (hours). No tech-schedule table exists yet.
 const DEFAULT_WEEKLY_CAPACITY_HOURS = 40;
+
+type ViewType = "week" | "month" | "quarter";
+
+function computeRange(startRaw: string, view: ViewType) {
+  const d = new Date(startRaw + "T00:00:00Z");
+  let rangeStart: Date;
+  let rangeEnd: Date;
+
+  if (view === "month") {
+    rangeStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+    rangeEnd = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+  } else if (view === "quarter") {
+    const quarterStartMonth = Math.floor(d.getUTCMonth() / 3) * 3;
+    rangeStart = new Date(Date.UTC(d.getUTCFullYear(), quarterStartMonth, 1));
+    rangeEnd = new Date(Date.UTC(d.getUTCFullYear(), quarterStartMonth + 3, 1));
+  } else {
+    rangeStart = new Date(startRaw + "T00:00:00Z");
+    rangeEnd = new Date(rangeStart);
+    rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 7);
+  }
+
+  const daysInRange = (rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24);
+  const periodWeeks = Math.round((daysInRange / 7) * 10) / 10;
+  const capacityMinutes = Math.round((daysInRange / 7) * DEFAULT_WEEKLY_CAPACITY_HOURS * 60);
+
+  return {
+    rangeStart: rangeStart.toISOString().slice(0, 10),
+    rangeEnd: rangeEnd.toISOString().slice(0, 10),
+    periodWeeks,
+    capacityMinutes,
+  };
+}
 
 router.get("/resource-utilization", async (req, res) => {
   const startRaw = ((req.query.start as string | undefined) ?? "").trim();
@@ -13,11 +44,11 @@ router.get("/resource-utilization", async (req, res) => {
     return;
   }
 
-  const start = new Date(startRaw + "T00:00:00Z");
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 7);
-  const rangeStart = start.toISOString().slice(0, 10);
-  const rangeEnd = end.toISOString().slice(0, 10);
+  const viewRaw = ((req.query.view as string | undefined) ?? "week").trim();
+  const view: ViewType =
+    viewRaw === "month" ? "month" : viewRaw === "quarter" ? "quarter" : "week";
+
+  const { rangeStart, rangeEnd, periodWeeks, capacityMinutes } = computeRange(startRaw, view);
 
   try {
     const result = await pool.query(
@@ -42,8 +73,6 @@ router.get("/resource-utilization", async (req, res) => {
       `,
       [rangeStart, rangeEnd],
     );
-
-    const capacityMinutes = DEFAULT_WEEKLY_CAPACITY_HOURS * 60;
 
     type RegionRow = {
       regionid_id: string;
@@ -78,8 +107,10 @@ router.get("/resource-utilization", async (req, res) => {
     }
 
     res.json({
+      view,
       range_start: rangeStart,
       range_end: rangeEnd,
+      period_weeks: periodWeeks,
       default_weekly_capacity_hours: DEFAULT_WEEKLY_CAPACITY_HOURS,
       regions: Array.from(regionMap.values()),
     });

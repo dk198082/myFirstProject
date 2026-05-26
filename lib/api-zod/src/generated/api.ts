@@ -307,15 +307,18 @@ export const GetUnscheduledJobsResponse = zod.object({
 
 
 /**
- * @summary Per-technician utilization for a given week, grouped by region
+ * @summary Per-technician utilization for a week, month, or quarter grouped by region
  */
 export const GetResourceUtilizationQueryParams = zod.object({
-  "start": zod.coerce.string().describe('ISO date (YYYY-MM-DD) for the week start (Monday)')
+  "start": zod.coerce.string().describe('ISO date (YYYY-MM-DD) within the desired period'),
+  "view": zod.enum(['week', 'month', 'quarter']).optional().describe('Period granularity — week (default), month, or quarter')
 })
 
 export const GetResourceUtilizationResponse = zod.object({
+  "view": zod.string().describe('week | month | quarter'),
   "range_start": zod.string(),
   "range_end": zod.string(),
+  "period_weeks": zod.number().describe('Number of weeks in the period (used to scale capacity display)'),
   "default_weekly_capacity_hours": zod.number(),
   "regions": zod.array(zod.object({
   "regionid_id": zod.string(),

@@ -507,8 +507,12 @@ export interface UtilizationRegion {
 }
 
 export interface ResourceUtilizationResponse {
+  /** week | month | quarter */
+  view: string;
   range_start: string;
   range_end: string;
+  /** Number of weeks in the period (used to scale capacity display) */
+  period_weeks: number;
   default_weekly_capacity_hours: number;
   regions: UtilizationRegion[];
 }
@@ -526,10 +530,23 @@ status?: string;
 
 export type GetResourceUtilizationParams = {
 /**
- * ISO date (YYYY-MM-DD) for the week start (Monday)
+ * ISO date (YYYY-MM-DD) within the desired period
  */
 start: string;
+/**
+ * Period granularity — week (default), month, or quarter
+ */
+view?: GetResourceUtilizationView;
 };
+
+export type GetResourceUtilizationView = typeof GetResourceUtilizationView[keyof typeof GetResourceUtilizationView];
+
+
+export const GetResourceUtilizationView = {
+  week: 'week',
+  month: 'month',
+  quarter: 'quarter',
+} as const;
 
 export type GetScheduleBoardParams = {
 /**

@@ -8,8 +8,12 @@
 import type { UtilizationRegion } from './utilizationRegion';
 
 export interface ResourceUtilizationResponse {
+  /** week | month | quarter */
+  view: string;
   range_start: string;
   range_end: string;
+  /** Number of weeks in the period (used to scale capacity display) */
+  period_weeks: number;
   default_weekly_capacity_hours: number;
   regions: UtilizationRegion[];
 }

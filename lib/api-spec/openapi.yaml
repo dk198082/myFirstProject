@@ -186,14 +186,21 @@ paths:
     get:
       operationId: getResourceUtilization
       tags: [dashboard]
-      summary: Per-technician utilization for a given week, grouped by region
+      summary: Per-technician utilization for a week, month, or quarter grouped by region
       parameters:
         - name: start
           in: query
           required: true
           schema:
             type: string
-          description: ISO date (YYYY-MM-DD) for the week start (Monday)
+          description: ISO date (YYYY-MM-DD) within the desired period
+        - name: view
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [week, month, quarter]
+          description: Period granularity — week (default), month, or quarter
       responses:
         "200":
           description: Utilization grouped by region then technician
@@ -979,10 +986,16 @@ components:
     ResourceUtilizationResponse:
       type: object
       properties:
+        view:
+          type: string
+          description: week | month | quarter
         range_start:
           type: string
         range_end:
           type: string
+        period_weeks:
+          type: number
+          description: Number of weeks in the period (used to scale capacity display)
         default_weekly_capacity_hours:
           type: integer
         regions:
@@ -990,7 +1003,9 @@ components:
           items:
             $ref: "#/components/schemas/UtilizationRegion"
       required:
+        - view
         - range_start
         - range_end
+        - period_weeks
         - default_weekly_capacity_hours
         - regions

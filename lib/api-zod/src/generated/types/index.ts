@@ -16,6 +16,7 @@ export * from './equipment';
 export * from './errorResponse';
 export * from './getJobsByRegionParams';
 export * from './getResourceUtilizationParams';
+export * from './getResourceUtilizationView';
 export * from './getScheduleBoardParams';
 export * from './getScheduleBoardView';
 export * from './getTechnicianByEmailParams';

@@ -769,7 +769,7 @@ export const getGetResourceUtilizationUrl = (params: GetResourceUtilizationParam
 }
 
 /**
- * @summary Per-technician utilization for a given week, grouped by region
+ * @summary Per-technician utilization for a week, month, or quarter grouped by region
  */
 export const getResourceUtilization = async (params: GetResourceUtilizationParams, options?: RequestInit): Promise<ResourceUtilizationResponse> => {
 
@@ -816,7 +816,7 @@ export type GetResourceUtilizationQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Per-technician utilization for a given week, grouped by region
+ * @summary Per-technician utilization for a week, month, or quarter grouped by region
  */
 
 export function useGetResourceUtilization<TData = Awaited<ReturnType<typeof getResourceUtilization>>, TError = ErrorType<unknown>>(
