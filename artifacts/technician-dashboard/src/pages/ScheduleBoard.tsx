@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { useGetScheduleBoard, useGetUnscheduledJobs } from "@workspace/api-client-react";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { useGetScheduleBoard, useGetUnscheduledJobs, UnscheduledJob } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +11,7 @@ import {
 import {
   ArrowLeft, CalendarClock, ChevronLeft, ChevronRight,
   Globe, Phone, Briefcase, AlertTriangle, Printer, User,
+  MapPin, Clock,
 } from "lucide-react";
 
 type ViewMode = "week" | "month" | "tech";
@@ -144,6 +142,165 @@ function techColor(technicianId: string | null | undefined) {
 function cancelledChipColor() {
   return "bg-gray-100 text-gray-500 border-gray-300 line-through hover:bg-gray-200";
 }
+
+// ── Unscheduled card helpers ──────────────────────────────────────────────────
+
+function fmtMins(mins: number | null | undefined): string {
+  if (mins == null || mins <= 0) return "";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+}
+
+function fmtDateShort(iso: string | null | undefined): string {
+  if (!iso) return "No due date";
+  const d = new Date(iso + "T00:00:00Z");
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+function getBucketIndex(dueDateISO: string | null | undefined): number {
+  if (!dueDateISO) return 2;
+  const d = new Date(dueDateISO + "T00:00:00Z");
+  if (Number.isNaN(d.getTime())) return 2;
+  const diffDays = (d.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+  if (diffDays <= 14) return 0;
+  if (diffDays <= 28) return 1;
+  return 2;
+}
+
+function sortByDue(a: UnscheduledJob, b: UnscheduledJob): number {
+  if (!a.due_date && !b.due_date) return 0;
+  if (!a.due_date) return 1;
+  if (!b.due_date) return -1;
+  return a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0;
+}
+
+function fmtFamiliarity(t: { city_jobs: number; region_jobs: number; same_region: boolean; region?: string | null }): string {
+  const parts: string[] = [];
+  if (t.same_region && t.region) parts.push(t.region);
+  if (t.city_jobs > 0) parts.push(`${t.city_jobs} prior in city`);
+  else if (t.region_jobs > 0) parts.push(`${t.region_jobs} prior in region`);
+  return parts.join(" · ") || (t.region ?? "");
+}
+
+const UNSCHEDULED_BUCKETS = [
+  {
+    label: "Due Within 2 Weeks", sublabel: "Highest priority",
+    border: "border-red-400", headerClass: "bg-red-50 border-b border-red-200 text-red-900",
+    badgeClass: "bg-red-100 text-red-800 border border-red-200", dateClass: "text-red-700 font-semibold",
+  },
+  {
+    label: "Due in 3–4 Weeks", sublabel: "Plan ahead",
+    border: "border-amber-400", headerClass: "bg-amber-50 border-b border-amber-200 text-amber-900",
+    badgeClass: "bg-amber-100 text-amber-800 border border-amber-200", dateClass: "text-amber-700 font-semibold",
+  },
+  {
+    label: "Due in 4+ Weeks", sublabel: "Future / unset",
+    border: "border-slate-300", headerClass: "bg-slate-50 border-b border-slate-200 text-slate-800",
+    badgeClass: "bg-slate-100 text-slate-700 border border-slate-200", dateClass: "text-slate-600",
+  },
+];
+
+function UnscheduledJobCard({ job, bucketIdx }: { job: UnscheduledJob; bucketIdx: number }) {
+  const t1 = job.best_fit_techs?.[0];
+  const t2 = job.best_fit_techs?.[1];
+  const duration = fmtMins(job.duration_minutes);
+  const loc = [job.city, job.state].filter(Boolean).join(", ");
+  const dateClass = UNSCHEDULED_BUCKETS[bucketIdx].dateClass;
+
+  return (
+    <div className="bg-white rounded-lg border border-card-border shadow-sm hover:shadow-md transition-shadow p-4 flex flex-col gap-3 min-w-[260px] max-w-[300px] w-[280px] shrink-0">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          {job.work_order_id ? (
+            <Link href={`/work-order/${job.work_order_id}`} className="text-primary hover:underline font-mono font-bold text-sm">
+              WO# {job.work_order_number ?? "—"}
+            </Link>
+          ) : (
+            <span className="font-mono font-bold text-sm">WO# {job.work_order_number ?? "—"}</span>
+          )}
+          {job.work_order_type && (
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <Badge
+                variant="outline"
+                className={`text-xs px-1.5 py-0 h-4 font-normal ${
+                  job.work_order_type.toLowerCase() === "install"
+                    ? "border-violet-400 text-violet-700 bg-violet-50"
+                    : "border-blue-300 text-blue-700 bg-blue-50"
+                }`}
+              >
+                {job.work_order_type}
+              </Badge>
+              {job.work_order_type.toLowerCase() === "install" && job.sales_order_number && (
+                <span className="text-xs text-muted-foreground font-mono">SO: {job.sales_order_number}</span>
+              )}
+            </div>
+          )}
+        </div>
+        <span className={`text-xs whitespace-nowrap shrink-0 ${dateClass}`}>
+          {fmtDateShort(job.due_date)}
+        </span>
+      </div>
+
+      <div>
+        <div className="text-sm font-semibold text-foreground leading-tight">{job.customer_name ?? "—"}</div>
+        {job.servicelocation && (
+          <div className="text-xs text-muted-foreground truncate">{job.servicelocation}</div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <MapPin className="h-3 w-3 shrink-0" />
+        <span className="truncate">{loc || "—"}</span>
+        {job.region && (
+          <Badge variant="secondary" className="text-xs px-1.5 py-0 h-4 ml-auto shrink-0">{job.region}</Badge>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+        {job.po_number && <span className="font-mono truncate">PO: {job.po_number}</span>}
+        {duration && (
+          <span className="flex items-center gap-1 shrink-0">
+            <Clock className="h-3 w-3" />
+            {duration}
+          </span>
+        )}
+      </div>
+
+      {(job.contact_name || job.contact_phone) && (
+        <div className="text-xs text-muted-foreground flex items-start gap-1.5">
+          <User className="h-3 w-3 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            {job.contact_name && <div className="truncate">{job.contact_name}</div>}
+            {job.contact_phone && (
+              <div className="flex items-center gap-1">
+                <Phone className="h-3 w-3 shrink-0" />
+                <span className="truncate">{job.contact_phone}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(t1 || t2) && (
+        <div className="pt-2 border-t border-border space-y-1 mt-auto">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Best Fit</div>
+          {[t1, t2].filter(Boolean).map((t, i) => (
+            <div key={i} className="text-xs flex items-center justify-between gap-1">
+              <span className="font-medium truncate">{t!.resource_name ?? "—"}</span>
+              <span className="text-muted-foreground shrink-0 text-right">{fmtFamiliarity(t!)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 type ScheduleJob = {
   booking_id: string;
@@ -977,61 +1134,65 @@ export default function ScheduleBoard() {
             </div>
           )}
 
-          {view === "week" && !isLoading && (
-            <Card className="mt-6 border border-card-border shadow-sm" data-testid="card-unscheduled-jobs">
-              <CardContent className="p-0">
-                <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+          {view === "week" && !isLoading && (() => {
+            const buckets: UnscheduledJob[][] = [[], [], []];
+            for (const j of unscheduledJobs) buckets[getBucketIndex(j.due_date)].push(j);
+            buckets.forEach((b) => b.sort(sortByDue));
+            return (
+              <div className="mt-6 space-y-3" data-testid="card-unscheduled-jobs">
+                {/* Section header */}
+                <div className="flex items-center gap-2">
                   <Briefcase className="h-4 w-4 text-muted-foreground" />
-                  <h2 className="text-sm font-semibold text-foreground">
-                    Unscheduled Jobs
-                  </h2>
-                  <Badge variant="secondary" className="ml-1 text-[10px]">
-                    {unscheduledJobs.length}
-                  </Badge>
+                  <h2 className="text-sm font-semibold text-foreground">Unscheduled Jobs</h2>
+                  <Badge variant="secondary" className="ml-1 text-[10px]">{unscheduledJobs.length}</Badge>
                 </div>
+
                 {unscheduledJobs.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-sm text-muted-foreground italic">
+                  <div className="px-4 py-6 text-center text-sm text-muted-foreground italic bg-card border border-card-border rounded-lg">
                     No unscheduled jobs.
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Work Order #</TableHead>
-                          <TableHead>Service Location</TableHead>
-                          <TableHead>Customer</TableHead>
-                          <TableHead>City</TableHead>
-                          <TableHead>State</TableHead>
-                          <TableHead>Region</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {unscheduledJobs.map((j, idx) => (
-                          <TableRow key={j.work_order_id ?? `${j.work_order_number}-${idx}`} data-testid={`row-unscheduled-${j.work_order_id ?? idx}`}>
-                            <TableCell className="font-mono font-semibold">
-                              {j.work_order_id ? (
-                                <Link href={`/work-order/${j.work_order_id}`} className="text-primary hover:underline">
-                                  {j.work_order_number ?? "—"}
-                                </Link>
-                              ) : (
-                                j.work_order_number ?? "—"
-                              )}
-                            </TableCell>
-                            <TableCell>{j.servicelocation ?? "—"}</TableCell>
-                            <TableCell>{j.customer_name ?? "—"}</TableCell>
-                            <TableCell>{j.city ?? "—"}</TableCell>
-                            <TableCell>{j.state ?? "—"}</TableCell>
-                            <TableCell>{j.region ?? "—"}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <div className="space-y-3">
+                    {UNSCHEDULED_BUCKETS.map((bucket, bi) => (
+                      <div
+                        key={bi}
+                        className={`rounded-lg border-2 ${bucket.border} overflow-hidden`}
+                        data-testid={`unscheduled-bucket-${bi}`}
+                      >
+                        {/* Bucket header */}
+                        <div className={`px-4 py-2.5 flex items-center gap-2 ${bucket.headerClass}`}>
+                          <span className="text-sm font-semibold">{bucket.label}</span>
+                          <span className="text-xs opacity-70">{bucket.sublabel}</span>
+                          <span className={`ml-auto text-xs font-semibold px-1.5 py-0.5 rounded ${bucket.badgeClass}`}>
+                            {buckets[bi].length}
+                          </span>
+                        </div>
+
+                        {/* Horizontal card strip */}
+                        <div className="bg-slate-50/60 px-3 py-3 overflow-x-auto">
+                          {buckets[bi].length === 0 ? (
+                            <div className="text-center text-xs text-muted-foreground italic py-4 min-h-[60px] flex items-center justify-center">
+                              No jobs in this window
+                            </div>
+                          ) : (
+                            <div className="flex gap-3 pb-1">
+                              {buckets[bi].map((job) => (
+                                <UnscheduledJobCard
+                                  key={job.work_order_id ?? job.work_order_number}
+                                  job={job}
+                                  bucketIdx={bi}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          )}
+              </div>
+            );
+          })()}
 
           {view !== "tech" && !isLoading && totalJobs === 0 && regions.length > 0 && (
             <div className="mt-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
