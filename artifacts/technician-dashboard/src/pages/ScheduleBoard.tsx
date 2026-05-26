@@ -398,7 +398,6 @@ export default function ScheduleBoard() {
   const [start, setStart] = useState<string>(() => startOfWeekISO(new Date()));
   const [selectedRegions, setSelectedRegions] = useState<Set<string> | null>(null);
   const [selectedTechIds, setSelectedTechIds] = useState<Set<string> | null>(null);
-  const [unscheduledHorizon, setUnscheduledHorizon] = useState<"week" | "month" | "quarter">("quarter");
 
   // Tech view reuses month data from the API.
   const apiView: "week" | "month" = view === "week" ? "week" : "month";
@@ -408,9 +407,12 @@ export default function ScheduleBoard() {
   );
 
   const { data: unscheduledData } = useGetUnscheduledJobs({
-    query: { queryKey: ["getUnscheduledJobs"], enabled: view === "week" },
+    query: { queryKey: ["getUnscheduledJobs"] },
   });
   const unscheduledJobs = unscheduledData?.jobs ?? [];
+
+  // Time horizon for unscheduled jobs driven by the active view (no separate toggle)
+  const unscheduledHorizonDays = view === "week" ? 7 : view === "month" ? 30 : 30;
 
   const dayCount = data?.day_count ?? (view === "week" ? 7 : 30);
   const rangeStart = data?.range_start ?? start;
@@ -444,19 +446,15 @@ export default function ScheduleBoard() {
     );
   }, [allRegions, selectedRegions]);
 
-  // Unscheduled jobs filtered by active region + time horizon
-  const HORIZON_DAYS: Record<string, number> = { week: 7, month: 30, quarter: 91 };
+  // Unscheduled jobs filtered by active region + view-derived horizon
   const visibleUnscheduledJobs = useMemo(() => {
-    const maxDays = HORIZON_DAYS[unscheduledHorizon];
     return unscheduledJobs.filter((j) => {
-      // Region filter
       if (activeRegionNames !== null && (j.region == null || !activeRegionNames.has(j.region))) return false;
-      // Horizon filter — jobs with no due date only appear in quarter view
-      if (!j.due_date) return unscheduledHorizon === "quarter";
+      if (!j.due_date) return unscheduledHorizonDays >= 30;
       const diffDays = (new Date(j.due_date + "T00:00:00Z").getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-      return diffDays <= maxDays;
+      return diffDays <= unscheduledHorizonDays;
     });
-  }, [unscheduledJobs, activeRegionNames, unscheduledHorizon]);
+  }, [unscheduledJobs, activeRegionNames, unscheduledHorizonDays]);
 
   // Detect double-booked jobs: same tech, same day, overlapping time windows.
   const conflictedBookingIds = useMemo(() => {
@@ -1157,15 +1155,11 @@ export default function ScheduleBoard() {
             </div>
           )}
 
-          {view === "week" && !isLoading && (() => {
+          {!isLoading && (() => {
             const buckets: UnscheduledJob[][] = [[], [], []];
             for (const j of visibleUnscheduledJobs) buckets[getBucketIndex(j.due_date)].push(j);
             buckets.forEach((b) => b.sort(sortByDue));
-            const horizonOptions: Array<{ key: "week" | "month" | "quarter"; label: string }> = [
-              { key: "week", label: "Week" },
-              { key: "month", label: "Month" },
-              { key: "quarter", label: "Quarter" },
-            ];
+            const horizonLabel = view === "week" ? "next 7 days" : "next 30 days";
             return (
               <div className="mt-6 space-y-3" data-testid="card-unscheduled-jobs">
                 {/* Section header */}
@@ -1173,28 +1167,12 @@ export default function ScheduleBoard() {
                   <Briefcase className="h-4 w-4 text-muted-foreground" />
                   <h2 className="text-sm font-semibold text-foreground">Unscheduled Jobs</h2>
                   <Badge variant="secondary" className="ml-1 text-[10px]">{visibleUnscheduledJobs.length}</Badge>
+                  <span className="text-xs text-muted-foreground">· due within {horizonLabel}</span>
                   {activeRegionNames !== null && (
                     <span className="text-xs text-muted-foreground">
                       · {activeRegionNames.size} region{activeRegionNames.size !== 1 ? "s" : ""} selected
                     </span>
                   )}
-                  {/* Horizon toggle */}
-                  <div className="ml-auto flex rounded-md overflow-hidden border border-border">
-                    {horizonOptions.map((opt) => (
-                      <button
-                        key={opt.key}
-                        onClick={() => setUnscheduledHorizon(opt.key)}
-                        data-testid={`unscheduled-horizon-${opt.key}`}
-                        className={`px-3 py-1 text-xs font-medium transition-colors border-l first:border-l-0 border-border ${
-                          unscheduledHorizon === opt.key
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-background text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
                 </div>
 
                 {visibleUnscheduledJobs.length === 0 ? (
