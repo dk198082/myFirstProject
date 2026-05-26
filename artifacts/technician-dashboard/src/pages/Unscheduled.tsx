@@ -2,14 +2,8 @@ import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useGetUnscheduledJobs, UnscheduledJob } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ArrowLeft, Briefcase, Phone, Clock, MapPin, User } from "lucide-react";
 
 type Job = UnscheduledJob;
@@ -195,7 +189,7 @@ export default function Unscheduled() {
   const { data, isLoading, error } = useGetUnscheduledJobs({
     query: { queryKey: ["getUnscheduledJobs"] },
   });
-  const [regionFilter, setRegionFilter] = useState<string>("all");
+  const [selectedRegions, setSelectedRegions] = useState<Set<string> | null>(null);
 
   const allJobs = data?.jobs ?? [];
 
@@ -208,12 +202,25 @@ export default function Unscheduled() {
     return Array.from(set).sort();
   }, [allJobs]);
 
+  const toggleRegion = (r: string) => {
+    setSelectedRegions((prev) => {
+      const current = prev ?? new Set(regions);
+      const next = new Set(current);
+      if (next.has(r)) next.delete(r); else next.add(r);
+      if (next.size === regions.length) return null;
+      return next;
+    });
+  };
+  const selectAll = () => setSelectedRegions(null);
+  const selectNone = () => setSelectedRegions(new Set());
+  const isSelected = (r: string) => selectedRegions === null || selectedRegions.has(r);
+
   const jobs = useMemo(
     () =>
-      regionFilter === "all"
+      selectedRegions === null
         ? allJobs
-        : allJobs.filter((j) => j.region === regionFilter),
-    [allJobs, regionFilter],
+        : allJobs.filter((j) => j.region != null && selectedRegions.has(j.region)),
+    [allJobs, selectedRegions],
   );
 
   const buckets: Job[][] = [[], [], []];
@@ -240,21 +247,43 @@ export default function Unscheduled() {
       </header>
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 space-y-5">
-        {/* Filters */}
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-muted-foreground shrink-0">Region</span>
-          <Select value={regionFilter} onValueChange={setRegionFilter}>
-            <SelectTrigger className="w-40 h-8 text-sm" data-testid="region-filter">
-              <SelectValue placeholder="All regions" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All regions</SelectItem>
-              {regions.map((r) => (
-                <SelectItem key={r} value={r}>{r}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Region filter */}
+        {regions.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-muted-foreground shrink-0">Region</span>
+            <Button
+              variant={selectedRegions === null ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-xs px-3"
+              onClick={selectAll}
+              data-testid="filter-all"
+            >
+              All
+            </Button>
+            <Button
+              variant={selectedRegions !== null && selectedRegions.size === 0 ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-xs px-3"
+              onClick={selectNone}
+              data-testid="filter-none"
+            >
+              None
+            </Button>
+            <span className="text-muted-foreground/40 text-sm">|</span>
+            {regions.map((r) => (
+              <Button
+                key={r}
+                variant={isSelected(r) ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-xs px-3"
+                onClick={() => toggleRegion(r)}
+                data-testid={`filter-region-${r}`}
+              >
+                {r}
+              </Button>
+            ))}
+          </div>
+        )}
 
         {/* Skeleton */}
         {isLoading && (
@@ -294,7 +323,7 @@ export default function Unscheduled() {
                 <div className="bg-slate-50/60 px-3 py-3 overflow-x-auto">
                   {buckets[bi].length === 0 ? (
                     <div className="text-center text-xs text-muted-foreground italic py-6 min-h-[60px] flex items-center justify-center">
-                      No jobs in this window{regionFilter !== "all" ? ` for ${regionFilter}` : ""}
+                      No jobs in this window{selectedRegions !== null && selectedRegions.size > 0 ? ` for selected regions` : ""}
                     </div>
                   ) : (
                     <div className="flex gap-3 pb-1">
