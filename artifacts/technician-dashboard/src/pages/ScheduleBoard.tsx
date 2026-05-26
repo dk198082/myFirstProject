@@ -398,6 +398,7 @@ export default function ScheduleBoard() {
   const [start, setStart] = useState<string>(() => startOfWeekISO(new Date()));
   const [selectedRegions, setSelectedRegions] = useState<Set<string> | null>(null);
   const [selectedTechIds, setSelectedTechIds] = useState<Set<string> | null>(null);
+  const [unscheduledHorizon, setUnscheduledHorizon] = useState<"week" | "month" | "quarter">("quarter");
 
   // Tech view reuses month data from the API.
   const apiView: "week" | "month" = view === "week" ? "week" : "month";
@@ -434,6 +435,28 @@ export default function ScheduleBoard() {
     (s, r) => s + r.technicians.reduce((ts, t) => ts + t.jobs.length, 0),
     0
   );
+
+  // Map selected regionid_ids → region name strings for unscheduled job filtering
+  const activeRegionNames = useMemo(() => {
+    if (selectedRegions === null) return null;
+    return new Set(
+      allRegions.filter((r) => selectedRegions.has(r.regionid_id)).map((r) => r.region)
+    );
+  }, [allRegions, selectedRegions]);
+
+  // Unscheduled jobs filtered by active region + time horizon
+  const HORIZON_DAYS: Record<string, number> = { week: 7, month: 30, quarter: 91 };
+  const visibleUnscheduledJobs = useMemo(() => {
+    const maxDays = HORIZON_DAYS[unscheduledHorizon];
+    return unscheduledJobs.filter((j) => {
+      // Region filter
+      if (activeRegionNames !== null && (j.region == null || !activeRegionNames.has(j.region))) return false;
+      // Horizon filter — jobs with no due date only appear in quarter view
+      if (!j.due_date) return unscheduledHorizon === "quarter";
+      const diffDays = (new Date(j.due_date + "T00:00:00Z").getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+      return diffDays <= maxDays;
+    });
+  }, [unscheduledJobs, activeRegionNames, unscheduledHorizon]);
 
   // Detect double-booked jobs: same tech, same day, overlapping time windows.
   const conflictedBookingIds = useMemo(() => {
@@ -1136,20 +1159,47 @@ export default function ScheduleBoard() {
 
           {view === "week" && !isLoading && (() => {
             const buckets: UnscheduledJob[][] = [[], [], []];
-            for (const j of unscheduledJobs) buckets[getBucketIndex(j.due_date)].push(j);
+            for (const j of visibleUnscheduledJobs) buckets[getBucketIndex(j.due_date)].push(j);
             buckets.forEach((b) => b.sort(sortByDue));
+            const horizonOptions: Array<{ key: "week" | "month" | "quarter"; label: string }> = [
+              { key: "week", label: "Week" },
+              { key: "month", label: "Month" },
+              { key: "quarter", label: "Quarter" },
+            ];
             return (
               <div className="mt-6 space-y-3" data-testid="card-unscheduled-jobs">
                 {/* Section header */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Briefcase className="h-4 w-4 text-muted-foreground" />
                   <h2 className="text-sm font-semibold text-foreground">Unscheduled Jobs</h2>
-                  <Badge variant="secondary" className="ml-1 text-[10px]">{unscheduledJobs.length}</Badge>
+                  <Badge variant="secondary" className="ml-1 text-[10px]">{visibleUnscheduledJobs.length}</Badge>
+                  {activeRegionNames !== null && (
+                    <span className="text-xs text-muted-foreground">
+                      · {activeRegionNames.size} region{activeRegionNames.size !== 1 ? "s" : ""} selected
+                    </span>
+                  )}
+                  {/* Horizon toggle */}
+                  <div className="ml-auto flex rounded-md overflow-hidden border border-border">
+                    {horizonOptions.map((opt) => (
+                      <button
+                        key={opt.key}
+                        onClick={() => setUnscheduledHorizon(opt.key)}
+                        data-testid={`unscheduled-horizon-${opt.key}`}
+                        className={`px-3 py-1 text-xs font-medium transition-colors border-l first:border-l-0 border-border ${
+                          unscheduledHorizon === opt.key
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                {unscheduledJobs.length === 0 ? (
+                {visibleUnscheduledJobs.length === 0 ? (
                   <div className="px-4 py-6 text-center text-sm text-muted-foreground italic bg-card border border-card-border rounded-lg">
-                    No unscheduled jobs.
+                    No unscheduled jobs match the current filters.
                   </div>
                 ) : (
                   <div className="space-y-3">
