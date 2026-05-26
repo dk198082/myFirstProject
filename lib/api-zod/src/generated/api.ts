@@ -282,6 +282,8 @@ export const GetUnscheduledJobsResponse = zod.object({
   "jobs": zod.array(zod.object({
   "work_order_id": zod.string().nullish(),
   "work_order_number": zod.string().nullish(),
+  "work_order_type": zod.string().nullish().describe('e.g. \"Calibration\/Service\" or \"Install\"'),
+  "sales_order_number": zod.string().nullish().describe('Populated when work_order_type is Install'),
   "servicelocation": zod.string().nullish(),
   "customer_name": zod.string().nullish(),
   "city": zod.string().nullish(),

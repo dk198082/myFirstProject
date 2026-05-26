@@ -100,6 +100,19 @@ function JobCard({ job }: { job: Job }) {
           ) : (
             <span className="font-mono font-bold text-sm">WO# {job.work_order_number ?? "—"}</span>
           )}
+          {job.work_order_type && (
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <Badge
+                variant="outline"
+                className={`text-xs px-1.5 py-0 h-4 font-normal ${job.work_order_type.toLowerCase() === "install" ? "border-violet-400 text-violet-700 bg-violet-50" : "border-blue-300 text-blue-700 bg-blue-50"}`}
+              >
+                {job.work_order_type}
+              </Badge>
+              {job.work_order_type.toLowerCase() === "install" && job.sales_order_number && (
+                <span className="text-xs text-muted-foreground font-mono">SO: {job.sales_order_number}</span>
+              )}
+            </div>
+          )}
         </div>
         <span className={`text-xs whitespace-nowrap ${dueBadgeStyle(job.due_date)}`}>
           {fmtDate(job.due_date)}

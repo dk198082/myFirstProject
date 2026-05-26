@@ -896,6 +896,12 @@ components:
           type: ["string", "null"]
         work_order_number:
           type: ["string", "null"]
+        work_order_type:
+          type: ["string", "null"]
+          description: e.g. "Calibration/Service" or "Install"
+        sales_order_number:
+          type: ["string", "null"]
+          description: Populated when work_order_type is Install
         servicelocation:
           type: ["string", "null"]
         customer_name:

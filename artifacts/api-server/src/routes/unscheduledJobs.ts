@@ -31,6 +31,8 @@ router.get("/unscheduled-jobs", async (req, res) => {
         wo.city,
         wo.state,
         wo.region,
+        wo.servicetype,
+        wo.salesordernum  AS sales_order_number,
         wo.cf_ponumber  AS po_number,
         c.customer_name,
         ct.fullname       AS contact_name,
@@ -140,6 +142,8 @@ router.get("/unscheduled-jobs", async (req, res) => {
       return {
         work_order_id: r.work_order_id,
         work_order_number: r.work_order_number,
+        work_order_type: r.servicetype ?? null,
+        sales_order_number: r.sales_order_number && r.sales_order_number !== "" ? r.sales_order_number : null,
         servicelocation: r.servicelocation,
         customer_name: r.customer_name,
         city: r.city,

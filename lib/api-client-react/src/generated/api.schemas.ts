@@ -450,6 +450,16 @@ export interface UnscheduledJob {
   work_order_id?: string | null;
   /** @nullable */
   work_order_number?: string | null;
+  /**
+     * e.g. "Calibration/Service" or "Install"
+     * @nullable
+     */
+  work_order_type?: string | null;
+  /**
+     * Populated when work_order_type is Install
+     * @nullable
+     */
+  sales_order_number?: string | null;
   /** @nullable */
   servicelocation?: string | null;
   /** @nullable */
