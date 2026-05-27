@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { useGetScheduleBoard, useGetUnscheduledJobs, UnscheduledJob } from "@workspace/api-client-react";
+import { useGetScheduleBoard, useGetUnscheduledJobs, useGetResourceUtilization, UnscheduledJob } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -141,6 +141,22 @@ function techColor(technicianId: string | null | undefined) {
 
 function cancelledChipColor() {
   return "bg-gray-100 text-gray-500 border-gray-300 line-through hover:bg-gray-200";
+}
+
+// ── Utilization helpers ───────────────────────────────────────────────────────
+
+function utilColors(pct: number) {
+  if (pct > 100) return { bar: "bg-red-500", text: "text-red-700", bg: "bg-red-50" };
+  if (pct >= 80)  return { bar: "bg-amber-500", text: "text-amber-700", bg: "bg-amber-50" };
+  return { bar: "bg-emerald-500", text: "text-emerald-700", bg: "bg-emerald-50" };
+}
+
+function fmtUtilHours(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
 }
 
 // ── Unscheduled card helpers ──────────────────────────────────────────────────
@@ -398,6 +414,7 @@ export default function ScheduleBoard() {
   const [start, setStart] = useState<string>(() => startOfWeekISO(new Date()));
   const [selectedRegions, setSelectedRegions] = useState<Set<string> | null>(null);
   const [selectedTechIds, setSelectedTechIds] = useState<Set<string> | null>(null);
+  const [utilRegions, setUtilRegions] = useState<Set<string> | null>(null); // null = all
 
   // Tech view reuses month data from the API.
   const apiView: "week" | "month" = view === "week" ? "week" : "month";
@@ -410,6 +427,13 @@ export default function ScheduleBoard() {
     query: { queryKey: ["getUnscheduledJobs"] },
   });
   const unscheduledJobs = unscheduledData?.jobs ?? [];
+
+  // Resource utilization — shares start date + view with the board
+  const utilView = view === "week" ? "week" : "month";
+  const { data: utilData, isLoading: utilLoading } = useGetResourceUtilization(
+    { start, view: utilView },
+    { query: { queryKey: ["getResourceUtilization", start, utilView] } }
+  );
 
   // Time horizon for unscheduled jobs driven by the active view (no separate toggle)
   const unscheduledHorizonDays = view === "week" ? 7 : view === "month" ? 30 : 30;
@@ -1228,6 +1252,134 @@ export default function ScheduleBoard() {
               No jobs scheduled this {view}. Try a different {view}.
             </div>
           )}
+
+          {/* ── Inline Resource Utilization panel ─────────────────────────── */}
+          {(() => {
+            const allUtilRegions = utilData?.regions ?? [];
+            const weeklyHours = utilData?.default_weekly_capacity_hours ?? 40;
+            const periodWeeks = utilData?.period_weeks ?? 1;
+            const capTotal = Math.round(weeklyHours * periodWeeks);
+            const capLabel = utilView === "week"
+              ? `${weeklyHours}h/wk`
+              : `~${capTotal}h/${utilView === "month" ? "mo" : "qtr"}`;
+
+            // Util-specific region filter helpers
+            const toggleUtilRegion = (id: string) => {
+              setUtilRegions((prev) => {
+                const current = prev ?? new Set(allUtilRegions.map((r) => r.regionid_id));
+                const next = new Set(current);
+                if (next.has(id)) next.delete(id); else next.add(id);
+                if (next.size === allUtilRegions.length) return null;
+                return next;
+              });
+            };
+            const utilSelectAll = () => setUtilRegions(null);
+            const utilSelectNone = () => setUtilRegions(new Set());
+            const isUtilRegionSelected = (id: string) => utilRegions === null || utilRegions.has(id);
+
+            const visibleUtilRegions = utilRegions === null
+              ? allUtilRegions
+              : allUtilRegions.filter((r) => utilRegions.has(r.regionid_id));
+
+            return (
+              <div className="mt-6 space-y-3" data-testid="panel-resource-utilization">
+                {/* Section header */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground">Resource Utilization</h2>
+                  <span className="text-xs text-muted-foreground">· {capLabel} capacity</span>
+                  <div className="ml-auto flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs text-muted-foreground shrink-0">Regions:</span>
+                    <button
+                      onClick={utilSelectAll}
+                      className={`px-2 py-0.5 text-xs rounded border transition-colors ${utilRegions === null ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+                    >All</button>
+                    <button
+                      onClick={utilSelectNone}
+                      className={`px-2 py-0.5 text-xs rounded border transition-colors ${utilRegions !== null && utilRegions.size === 0 ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+                    >None</button>
+                    <span className="text-muted-foreground/40 text-xs">|</span>
+                    {allUtilRegions.map((r) => (
+                      <button
+                        key={r.regionid_id}
+                        onClick={() => toggleUtilRegion(r.regionid_id)}
+                        className={`px-2 py-0.5 text-xs rounded border transition-colors ${isUtilRegionSelected(r.regionid_id) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+                      >
+                        {r.regionid_id}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Legend */}
+                <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-500 inline-block" /> Healthy (&lt;80%)</span>
+                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-amber-500 inline-block" /> High (80–100%)</span>
+                  <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-red-500 inline-block" /> Over (&gt;100%)</span>
+                </div>
+
+                {utilLoading && (
+                  <div className="space-y-2">
+                    {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
+                  </div>
+                )}
+
+                {!utilLoading && visibleUtilRegions.length === 0 && (
+                  <div className="text-center text-sm text-muted-foreground py-6 italic">No regions selected.</div>
+                )}
+
+                <div className="space-y-3">
+                  {visibleUtilRegions.map((rg) => {
+                    const techs = rg.technicians ?? [];
+                    const totalUtil = techs.reduce((s, t) => s + (t.utilized_minutes ?? 0), 0);
+                    const totalCap = techs.reduce((s, t) => s + (t.capacity_minutes ?? 0), 0);
+                    const regionPct = totalCap ? Math.round((totalUtil / totalCap) * 1000) / 10 : 0;
+                    const rc = utilColors(regionPct);
+                    return (
+                      <Card key={rg.regionid_id} className="border border-card-border shadow-sm" data-testid={`util-region-${rg.regionid_id}`}>
+                        <CardContent className="p-0">
+                          <div className="px-4 py-2.5 border-b border-border flex items-center gap-3">
+                            <h3 className="text-sm font-semibold flex-1">{rg.region}</h3>
+                            <Badge variant="outline" className="text-xs">{techs.length} tech{techs.length !== 1 ? "s" : ""}</Badge>
+                            <span className={`text-sm font-bold tabular-nums ${rc.text}`}>{regionPct}% avg</span>
+                          </div>
+                          {techs.length === 0 ? (
+                            <div className="px-4 py-4 text-center text-xs text-muted-foreground italic">No technicians.</div>
+                          ) : (
+                            <div className="divide-y divide-border">
+                              {techs.map((t) => {
+                                const pct = t.utilization_pct ?? 0;
+                                const colors = utilColors(pct);
+                                const capH = Math.round((t.capacity_minutes ?? 0) / 60);
+                                return (
+                                  <div key={t.technician_id} className="px-4 py-2 grid grid-cols-12 gap-3 items-center" data-testid={`util-tech-${t.technician_id}`}>
+                                    <div className="col-span-3 min-w-0">
+                                      <div className="text-xs font-medium truncate">{t.resource_name ?? "—"}</div>
+                                      <div className="text-[10px] text-muted-foreground">{t.job_count} job{t.job_count !== 1 ? "s" : ""}</div>
+                                    </div>
+                                    <div className="col-span-6">
+                                      <div className={`relative h-4 w-full rounded ${colors.bg}`}>
+                                        <div className={`absolute top-0 left-0 h-4 rounded ${colors.bar} transition-all`} style={{ width: `${Math.min(100, pct)}%` }} />
+                                        {pct > 100 && <div className="absolute top-0 right-0 h-4 w-1 bg-red-700 rounded-r" />}
+                                      </div>
+                                    </div>
+                                    <div className={`col-span-2 text-xs font-semibold tabular-nums ${colors.text}`}>{pct.toFixed(1)}%</div>
+                                    <div className="col-span-1 text-[10px] text-muted-foreground text-right tabular-nums whitespace-nowrap">
+                                      {fmtUtilHours(t.utilized_minutes ?? 0)} / {capH}h
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </main>
       </div>
     </TooltipProvider>
