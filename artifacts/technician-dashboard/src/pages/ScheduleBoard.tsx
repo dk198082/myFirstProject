@@ -656,11 +656,6 @@ export default function ScheduleBoard() {
       <div className="min-h-screen bg-background">
         <header className="bg-sidebar text-sidebar-foreground shadow-md sticky top-0 z-20">
           <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
-            <Link href="/" data-testid="link-back" className="flex items-center gap-1.5 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="text-sm font-medium hidden sm:inline">Back</span>
-            </Link>
-            <span className="text-sidebar-foreground/40 mx-1">|</span>
             <CalendarClock className="h-6 w-6 text-sidebar-primary shrink-0" />
             <h1 className="text-xl font-bold tracking-tight flex-1">Schedule Board</h1>
             <Link
