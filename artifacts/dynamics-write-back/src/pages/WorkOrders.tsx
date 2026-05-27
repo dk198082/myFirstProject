@@ -166,6 +166,8 @@ export default function WorkOrders() {
               )}
               {(data ?? []).map((wo) => {
                 const pending = wo.pending_writeback;
+                const status = (wo.system_status ?? "").toLowerCase();
+                const editable = status === "scheduled" || status === "unscheduled";
                 return (
                   <TableRow key={wo.work_order_id}>
                     <TableCell className="font-mono text-xs">
@@ -203,7 +205,11 @@ export default function WorkOrders() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {wo.booking_id ? (
+                      {!wo.booking_id ? (
+                        <span className="text-xs text-muted-foreground">No booking</span>
+                      ) : !editable ? (
+                        <span className="text-xs text-muted-foreground">Locked</span>
+                      ) : (
                         <Button
                           variant={pending ? "secondary" : "outline"}
                           size="sm"
@@ -213,8 +219,6 @@ export default function WorkOrders() {
                           <Pencil className="h-3 w-3" />
                           {pending ? "Re-edit" : "Edit"}
                         </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">No booking</span>
                       )}
                     </TableCell>
                   </TableRow>
