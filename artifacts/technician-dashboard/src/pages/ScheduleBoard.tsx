@@ -1305,7 +1305,7 @@ export default function ScheduleBoard() {
                         onClick={() => toggleUtilRegion(r.regionid_id)}
                         className={`px-2 py-0.5 text-xs rounded border transition-colors ${isUtilRegionSelected(r.regionid_id) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
                       >
-                        {r.regionid_id}
+                        {r.region}
                       </button>
                     ))}
                   </div>
