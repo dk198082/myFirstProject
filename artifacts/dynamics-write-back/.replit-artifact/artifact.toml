@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/dynamics-write-back/"
+title = "Dynamics Write Back"
+version = "1.0.0"
+id = "artifacts/dynamics-write-back"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/dynamics-write-back/" ]
+localPort = 21460
+
+[services.development]
+run = "pnpm --filter @workspace/dynamics-write-back run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/dynamics-write-back", "run", "build" ]
+publicDir = "artifacts/dynamics-write-back/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21460"
+BASE_PATH = "/dynamics-write-back/"

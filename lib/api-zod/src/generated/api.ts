@@ -9,6 +9,91 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary List work orders with their primary booking for write-back UI
+ */
+export const listWbWorkOrdersQueryLimitMax = 500;
+
+
+
+export const ListWbWorkOrdersQueryParams = zod.object({
+  "search": zod.coerce.string().optional().describe('Free-text filter on work order number, title, or customer'),
+  "limit": zod.coerce.number().min(1).max(listWbWorkOrdersQueryLimitMax).optional().describe('Max rows to return (default 100)')
+})
+
+export const ListWbWorkOrdersResponseItem = zod.object({
+  "work_order_id": zod.string(),
+  "work_order_number": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "system_status": zod.string().nullish(),
+  "customer_name": zod.string().nullish(),
+  "booking_id": zod.string().nullish(),
+  "booking_status": zod.string().nullish(),
+  "start_time": zod.string().nullish(),
+  "end_time": zod.string().nullish(),
+  "technician_id": zod.string().nullish(),
+  "technician_name": zod.string().nullish(),
+  "pending_writeback": zod.object({
+  "id": zod.number(),
+  "booking_id": zod.string(),
+  "work_order_id": zod.string().nullish(),
+  "start_time": zod.string().nullish(),
+  "end_time": zod.string().nullish(),
+  "technician_id": zod.string().nullish(),
+  "technician_name": zod.string().nullish(),
+  "status": zod.string(),
+  "created_at": zod.string(),
+  "synced_at": zod.string().nullish()
+}).nullish()
+})
+export const ListWbWorkOrdersResponse = zod.array(ListWbWorkOrdersResponseItem)
+
+
+/**
+ * @summary Queue a write-back edit for a booking (staged locally, not pushed to Dynamics)
+ */
+export const UpdateWbBookingParams = zod.object({
+  "bookingId": zod.coerce.string()
+})
+
+export const UpdateWbBookingBody = zod.object({
+  "start_time": zod.string().nullish().describe('ISO 8601 timestamp'),
+  "end_time": zod.string().nullish().describe('ISO 8601 timestamp'),
+  "technician_id": zod.string().nullish()
+})
+
+export const UpdateWbBookingResponse = zod.object({
+  "id": zod.number(),
+  "booking_id": zod.string(),
+  "work_order_id": zod.string().nullish(),
+  "start_time": zod.string().nullish(),
+  "end_time": zod.string().nullish(),
+  "technician_id": zod.string().nullish(),
+  "technician_name": zod.string().nullish(),
+  "status": zod.string(),
+  "created_at": zod.string(),
+  "synced_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary List all staged write-back entries (queued and synced), most recent first
+ */
+export const ListWbWritebacksResponseItem = zod.object({
+  "id": zod.number(),
+  "booking_id": zod.string(),
+  "work_order_id": zod.string().nullish(),
+  "start_time": zod.string().nullish(),
+  "end_time": zod.string().nullish(),
+  "technician_id": zod.string().nullish(),
+  "technician_name": zod.string().nullish(),
+  "status": zod.string(),
+  "created_at": zod.string(),
+  "synced_at": zod.string().nullish()
+})
+export const ListWbWritebacksResponse = zod.array(ListWbWritebacksResponseItem)
+
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({

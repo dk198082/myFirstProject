@@ -9,6 +9,65 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface WbWriteback {
+  id: number;
+  booking_id: string;
+  /** @nullable */
+  work_order_id?: string | null;
+  /** @nullable */
+  start_time?: string | null;
+  /** @nullable */
+  end_time?: string | null;
+  /** @nullable */
+  technician_id?: string | null;
+  /** @nullable */
+  technician_name?: string | null;
+  status: string;
+  created_at: string;
+  /** @nullable */
+  synced_at?: string | null;
+}
+
+export interface WbWorkOrder {
+  work_order_id: string;
+  /** @nullable */
+  work_order_number?: string | null;
+  /** @nullable */
+  title?: string | null;
+  /** @nullable */
+  system_status?: string | null;
+  /** @nullable */
+  customer_name?: string | null;
+  /** @nullable */
+  booking_id?: string | null;
+  /** @nullable */
+  booking_status?: string | null;
+  /** @nullable */
+  start_time?: string | null;
+  /** @nullable */
+  end_time?: string | null;
+  /** @nullable */
+  technician_id?: string | null;
+  /** @nullable */
+  technician_name?: string | null;
+  pending_writeback?: WbWriteback | null;
+}
+
+export interface WbBookingUpdate {
+  /**
+     * ISO 8601 timestamp
+     * @nullable
+     */
+  start_time?: string | null;
+  /**
+     * ISO 8601 timestamp
+     * @nullable
+     */
+  end_time?: string | null;
+  /** @nullable */
+  technician_id?: string | null;
+}
+
 export interface ErrorResponse {
   error: string;
 }
@@ -516,6 +575,19 @@ export interface ResourceUtilizationResponse {
   default_weekly_capacity_hours: number;
   regions: UtilizationRegion[];
 }
+
+export type ListWbWorkOrdersParams = {
+/**
+ * Free-text filter on work order number, title, or customer
+ */
+search?: string;
+/**
+ * Max rows to return (default 100)
+ * @minimum 1
+ * @maximum 500
+ */
+limit?: number;
+};
 
 export type GetTechnicianByEmailParams = {
 email: string;

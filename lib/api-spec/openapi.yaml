@@ -16,7 +16,84 @@ tags:
     description: Work order operations
   - name: dashboard
     description: Dashboard summary operations
+  - name: writeback
+    description: Dynamics write-back staging operations
 paths:
+  /wb/work-orders:
+    get:
+      operationId: listWbWorkOrders
+      tags: [writeback]
+      summary: List work orders with their primary booking for write-back UI
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Free-text filter on work order number, title, or customer
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+          description: Max rows to return (default 100)
+      responses:
+        "200":
+          description: List of work orders with bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WbWorkOrder"
+
+  /wb/bookings/{bookingId}:
+    patch:
+      operationId: updateWbBooking
+      tags: [writeback]
+      summary: Queue a write-back edit for a booking (staged locally, not pushed to Dynamics)
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WbBookingUpdate"
+      responses:
+        "200":
+          description: Write-back entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WbWriteback"
+        "404":
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/writebacks:
+    get:
+      operationId: listWbWritebacks
+      tags: [writeback]
+      summary: List all staged write-back entries (queued and synced), most recent first
+      responses:
+        "200":
+          description: Queued write-backs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WbWriteback"
   /healthz:
     get:
       operationId: healthCheck
@@ -264,6 +341,78 @@ components:
           type: string
       required:
         - status
+
+    WbWorkOrder:
+      type: object
+      properties:
+        work_order_id:
+          type: string
+        work_order_number:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        system_status:
+          type: ["string", "null"]
+        customer_name:
+          type: ["string", "null"]
+        booking_id:
+          type: ["string", "null"]
+        booking_status:
+          type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+        end_time:
+          type: ["string", "null"]
+        technician_id:
+          type: ["string", "null"]
+        technician_name:
+          type: ["string", "null"]
+        pending_writeback:
+          $ref: "#/components/schemas/WbWriteback"
+          nullable: true
+      required:
+        - work_order_id
+
+    WbBookingUpdate:
+      type: object
+      properties:
+        start_time:
+          type: ["string", "null"]
+          description: ISO 8601 timestamp
+        end_time:
+          type: ["string", "null"]
+          description: ISO 8601 timestamp
+        technician_id:
+          type: ["string", "null"]
+
+    WbWriteback:
+      type: object
+      properties:
+        id:
+          type: integer
+        booking_id:
+          type: string
+        work_order_id:
+          type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+        end_time:
+          type: ["string", "null"]
+        technician_id:
+          type: ["string", "null"]
+        technician_name:
+          type: ["string", "null"]
+        status:
+          type: string
+        created_at:
+          type: string
+        synced_at:
+          type: ["string", "null"]
+      required:
+        - id
+        - booking_id
+        - status
+        - created_at
 
     ErrorResponse:
       type: object

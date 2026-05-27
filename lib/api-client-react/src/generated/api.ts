@@ -6,11 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 import {
+  useMutation,
   useQuery
 } from '@tanstack/react-query';
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult
 } from '@tanstack/react-query';
@@ -23,6 +27,7 @@ import type {
   GetScheduleBoardParams,
   GetTechnicianByEmailParams,
   HealthStatus,
+  ListWbWorkOrdersParams,
   RegionGroup,
   RegionJobGroup,
   ResourceUtilizationResponse,
@@ -31,11 +36,14 @@ import type {
   TechnicianJobsResponse,
   TechnicianSummary,
   UnscheduledJobsResponse,
+  WbBookingUpdate,
+  WbWorkOrder,
+  WbWriteback,
   WorkOrderDetail
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
-import type { ErrorType } from '../custom-fetch';
+import type { ErrorType , BodyType } from '../custom-fetch';
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -43,6 +51,239 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+
+
+export const getListWbWorkOrdersUrl = (params?: ListWbWorkOrdersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/wb/work-orders?${stringifiedParams}` : `/api/wb/work-orders`
+}
+
+/**
+ * @summary List work orders with their primary booking for write-back UI
+ */
+export const listWbWorkOrders = async (params?: ListWbWorkOrdersParams, options?: RequestInit): Promise<WbWorkOrder[]> => {
+
+  return customFetch<WbWorkOrder[]>(getListWbWorkOrdersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWbWorkOrdersQueryKey = (params?: ListWbWorkOrdersParams,) => {
+    return [
+    `/api/wb/work-orders`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListWbWorkOrdersQueryOptions = <TData = Awaited<ReturnType<typeof listWbWorkOrders>>, TError = ErrorType<unknown>>(params?: ListWbWorkOrdersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbWorkOrders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWbWorkOrdersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWbWorkOrders>>> = ({ signal }) => listWbWorkOrders(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWbWorkOrders>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWbWorkOrdersQueryResult = NonNullable<Awaited<ReturnType<typeof listWbWorkOrders>>>
+export type ListWbWorkOrdersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List work orders with their primary booking for write-back UI
+ */
+
+export function useListWbWorkOrders<TData = Awaited<ReturnType<typeof listWbWorkOrders>>, TError = ErrorType<unknown>>(
+ params?: ListWbWorkOrdersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbWorkOrders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWbWorkOrdersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateWbBookingUrl = (bookingId: string,) => {
+
+
+
+
+  return `/api/wb/bookings/${bookingId}`
+}
+
+/**
+ * @summary Queue a write-back edit for a booking (staged locally, not pushed to Dynamics)
+ */
+export const updateWbBooking = async (bookingId: string,
+    wbBookingUpdate: WbBookingUpdate, options?: RequestInit): Promise<WbWriteback> => {
+
+  return customFetch<WbWriteback>(getUpdateWbBookingUrl(bookingId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      wbBookingUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdateWbBookingMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWbBooking>>, TError,{bookingId: string;data: BodyType<WbBookingUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateWbBooking>>, TError,{bookingId: string;data: BodyType<WbBookingUpdate>}, TContext> => {
+
+const mutationKey = ['updateWbBooking'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWbBooking>>, {bookingId: string;data: BodyType<WbBookingUpdate>}> = (props) => {
+          const {bookingId,data} = props ?? {};
+
+          return  updateWbBooking(bookingId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateWbBookingMutationResult = NonNullable<Awaited<ReturnType<typeof updateWbBooking>>>
+    export type UpdateWbBookingMutationBody = BodyType<WbBookingUpdate>
+    export type UpdateWbBookingMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Queue a write-back edit for a booking (staged locally, not pushed to Dynamics)
+ */
+export const useUpdateWbBooking = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWbBooking>>, TError,{bookingId: string;data: BodyType<WbBookingUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateWbBooking>>,
+        TError,
+        {bookingId: string;data: BodyType<WbBookingUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateWbBookingMutationOptions(options));
+    }
+
+export const getListWbWritebacksUrl = () => {
+
+
+
+
+  return `/api/wb/writebacks`
+}
+
+/**
+ * @summary List all staged write-back entries (queued and synced), most recent first
+ */
+export const listWbWritebacks = async ( options?: RequestInit): Promise<WbWriteback[]> => {
+
+  return customFetch<WbWriteback[]>(getListWbWritebacksUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWbWritebacksQueryKey = () => {
+    return [
+    `/api/wb/writebacks`
+    ] as const;
+    }
+
+
+export const getListWbWritebacksQueryOptions = <TData = Awaited<ReturnType<typeof listWbWritebacks>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbWritebacks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWbWritebacksQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWbWritebacks>>> = ({ signal }) => listWbWritebacks({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWbWritebacks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWbWritebacksQueryResult = NonNullable<Awaited<ReturnType<typeof listWbWritebacks>>>
+export type ListWbWritebacksQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all staged write-back entries (queued and synced), most recent first
+ */
+
+export function useListWbWritebacks<TData = Awaited<ReturnType<typeof listWbWritebacks>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbWritebacks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWbWritebacksQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
 
 
 
