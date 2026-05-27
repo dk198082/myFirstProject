@@ -765,7 +765,7 @@ export default function ScheduleBoard() {
                       : "text-foreground hover:bg-accent"
                   }`}
                 >
-                  Per Tech
+                  Calendar
                 </button>
               </div>
               {view === "tech" && allTechs.length > 0 && (
