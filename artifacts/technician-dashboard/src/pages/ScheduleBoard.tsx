@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TopNav } from "@/components/TopNav";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
@@ -654,36 +655,7 @@ export default function ScheduleBoard() {
   return (
     <TooltipProvider delayDuration={120}>
       <div className="min-h-screen bg-background">
-        <header className="bg-sidebar text-sidebar-foreground shadow-md sticky top-0 z-20">
-          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
-            <CalendarClock className="h-6 w-6 text-sidebar-primary shrink-0" />
-            <h1 className="text-xl font-bold tracking-tight flex-1">Schedule Board</h1>
-            <Link
-              href="/jobs-by-region"
-              className="text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground flex items-center gap-1.5 font-medium"
-              data-testid="link-jobs-by-region"
-            >
-              <Globe className="h-4 w-4" />
-              <span className="hidden sm:inline">By Region</span>
-            </Link>
-            <Link
-              href="/unscheduled"
-              className="text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground flex items-center gap-1.5 font-medium"
-              data-testid="link-unscheduled"
-            >
-              <Briefcase className="h-4 w-4" />
-              <span className="hidden sm:inline">Unscheduled</span>
-            </Link>
-            <Link
-              href="/utilization"
-              className="text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground flex items-center gap-1.5 font-medium"
-              data-testid="link-utilization"
-            >
-              <User className="h-4 w-4" />
-              <span className="hidden sm:inline">Utilization</span>
-            </Link>
-          </div>
-        </header>
+        <TopNav />
 
         <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6">
           {/* Controls */}

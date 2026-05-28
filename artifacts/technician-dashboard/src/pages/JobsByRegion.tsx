@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TopNav } from "@/components/TopNav";
 import {
   MapPin, Clock, User, ChevronDown, ChevronUp,
   AlertTriangle, Search, Briefcase, Globe, Building2, Mail
@@ -304,21 +305,7 @@ export default function JobsByRegion() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-sidebar text-sidebar-foreground shadow-md sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
-          <Globe className="h-6 w-6 text-sidebar-primary shrink-0" />
-          <h1 className="text-xl font-bold tracking-tight flex-1">Jobs by Region</h1>
-          <Link
-            href="/"
-            data-testid="link-dashboard"
-            className="text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors font-medium flex items-center gap-1.5"
-          >
-            <Briefcase className="h-4 w-4" />
-            <span className="hidden sm:inline">My Dashboard</span>
-          </Link>
-        </div>
-      </header>
+      <TopNav />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         {/* Controls bar */}

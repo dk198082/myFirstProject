@@ -4,7 +4,8 @@ import { useGetUnscheduledJobs, UnscheduledJob } from "@workspace/api-client-rea
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Briefcase, Phone, Clock, MapPin, User } from "lucide-react";
+import { TopNav } from "@/components/TopNav";
+import { Phone, Clock, MapPin, User } from "lucide-react";
 
 type Job = UnscheduledJob;
 
@@ -231,20 +232,11 @@ export default function Unscheduled() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-sidebar text-sidebar-foreground shadow-md sticky top-0 z-20">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
-          <Link href="/schedule-board" data-testid="link-back" className="flex items-center gap-1.5 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
-            <ArrowLeft className="h-4 w-4" />
-            <span className="text-sm font-medium hidden sm:inline">Schedule Board</span>
-          </Link>
-          <span className="text-sidebar-foreground/40 mx-1">|</span>
-          <Briefcase className="h-6 w-6 text-sidebar-primary shrink-0" />
-          <h1 className="text-xl font-bold tracking-tight flex-1">Unscheduled Jobs</h1>
-          {!isLoading && (
-            <Badge variant="secondary" className="text-xs">{jobs.length} jobs</Badge>
-          )}
-        </div>
-      </header>
+      <TopNav
+        rightSlot={!isLoading ? (
+          <Badge variant="secondary" className="text-xs">{jobs.length} jobs</Badge>
+        ) : undefined}
+      />
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 space-y-5">
         {/* Region filter */}

@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, ChevronLeft, ChevronRight, User } from "lucide-react";
+import { TopNav } from "@/components/TopNav";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type ViewType = "week" | "month" | "quarter";
 
@@ -127,17 +128,7 @@ export default function ResourceUtilization() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-sidebar text-sidebar-foreground shadow-md sticky top-0 z-20">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
-          <Link href="/schedule-board" data-testid="link-back" className="flex items-center gap-1.5 text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors">
-            <ArrowLeft className="h-4 w-4" />
-            <span className="text-sm font-medium hidden sm:inline">Schedule Board</span>
-          </Link>
-          <span className="text-sidebar-foreground/40 mx-1">|</span>
-          <User className="h-6 w-6 text-sidebar-primary shrink-0" />
-          <h1 className="text-xl font-bold tracking-tight flex-1">Resource Utilization</h1>
-        </div>
-      </header>
+      <TopNav />
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
