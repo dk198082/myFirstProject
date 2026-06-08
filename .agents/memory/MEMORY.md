@@ -1,0 +1,1 @@
+- [Dynamics Dataverse write-back](dataverse-writeback.md) — how api-server syncs staged booking edits to Dynamics; OAuth/tenant gotchas; api-server has no auth layer.

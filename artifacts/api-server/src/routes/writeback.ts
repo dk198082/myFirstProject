@@ -255,18 +255,28 @@ router.post("/wb/sync", async (req, res) => {
   const ids = parsed.data?.ids;
 
   try {
+    // Atomically claim eligible rows so concurrent sync calls never process the
+    // same write-back twice. Setting status to 'processing' removes them from the
+    // eligibility set; SKIP LOCKED avoids blocking between concurrent claims.
     const params: unknown[] = [];
-    let where = `status IN ('queued', 'failed')`;
+    let eligibility = `status IN ('queued', 'failed')`;
     if (ids && ids.length > 0) {
       params.push(ids);
-      where = `id = ANY($1::int[])`;
+      // Keep the status guard even when specific ids are requested, so an
+      // already-synced row can never be re-pushed to production.
+      eligibility = `status IN ('queued', 'failed') AND id = ANY($1::int[])`;
     }
 
     const queued = await localPool.query<WritebackRow>(
-      `SELECT id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error
-       FROM booking_writebacks
-       WHERE ${where}
-       ORDER BY created_at ASC`,
+      `UPDATE booking_writebacks
+       SET status = 'processing'
+       WHERE id IN (
+         SELECT id FROM booking_writebacks
+         WHERE ${eligibility}
+         ORDER BY created_at ASC
+         FOR UPDATE SKIP LOCKED
+       )
+       RETURNING id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error`,
       params,
     );
 
