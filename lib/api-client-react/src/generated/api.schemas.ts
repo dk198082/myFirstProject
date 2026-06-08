@@ -26,6 +26,8 @@ export interface WbWriteback {
   created_at: string;
   /** @nullable */
   synced_at?: string | null;
+  /** @nullable */
+  error?: string | null;
 }
 
 export interface WbWorkOrder {
@@ -66,6 +68,25 @@ export interface WbBookingUpdate {
   end_time?: string | null;
   /** @nullable */
   technician_id?: string | null;
+}
+
+export interface WbSyncRequest {
+  /** Specific write-back ids to sync. Omit to sync all queued and previously failed entries. */
+  ids?: number[];
+}
+
+export type WbSyncResultResultsItem = {
+  id: number;
+  status: string;
+  /** @nullable */
+  error?: string | null;
+};
+
+export interface WbSyncResult {
+  processed: number;
+  synced: number;
+  failed: number;
+  results: WbSyncResultResultsItem[];
 }
 
 export interface ErrorResponse {

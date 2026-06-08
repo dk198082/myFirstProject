@@ -1,6 +1,25 @@
-import { useListWbWritebacks } from "@workspace/api-client-react";
+import { useState } from "react";
+import {
+  useListWbWritebacks,
+  useSyncWbWritebacks,
+  getListWbWritebacksQueryKey,
+  getListWbWorkOrdersQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -9,7 +28,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, CheckCircle2, Clock } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Loader2, CheckCircle2, Clock, AlertCircle, UploadCloud } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 function fmt(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -25,16 +50,90 @@ function fmt(iso: string | null | undefined): string {
 }
 
 export default function Writebacks() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data, isLoading, isError, refetch } = useListWbWritebacks();
   const rows = data ?? [];
 
+  const pendingCount = rows.filter(
+    (wb) => wb.status === "queued" || wb.status === "failed",
+  ).length;
+
+  const syncMutation = useSyncWbWritebacks({
+    mutation: {
+      onSuccess: (result) => {
+        queryClient.invalidateQueries({ queryKey: getListWbWritebacksQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListWbWorkOrdersQueryKey() });
+        if (result.failed > 0) {
+          toast({
+            title: `Synced ${result.synced}, ${result.failed} failed`,
+            description: "Check the failed rows below for details.",
+            variant: "destructive",
+          });
+        } else if (result.synced > 0) {
+          toast({
+            title: `Synced ${result.synced} write-back${result.synced === 1 ? "" : "s"}`,
+            description: "Changes pushed to Dynamics.",
+          });
+        } else {
+          toast({
+            title: "Nothing to sync",
+            description: "No queued write-backs were found.",
+          });
+        }
+      },
+      onError: (err) => {
+        toast({
+          title: "Sync failed",
+          description: err instanceof Error ? err.message : "Unknown error",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  const runSync = () => syncMutation.mutate({ data: {} });
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Queued Write-backs</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Staged edits ready to push to Dynamics. Most recent first.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Queued Write-backs</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Staged edits ready to push to Dynamics. Most recent first.
+          </p>
+        </div>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button disabled={pendingCount === 0 || syncMutation.isPending} className="gap-1.5">
+              {syncMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UploadCloud className="h-4 w-4" />
+              )}
+              Sync to Dynamics
+              {pendingCount > 0 && (
+                <Badge variant="secondary" className="ml-1">
+                  {pendingCount}
+                </Badge>
+              )}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Push write-backs to Dynamics?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will update {pendingCount} booking{pendingCount === 1 ? "" : "s"} directly in
+                the live Dynamics environment. This action writes to production and cannot be undone
+                from here.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={runSync}>Sync now</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <Card className="overflow-hidden p-0">
@@ -81,6 +180,7 @@ export default function Writebacks() {
               )}
               {rows.map((wb) => {
                 const isSynced = wb.status === "synced" || !!wb.synced_at;
+                const isFailed = wb.status === "failed";
                 return (
                   <TableRow key={wb.id}>
                     <TableCell className="font-mono text-xs text-muted-foreground">
@@ -103,7 +203,18 @@ export default function Writebacks() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {isSynced ? (
+                      {isFailed ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="destructive" className="gap-1 cursor-help">
+                              <AlertCircle className="h-3 w-3" /> Failed
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            {wb.error ?? "Unknown error"}
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : isSynced ? (
                         <Badge variant="default" className="gap-1">
                           <CheckCircle2 className="h-3 w-3" /> Synced
                         </Badge>

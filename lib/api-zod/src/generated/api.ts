@@ -42,7 +42,8 @@ export const ListWbWorkOrdersResponseItem = zod.object({
   "technician_name": zod.string().nullish(),
   "status": zod.string(),
   "created_at": zod.string(),
-  "synced_at": zod.string().nullish()
+  "synced_at": zod.string().nullish(),
+  "error": zod.string().nullish()
 }).nullish()
 })
 export const ListWbWorkOrdersResponse = zod.array(ListWbWorkOrdersResponseItem)
@@ -71,7 +72,8 @@ export const UpdateWbBookingResponse = zod.object({
   "technician_name": zod.string().nullish(),
   "status": zod.string(),
   "created_at": zod.string(),
-  "synced_at": zod.string().nullish()
+  "synced_at": zod.string().nullish(),
+  "error": zod.string().nullish()
 })
 
 
@@ -88,9 +90,29 @@ export const ListWbWritebacksResponseItem = zod.object({
   "technician_name": zod.string().nullish(),
   "status": zod.string(),
   "created_at": zod.string(),
-  "synced_at": zod.string().nullish()
+  "synced_at": zod.string().nullish(),
+  "error": zod.string().nullish()
 })
 export const ListWbWritebacksResponse = zod.array(ListWbWritebacksResponseItem)
+
+
+/**
+ * @summary Push queued (and previously failed) write-backs to Dynamics Dataverse
+ */
+export const SyncWbWritebacksBody = zod.object({
+  "ids": zod.array(zod.number()).optional().describe('Specific write-back ids to sync. Omit to sync all queued and previously failed entries.')
+})
+
+export const SyncWbWritebacksResponse = zod.object({
+  "processed": zod.number(),
+  "synced": zod.number(),
+  "failed": zod.number(),
+  "results": zod.array(zod.object({
+  "id": zod.number(),
+  "status": zod.string(),
+  "error": zod.string().nullish()
+}))
+})
 
 
 /**

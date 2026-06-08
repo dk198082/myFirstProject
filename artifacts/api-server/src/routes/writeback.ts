@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { pool } from "../lib/db.js";
 import { localPool } from "../lib/localDb.js";
+import { isDataverseConfigured, patchBooking } from "../lib/dataverse.js";
 
 const isoOrNull = z
   .string()
@@ -32,6 +33,7 @@ type WritebackRow = {
   status: string;
   created_at: Date | string;
   synced_at: Date | string | null;
+  error: string | null;
 };
 
 function toIso(v: Date | string | null | undefined): string | null {
@@ -71,6 +73,7 @@ function shapeWriteback(
     status: row.status,
     created_at: toIso(row.created_at) ?? "",
     synced_at: toIso(row.synced_at),
+    error: row.error ?? null,
   };
 }
 
@@ -127,7 +130,7 @@ router.get("/wb/work-orders", async (req, res) => {
       const pending = await localPool.query<WritebackRow>(
         `
         SELECT DISTINCT ON (booking_id)
-               id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at
+               id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error
         FROM booking_writebacks
         WHERE booking_id = ANY($1::text[]) AND status = 'queued'
         ORDER BY booking_id, created_at DESC
@@ -194,7 +197,7 @@ router.patch("/wb/bookings/:bookingId", async (req, res) => {
       `INSERT INTO booking_writebacks
         (booking_id, work_order_id, start_time, end_time, technician_id, status)
        VALUES ($1, $2, $3, $4, $5, 'queued')
-       RETURNING id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at`,
+       RETURNING id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error`,
       [
         bookingId,
         workOrderId,
@@ -216,7 +219,7 @@ router.patch("/wb/bookings/:bookingId", async (req, res) => {
 router.get("/wb/writebacks", async (req, res) => {
   try {
     const r = await localPool.query<WritebackRow>(
-      `SELECT id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at
+      `SELECT id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error
        FROM booking_writebacks
        ORDER BY created_at DESC
        LIMIT 200`,
@@ -226,6 +229,85 @@ router.get("/wb/writebacks", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to list write-backs");
     res.status(500).json({ error: "Failed to list write-backs" });
+  }
+});
+
+const syncRequestSchema = z
+  .object({
+    ids: z.array(z.number().int().positive()).optional(),
+  })
+  .optional();
+
+router.post("/wb/sync", async (req, res) => {
+  if (!isDataverseConfigured()) {
+    res.status(503).json({
+      error:
+        "Dataverse is not configured. Set TENANT_ID, CLIENT_ID, CLIENT_SECRET, and DATAVERSE_URL.",
+    });
+    return;
+  }
+
+  const parsed = syncRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
+    return;
+  }
+  const ids = parsed.data?.ids;
+
+  try {
+    const params: unknown[] = [];
+    let where = `status IN ('queued', 'failed')`;
+    if (ids && ids.length > 0) {
+      params.push(ids);
+      where = `id = ANY($1::int[])`;
+    }
+
+    const queued = await localPool.query<WritebackRow>(
+      `SELECT id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error
+       FROM booking_writebacks
+       WHERE ${where}
+       ORDER BY created_at ASC`,
+      params,
+    );
+
+    const results: Array<{ id: number; status: "synced" | "failed"; error: string | null }> = [];
+    let syncedCount = 0;
+    let failedCount = 0;
+
+    for (const row of queued.rows) {
+      try {
+        await patchBooking(row.booking_id, {
+          startTime: toIso(row.start_time),
+          endTime: toIso(row.end_time),
+          resourceId: row.technician_id,
+        });
+        await localPool.query(
+          `UPDATE booking_writebacks SET status = 'synced', synced_at = now(), error = NULL WHERE id = $1`,
+          [row.id],
+        );
+        syncedCount += 1;
+        results.push({ id: row.id, status: "synced", error: null });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        await localPool.query(
+          `UPDATE booking_writebacks SET status = 'failed', error = $2 WHERE id = $1`,
+          [row.id, message],
+        );
+        failedCount += 1;
+        results.push({ id: row.id, status: "failed", error: message });
+        req.log.error({ err, writebackId: row.id, bookingId: row.booking_id }, "Write-back sync failed");
+      }
+    }
+
+    res.json({
+      processed: queued.rows.length,
+      synced: syncedCount,
+      failed: failedCount,
+      results,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to run write-back sync");
+    res.status(500).json({ error: "Failed to run write-back sync" });
   }
 });
 

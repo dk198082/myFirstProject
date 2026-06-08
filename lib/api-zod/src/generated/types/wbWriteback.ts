@@ -23,4 +23,6 @@ export interface WbWriteback {
   created_at: string;
   /** @nullable */
   synced_at?: string | null;
+  /** @nullable */
+  error?: string | null;
 }

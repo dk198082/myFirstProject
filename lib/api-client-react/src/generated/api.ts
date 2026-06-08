@@ -37,6 +37,8 @@ import type {
   TechnicianSummary,
   UnscheduledJobsResponse,
   WbBookingUpdate,
+  WbSyncRequest,
+  WbSyncResult,
   WbWorkOrder,
   WbWriteback,
   WorkOrderDetail
@@ -286,6 +288,77 @@ export function useListWbWritebacks<TData = Awaited<ReturnType<typeof listWbWrit
 
 
 
+
+export const getSyncWbWritebacksUrl = () => {
+
+
+
+
+  return `/api/wb/sync`
+}
+
+/**
+ * @summary Push queued (and previously failed) write-backs to Dynamics Dataverse
+ */
+export const syncWbWritebacks = async (wbSyncRequest?: WbSyncRequest, options?: RequestInit): Promise<WbSyncResult> => {
+
+  return customFetch<WbSyncResult>(getSyncWbWritebacksUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      wbSyncRequest,)
+  }
+);}
+
+
+
+
+export const getSyncWbWritebacksMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncWbWritebacks>>, TError,{data?: BodyType<WbSyncRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncWbWritebacks>>, TError,{data?: BodyType<WbSyncRequest>}, TContext> => {
+
+const mutationKey = ['syncWbWritebacks'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncWbWritebacks>>, {data?: BodyType<WbSyncRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  syncWbWritebacks(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncWbWritebacksMutationResult = NonNullable<Awaited<ReturnType<typeof syncWbWritebacks>>>
+    export type SyncWbWritebacksMutationBody = BodyType<WbSyncRequest> | undefined
+    export type SyncWbWritebacksMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Push queued (and previously failed) write-backs to Dynamics Dataverse
+ */
+export const useSyncWbWritebacks = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncWbWritebacks>>, TError,{data?: BodyType<WbSyncRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncWbWritebacks>>,
+        TError,
+        {data?: BodyType<WbSyncRequest>},
+        TContext
+      > => {
+      return useMutation(getSyncWbWritebacksMutationOptions(options));
+    }
 
 export const getHealthCheckUrl = () => {
 

@@ -94,6 +94,31 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/WbWriteback"
+
+  /wb/sync:
+    post:
+      operationId: syncWbWritebacks
+      tags: [writeback]
+      summary: Push queued (and previously failed) write-backs to Dynamics Dataverse
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WbSyncRequest"
+      responses:
+        "200":
+          description: Sync result summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WbSyncResult"
+        "503":
+          description: Dataverse not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /healthz:
     get:
       operationId: healthCheck
@@ -408,11 +433,51 @@ components:
           type: string
         synced_at:
           type: ["string", "null"]
+        error:
+          type: ["string", "null"]
       required:
         - id
         - booking_id
         - status
         - created_at
+
+    WbSyncRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+          description: Specific write-back ids to sync. Omit to sync all queued and previously failed entries.
+
+    WbSyncResult:
+      type: object
+      properties:
+        processed:
+          type: integer
+        synced:
+          type: integer
+        failed:
+          type: integer
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              status:
+                type: string
+              error:
+                type: ["string", "null"]
+            required:
+              - id
+              - status
+      required:
+        - processed
+        - synced
+        - failed
+        - results
 
     ErrorResponse:
       type: object
