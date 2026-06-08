@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import {
   useListWbWorkOrders,
   useUpdateWbBooking,
-  useListTechnicians,
+  useListWbTechnicians,
   getListWbWorkOrdersQueryKey,
   getListWbWritebacksQueryKey,
   type WbWorkOrder,
@@ -105,7 +105,7 @@ export default function WorkOrders() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Work Orders</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Live from Dynamics fieldservice. Edit a booking to stage a write-back.
+            Live from the d365crm database. Edit a booking to stage a write-back.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -246,7 +246,7 @@ export default function WorkOrders() {
 function EditBookingDialog({ row, onClose }: { row: WbWorkOrder; onClose: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: technicians = [] } = useListTechnicians();
+  const { data: technicians = [] } = useListWbTechnicians();
   const updateMutation = useUpdateWbBooking({
     mutation: {
       onSuccess: () => {

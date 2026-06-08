@@ -119,6 +119,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/technicians:
+    get:
+      operationId: listWbTechnicians
+      tags: [writeback]
+      summary: List bookable resources (technicians) from the d365crm database
+      responses:
+        "200":
+          description: List of technicians
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WbTechnician"
   /healthz:
     get:
       operationId: healthCheck
@@ -478,6 +493,16 @@ components:
         - synced
         - failed
         - results
+
+    WbTechnician:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+      required:
+        - technician_id
 
     ErrorResponse:
       type: object

@@ -89,6 +89,12 @@ export interface WbSyncResult {
   results: WbSyncResultResultsItem[];
 }
 
+export interface WbTechnician {
+  technician_id: string;
+  /** @nullable */
+  resource_name?: string | null;
+}
+
 export interface ErrorResponse {
   error: string;
 }

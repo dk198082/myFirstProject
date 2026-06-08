@@ -116,6 +116,16 @@ export const SyncWbWritebacksResponse = zod.object({
 
 
 /**
+ * @summary List bookable resources (technicians) from the d365crm database
+ */
+export const ListWbTechniciansResponseItem = zod.object({
+  "technician_id": zod.string(),
+  "resource_name": zod.string().nullish()
+})
+export const ListWbTechniciansResponse = zod.array(ListWbTechniciansResponseItem)
+
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({

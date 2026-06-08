@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { pool } from "../lib/db.js";
+import { getCrmPool, isCrmConfigured } from "../lib/crmDb.js";
 import { localPool } from "../lib/localDb.js";
 import { isDataverseConfigured, patchBooking } from "../lib/dataverse.js";
 
@@ -44,11 +44,25 @@ function toIso(v: Date | string | null | undefined): string | null {
 
 async function resolveTechNames(ids: Array<string | null>): Promise<Map<string, string>> {
   const filtered = Array.from(new Set(ids.filter((v): v is string => !!v)));
-  if (filtered.length === 0) return new Map();
-  const r = await pool.query(
-    `SELECT technician_id::text AS technician_id, resource_name
-     FROM technicians
-     WHERE technician_id::text = ANY($1::text[])`,
+  if (filtered.length === 0 || !isCrmConfigured()) return new Map();
+  // Prefer the bookableresource name, but fall back to the formatted resource
+  // name embedded in booking.raw_json so technicians still resolve while the
+  // crm.bookableresource table is sparse/empty.
+  const r = await getCrmPool().query(
+    `SELECT DISTINCT ON (technician_id) technician_id, resource_name
+     FROM (
+       SELECT bookableresourceid::text AS technician_id, name AS resource_name, 0 AS pri
+       FROM crm.bookableresource
+       WHERE bookableresourceid::text = ANY($1::text[])
+       UNION ALL
+       SELECT DISTINCT resource::text AS technician_id,
+              raw_json->>'_resource_value@OData.Community.Display.V1.FormattedValue' AS resource_name,
+              1 AS pri
+       FROM crm.booking
+       WHERE resource::text = ANY($1::text[])
+     ) u
+     WHERE resource_name IS NOT NULL
+     ORDER BY technician_id, pri`,
     [filtered],
   );
   const m = new Map<string, string>();
@@ -82,43 +96,60 @@ router.get("/wb/work-orders", async (req, res) => {
   const limitRaw = Number(req.query.limit ?? 100);
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, limitRaw)) : 100;
 
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+
   try {
     const params: unknown[] = [];
     let whereSearch = "";
     if (search) {
       params.push(`%${search}%`);
-      whereSearch = `AND (wo.work_order_number ILIKE $${params.length}
-                          OR wo.title ILIKE $${params.length}
-                          OR c.customer_name ILIKE $${params.length})`;
+      whereSearch = `AND (wo.msdyn_name ILIKE $${params.length}
+                          OR COALESCE(wo.new_customerrequirement, wo.raw_json->>'_msdyn_workordertype_value@OData.Community.Display.V1.FormattedValue') ILIKE $${params.length}
+                          OR COALESCE(a.name, wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue') ILIKE $${params.length})`;
     }
     params.push(limit);
 
-    const r = await pool.query(
+    const r = await getCrmPool().query(
       `
       SELECT
-        wo.work_order_id,
-        wo.work_order_number,
-        wo.title,
-        wo.system_status,
-        c.customer_name,
+        wo.msdyn_workorderid::text AS work_order_id,
+        wo.msdyn_name AS work_order_number,
+        COALESCE(
+          wo.new_customerrequirement,
+          wo.raw_json->>'_msdyn_workordertype_value@OData.Community.Display.V1.FormattedValue'
+        ) AS title,
+        wo.raw_json->>'msdyn_systemstatus@OData.Community.Display.V1.FormattedValue' AS system_status,
+        COALESCE(
+          a.name,
+          wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue'
+        ) AS customer_name,
         b.booking_id,
         b.booking_status,
         b.start_time,
         b.end_time,
         b.technician_id,
-        t.resource_name AS technician_name
-      FROM work_orders wo
-      LEFT JOIN customers c ON c.customer_id = wo.customer_id
+        COALESCE(br.name, b.resource_name) AS technician_name
+      FROM crm.workorder wo
+      LEFT JOIN crm.account a ON a.accountid = wo.msdyn_serviceaccount
       LEFT JOIN LATERAL (
-        SELECT booking_id, booking_status, start_time, end_time, technician_id
-        FROM bookings
-        WHERE work_order_id = wo.work_order_id
-        ORDER BY start_time ASC NULLS LAST
+        SELECT
+          bookableresourcebookingid::text AS booking_id,
+          bookingstatus::text AS booking_status,
+          starttime AS start_time,
+          endtime AS end_time,
+          resource::text AS technician_id,
+          raw_json->>'_resource_value@OData.Community.Display.V1.FormattedValue' AS resource_name
+        FROM crm.booking
+        WHERE msdyn_workorder = wo.msdyn_workorderid AND COALESCE(is_deleted, false) = false
+        ORDER BY starttime ASC NULLS LAST
         LIMIT 1
       ) b ON true
-      LEFT JOIN technicians t ON t.technician_id = b.technician_id
-      WHERE 1=1 ${whereSearch}
-      ORDER BY b.start_time DESC NULLS LAST, wo.work_order_number ASC NULLS LAST
+      LEFT JOIN crm.bookableresource br ON br.bookableresourceid::text = b.technician_id
+      WHERE COALESCE(wo.is_deleted, false) = false ${whereSearch}
+      ORDER BY b.start_time DESC NULLS LAST, wo.msdyn_name ASC NULLS LAST
       LIMIT $${params.length}
       `,
       params,
@@ -182,9 +213,16 @@ router.patch("/wb/bookings/:bookingId", async (req, res) => {
   }
   const body = parsed.data;
 
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+
   try {
-    const existing = await pool.query<{ booking_id: string; work_order_id: string | null }>(
-      `SELECT booking_id, work_order_id FROM bookings WHERE booking_id = $1 LIMIT 1`,
+    const existing = await getCrmPool().query<{ booking_id: string; work_order_id: string | null }>(
+      `SELECT bookableresourcebookingid::text AS booking_id,
+              msdyn_workorder::text AS work_order_id
+       FROM crm.booking WHERE bookableresourcebookingid = $1 LIMIT 1`,
       [bookingId],
     );
     if (existing.rows.length === 0) {
@@ -229,6 +267,42 @@ router.get("/wb/writebacks", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to list write-backs");
     res.status(500).json({ error: "Failed to list write-backs" });
+  }
+});
+
+router.get("/wb/technicians", async (req, res) => {
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+  try {
+    // Source from crm.bookableresource, but also include resources referenced by
+    // bookings (with their formatted name from raw_json) so the reassign dropdown
+    // remains usable while crm.bookableresource is sparse/empty.
+    const r = await getCrmPool().query<{ technician_id: string; resource_name: string | null }>(
+      `SELECT technician_id, resource_name
+       FROM (
+         SELECT DISTINCT ON (technician_id) technician_id, resource_name
+         FROM (
+           SELECT bookableresourceid::text AS technician_id, name AS resource_name, 0 AS pri
+           FROM crm.bookableresource
+           WHERE COALESCE(is_deleted, false) = false
+           UNION ALL
+           SELECT DISTINCT resource::text AS technician_id,
+                  raw_json->>'_resource_value@OData.Community.Display.V1.FormattedValue' AS resource_name,
+                  1 AS pri
+           FROM crm.booking
+           WHERE resource IS NOT NULL AND COALESCE(is_deleted, false) = false
+         ) u
+         WHERE technician_id IS NOT NULL
+         ORDER BY technician_id, pri
+       ) d
+       ORDER BY resource_name ASC NULLS LAST`,
+    );
+    res.json(r.rows);
+  } catch (err) {
+    req.log.error({ err }, "Failed to list write-back technicians");
+    res.status(500).json({ error: "Failed to list technicians" });
   }
 });
 

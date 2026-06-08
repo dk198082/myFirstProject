@@ -39,6 +39,7 @@ import type {
   WbBookingUpdate,
   WbSyncRequest,
   WbSyncResult,
+  WbTechnician,
   WbWorkOrder,
   WbWriteback,
   WorkOrderDetail
@@ -359,6 +360,83 @@ export const useSyncWbWritebacks = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getSyncWbWritebacksMutationOptions(options));
     }
+
+export const getListWbTechniciansUrl = () => {
+
+
+
+
+  return `/api/wb/technicians`
+}
+
+/**
+ * @summary List bookable resources (technicians) from the d365crm database
+ */
+export const listWbTechnicians = async ( options?: RequestInit): Promise<WbTechnician[]> => {
+
+  return customFetch<WbTechnician[]>(getListWbTechniciansUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWbTechniciansQueryKey = () => {
+    return [
+    `/api/wb/technicians`
+    ] as const;
+    }
+
+
+export const getListWbTechniciansQueryOptions = <TData = Awaited<ReturnType<typeof listWbTechnicians>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbTechnicians>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWbTechniciansQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWbTechnicians>>> = ({ signal }) => listWbTechnicians({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWbTechnicians>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWbTechniciansQueryResult = NonNullable<Awaited<ReturnType<typeof listWbTechnicians>>>
+export type ListWbTechniciansQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List bookable resources (technicians) from the d365crm database
+ */
+
+export function useListWbTechnicians<TData = Awaited<ReturnType<typeof listWbTechnicians>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbTechnicians>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWbTechniciansQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getHealthCheckUrl = () => {
 

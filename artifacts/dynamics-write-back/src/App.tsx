@@ -48,7 +48,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             <NavLink href="/writebacks">Queued Write-backs</NavLink>
           </nav>
           <div className="ml-auto text-xs text-sidebar-foreground/60">
-            Reads <span className="text-sidebar-foreground/80">fieldservice</span> · Stages locally
+            Reads <span className="text-sidebar-foreground/80">d365crm</span> · Stages locally
           </div>
         </div>
       </header>

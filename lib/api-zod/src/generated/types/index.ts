@@ -47,6 +47,7 @@ export * from './wbBookingUpdate';
 export * from './wbSyncRequest';
 export * from './wbSyncResult';
 export * from './wbSyncResultResultsItem';
+export * from './wbTechnician';
 export * from './wbWorkOrder';
 export * from './wbWriteback';
 export * from './workOrderDetail';
