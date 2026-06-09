@@ -647,9 +647,9 @@ export default function ScheduleBoard() {
     : `180px repeat(${dayCount}, minmax(80px, 1fr))`;
   const minBoardWidth = view === "week" ? 1000 : 180 + dayCount * 80;
 
-  // Calendar view: one column per weekday (Mon–Fri only)
-  const techCalColTemplate = `160px repeat(${weekdayHeaders.length}, minmax(90px, 1fr))`;
-  const minTechCalWidth = 160 + weekdayHeaders.length * 90;
+  // Calendar view: one column per weekday (Mon–Fri only); wider cells to fit rich tiles
+  const techCalColTemplate = `160px repeat(${weekdayHeaders.length}, minmax(140px, 1fr))`;
+  const minTechCalWidth = 160 + weekdayHeaders.length * 140;
 
   return (
     <TooltipProvider delayDuration={120}>
@@ -968,15 +968,40 @@ export default function ScheduleBoard() {
                                     className={`border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""}`}
                                     data-testid={`tech-cell-${tech.technician_id}-${dh.dayIdx}`}
                                   >
-                                    {jobs.map((j) => (
-                                      <JobChip
-                                        key={j.booking_id}
-                                        job={j}
-                                        compact
-                                        colorClass={palette.chip}
-                                        isConflict={conflictedBookingIds.has(j.booking_id)}
-                                      />
-                                    ))}
+                                    {jobs.map((j) => {
+                                      const isCancelled = (j.system_status ?? "").toLowerCase() === "cancelled";
+                                      const isConflict = conflictedBookingIds.has(j.booking_id);
+                                      return (
+                                        <Link
+                                          key={j.booking_id}
+                                          href={j.work_order_id ? `/work-order/${j.work_order_id}` : "#"}
+                                          className={`block text-[11px] leading-tight rounded border-l-4 pl-1.5 py-1 pr-1 ${palette.chip.replace(/hover:bg-\S+/g, "").trim()} ${isCancelled ? "opacity-50 line-through" : ""} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""}`}
+                                          style={{ borderLeftColor: "currentColor" }}
+                                          data-testid={`tech-job-${j.booking_id}`}
+                                        >
+                                          {isConflict && (
+                                            <div className="flex items-center gap-0.5 text-amber-600 font-semibold mb-0.5">
+                                              <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                                              <span>Conflict</span>
+                                            </div>
+                                          )}
+                                          <div className="font-bold truncate">{j.customer_name ?? "—"}</div>
+                                          {(j.city || j.state) && (
+                                            <div className="opacity-70 truncate">{[j.city, j.state].filter(Boolean).join(", ")}</div>
+                                          )}
+                                          {(j.crmstarttime || j.crmendtime) && (
+                                            <div className="opacity-70 tabular-nums">
+                                              {fmtTime(j.crmstarttime)}{j.crmendtime ? `–${fmtTime(j.crmendtime)}` : ""}
+                                              {fmtDuration(j.crmstarttime, j.crmendtime) && (
+                                                <span className="ml-1 opacity-80">· {fmtDuration(j.crmstarttime, j.crmendtime)}</span>
+                                              )}
+                                            </div>
+                                          )}
+                                          <div className="font-mono font-semibold tabular-nums">{j.work_order_number ?? "—"}</div>
+                                          <div className="opacity-60 font-semibold">({statusCode(j.system_status)})</div>
+                                        </Link>
+                                      );
+                                    })}
                                   </div>
                                 );
                               })}
