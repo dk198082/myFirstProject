@@ -97,7 +97,16 @@ export default function WorkOrders() {
 
   const { data, isLoading, isError, refetch, isFetching } = useListWbWorkOrders(params);
 
-  const pendingCount = (data ?? []).filter((w) => w.pending_writeback).length;
+  const rows = useMemo(
+    () =>
+      (data ?? []).filter((w) => {
+        const s = (w.system_status ?? "").toLowerCase();
+        return s === "scheduled" || s === "unscheduled";
+      }),
+    [data],
+  );
+
+  const pendingCount = rows.filter((w) => w.pending_writeback).length;
 
   return (
     <div className="space-y-6">
@@ -157,14 +166,14 @@ export default function WorkOrders() {
                   </TableCell>
                 </TableRow>
               )}
-              {!isLoading && !isError && (data ?? []).length === 0 && (
+              {!isLoading && !isError && rows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                    No work orders match your search.
+                    No scheduled or unscheduled work orders match your search.
                   </TableCell>
                 </TableRow>
               )}
-              {(data ?? []).map((wo) => {
+              {rows.map((wo) => {
                 const pending = wo.pending_writeback;
                 const status = (wo.system_status ?? "").toLowerCase();
                 const editable = status === "scheduled" || status === "unscheduled";
@@ -230,7 +239,7 @@ export default function WorkOrders() {
       </Card>
 
       <div className="text-xs text-muted-foreground">
-        {isFetching && !isLoading ? "Refreshing…" : `${(data ?? []).length} record${(data ?? []).length === 1 ? "" : "s"}`}
+        {isFetching && !isLoading ? "Refreshing…" : `${rows.length} record${rows.length === 1 ? "" : "s"}`}
       </div>
 
       {editing && (
