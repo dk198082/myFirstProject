@@ -624,26 +624,21 @@ export default function ScheduleBoard() {
     }
   }, [allTechs, selectedTechIds]);
 
-  // Combined calendar grid for tech view: mondayISO -> [Mon..Fri][] of {tech,job}
-  type TechJobEntry = { tech: { id: string; name: string; region: string }; job: ScheduleJob };
-  const combinedGrid = useMemo(() => {
-    const grid = new Map<string, TechJobEntry[][]>();
-    if (view !== "tech") return grid;
-    for (const row of techWeekRows) grid.set(row.mondayISO, [[], [], [], [], []]);
-    for (const tech of techsToPrint) {
-      for (const j of tech.jobs) {
-        const iso = addDaysISO(rangeStart, j.day_index ?? 0);
-        const d = new Date(iso + "T00:00:00Z");
-        const dow = d.getUTCDay();
-        if (dow === 0 || dow === 6) continue;
-        const colIdx = dow - 1;
-        const monday = addDaysISO(iso, 1 - dow);
-        const row = grid.get(monday);
-        if (row) row[colIdx].push({ tech: { id: tech.id, name: tech.name, region: tech.region }, job: j });
-      }
-    }
-    return grid;
-  }, [view, techsToPrint, techWeekRows, rangeStart]);
+  // Weekday-only headers (Mon–Fri) for the Calendar view — one column per working day
+  const weekdayHeaders = useMemo(
+    () =>
+      dayHeaders
+        .map((dh, i) => ({ ...dh, dayIdx: i }))
+        .filter(({ iso }) => {
+          const dow = new Date(iso + "T00:00:00Z").getUTCDay();
+          return dow >= 1 && dow <= 5;
+        })
+        .map((dh) => ({
+          ...dh,
+          isMonday: new Date(dh.iso + "T00:00:00Z").getUTCDay() === 1,
+        })),
+    [dayHeaders]
+  );
 
   // Grid column template: tech label + N day cells
   // Per-day min width: week → 1fr; month → 80px (forces horizontal scroll)
@@ -651,6 +646,10 @@ export default function ScheduleBoard() {
     ? `180px repeat(${dayCount}, minmax(0, 1fr))`
     : `180px repeat(${dayCount}, minmax(80px, 1fr))`;
   const minBoardWidth = view === "week" ? 1000 : 180 + dayCount * 80;
+
+  // Calendar view: one column per weekday (Mon–Fri only)
+  const techCalColTemplate = `160px repeat(${weekdayHeaders.length}, minmax(90px, 1fr))`;
+  const minTechCalWidth = 160 + weekdayHeaders.length * 90;
 
   return (
     <TooltipProvider delayDuration={120}>
@@ -877,152 +876,122 @@ export default function ScheduleBoard() {
             </div>
           )}
 
-          {/* Per-Tech printable view — single combined calendar with one or more techs */}
+          {/* Calendar view — one row per technician, weekday columns (Mon–Fri), grouped by region */}
           {view === "tech" && !isLoading && !error && techsToPrint.length > 0 && (
-            <div data-testid="tech-view">
-              <Card
-                className="overflow-hidden border-2 border-foreground/80 shadow-sm print:shadow-none bg-white"
-                data-testid="tech-combined-card"
-              >
-                {/* Header: tech name(s) with color dots */}
-                <div className="px-6 py-4 border-b-2 border-foreground/80 flex items-center justify-between gap-4 bg-white flex-wrap">
-                  <div className="flex items-center gap-3 flex-wrap min-w-0">
-                    {techsToPrint.length === 1 ? (
-                      <>
-                        <span className={`h-3 w-3 rounded-full ${techColor(techsToPrint[0].id).dot} print:hidden`} aria-hidden />
-                        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                          {techsToPrint[0].name}
-                        </h2>
-                        <span className="text-xs px-2 py-0.5 rounded border border-foreground/30 font-mono font-semibold text-foreground/70">
-                          {techsToPrint[0].region}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                          {techsToPrint.length} Technicians
-                        </h2>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {techsToPrint.map((t) => {
-                            const palette = techColor(t.id);
-                            return (
-                              <span
-                                key={t.id}
-                                className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/80"
-                                data-testid={`tech-legend-${t.id}`}
-                              >
-                                <span className={`h-2.5 w-2.5 rounded-full ${palette.dot}`} aria-hidden />
-                                {t.name}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <CardContent className="p-0 overflow-x-auto">
-                  <div style={{ minWidth: "1060px" }}>
-                  {/* Day headers Mon-Fri */}
-                  <div
-                    className="grid border-b-2 border-foreground/80 bg-white"
-                    style={{ gridTemplateColumns: "60px repeat(5, 200px)" }}
+            <div data-testid="tech-view" className="space-y-6">
+              {regions.map((rg) => {
+                const techsInRegion = rg.technicians.filter(
+                  (t) => selectedTechIds === null || selectedTechIds.has(t.technician_id)
+                );
+                if (techsInRegion.length === 0) return null;
+                const regionJobCount = techsInRegion.reduce((s, t) => s + t.jobs.length, 0);
+                return (
+                  <Card
+                    key={rg.regionid_id}
+                    className="overflow-hidden border-2 border-foreground/80 shadow-sm print:shadow-none bg-white"
+                    data-testid={`tech-region-${rg.regionid_id}`}
                   >
-                    <div className="border-r border-foreground/40" />
-                    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((d) => (
-                      <div key={d} className="px-2 py-2 text-sm font-bold text-center border-r border-foreground/40 last:border-r-0 text-foreground">
-                        {d}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Week rows */}
-                  {techWeekRows.length === 0 && (
-                    <div className="px-4 py-8 text-center text-sm text-muted-foreground italic">
-                      No weekdays in this range.
+                    {/* Region header */}
+                    <div className="px-4 py-3 border-b-2 border-foreground/80 flex items-center gap-3 bg-white flex-wrap">
+                      <Globe className="h-4 w-4 text-foreground/70" />
+                      <span className="text-base font-bold text-foreground">{rg.region}</span>
+                      {rg.company && (
+                        <span className="text-xs px-2 py-0.5 rounded border border-foreground/30 font-mono font-semibold text-foreground/70">
+                          {rg.company}
+                        </span>
+                      )}
+                      <Badge variant="outline" className="text-xs">
+                        {techsInRegion.length} tech{techsInRegion.length !== 1 ? "s" : ""} · {regionJobCount} job{regionJobCount !== 1 ? "s" : ""}
+                      </Badge>
                     </div>
-                  )}
-                  {techWeekRows.map((row) => {
-                    const cols = combinedGrid.get(row.mondayISO) ?? [[], [], [], [], []];
-                    return (
-                      <div
-                        key={row.mondayISO}
-                        className="grid border-b border-foreground/40 last:border-b-0 min-h-[140px]"
-                        style={{ gridTemplateColumns: "60px repeat(5, 200px)" }}
-                        data-testid={`week-row-${row.mondayISO}`}
-                      >
-                        <div className="px-2 py-3 border-r border-foreground/40 text-sm font-bold text-foreground/70 tabular-nums">
-                          {row.label}
-                        </div>
-                        {cols.map((entries, i) => (
-                          <div
-                            key={i}
-                            className="px-2 py-2 border-r border-foreground/40 last:border-r-0 space-y-2"
-                            data-testid={`tech-cell-${row.mondayISO}-${i}`}
-                          >
-                            {entries.map(({ tech, job: j }) => {
-                              const isCancelled = (j.system_status ?? "").toLowerCase() === "cancelled";
-                              const palette = techColor(tech.id);
-                              const isConflict = conflictedBookingIds.has(j.booking_id);
-                              return (
-                                <Link
-                                  key={j.booking_id}
-                                  href={j.work_order_id ? `/work-orders/${j.work_order_id}` : "#"}
-                                  className={`block text-[11px] leading-tight rounded border-l-4 pl-1.5 ${palette.chip.replace(/hover:bg-\S+/g, "").trim()} ${isCancelled ? "opacity-50 line-through" : ""} ${isConflict ? "ring-2 ring-amber-400" : ""}`}
-                                  style={{ borderLeftColor: "currentColor" }}
-                                  data-testid={`tech-job-${j.booking_id}`}
-                                >
-                                  {isConflict && (
-                                    <div className="flex items-center gap-0.5 text-amber-600 font-semibold">
-                                      <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
-                                      <span>Conflict</span>
-                                    </div>
-                                  )}
-                                  {techsToPrint.length > 1 && (
-                                    <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide opacity-80">
-                                      <span className={`h-1.5 w-1.5 rounded-full ${palette.dot}`} aria-hidden />
-                                      {tech.name}
-                                    </div>
-                                  )}
-                                  <div className="font-bold text-foreground truncate">
-                                    {j.customer_name ?? "—"}
-                                  </div>
-                                  {(j.city || j.state) && (
-                                    <div className="text-foreground/70 truncate">
-                                      {[j.city, j.state].filter(Boolean).join(", ")}
-                                    </div>
-                                  )}
-                                  {(j.crmstarttime || j.crmendtime) && (
-                                    <div className="text-foreground/70 tabular-nums">
-                                      {fmtTime(j.crmstarttime)}{j.crmendtime ? `–${fmtTime(j.crmendtime)}` : ""}
-                                      {fmtDuration(j.crmstarttime, j.crmendtime) && (
-                                        <span className="ml-1 text-foreground/60">· {fmtDuration(j.crmstarttime, j.crmendtime)}</span>
-                                      )}
-                                    </div>
-                                  )}
-                                  <div className="font-mono font-semibold text-foreground tabular-nums">
-                                    {j.work_order_number ?? "—"}
-                                  </div>
-                                  <div className="text-foreground/60 font-semibold">
-                                    ({statusCode(j.system_status)})
-                                  </div>
-                                </Link>
-                              );
-                            })}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                  </div>
-                </CardContent>
 
-                {/* Footer: month + year */}
-                <div className="px-6 py-3 border-t-2 border-foreground/80 text-center text-sm font-bold uppercase tracking-widest text-foreground bg-white">
-                  {fmtRangeLabel(rangeStart, dayCount, "month")}
-                </div>
-              </Card>
+                    <CardContent className="p-0 overflow-x-auto">
+                      <div style={{ minWidth: `${minTechCalWidth}px` }}>
+                        {/* Day-of-week headers */}
+                        <div
+                          className="grid bg-white border-b-2 border-foreground/80"
+                          style={{ gridTemplateColumns: techCalColTemplate }}
+                        >
+                          <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-foreground/60 border-r border-foreground/40">
+                            Technician
+                          </div>
+                          {weekdayHeaders.map((dh) => (
+                            <div
+                              key={dh.iso}
+                              className={`px-1.5 py-2 text-xs font-bold text-center border-r border-foreground/20 last:border-r-0 ${dh.isMonday ? "border-l-2 border-l-foreground/40" : ""}`}
+                            >
+                              <div className="text-foreground">{dh.dow}</div>
+                              <div className="text-foreground/60 font-normal">{dh.date}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* One row per technician */}
+                        {techsInRegion.map((tech) => {
+                          const palette = techColor(tech.technician_id);
+                          const jobsByWeekday = weekdayHeaders.map(({ dayIdx }) => {
+                            const jobs = (tech.jobs as ScheduleJob[]).filter(
+                              (j) => j.day_index === dayIdx
+                            );
+                            return jobs.sort((a, b) => {
+                              const am = timeToMins(a.crmstarttime);
+                              const bm = timeToMins(b.crmstarttime);
+                              if (am == null && bm == null) return 0;
+                              if (am == null) return 1;
+                              if (bm == null) return -1;
+                              return am - bm;
+                            });
+                          });
+                          return (
+                            <div
+                              key={tech.technician_id}
+                              className="grid border-b border-foreground/20 last:border-b-0 hover:bg-accent/10"
+                              style={{ gridTemplateColumns: techCalColTemplate }}
+                              data-testid={`row-tech-${tech.technician_id}`}
+                            >
+                              <div className="px-2 py-2 border-r border-foreground/40 flex items-start gap-1.5">
+                                <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${palette.dot}`} aria-hidden />
+                                <div className="min-w-0">
+                                  <div className="text-xs font-semibold text-foreground leading-tight truncate">
+                                    {tech.resource_name ?? "Unassigned"}
+                                  </div>
+                                  <div className="text-[10px] text-foreground/50">
+                                    {tech.jobs.length} job{tech.jobs.length !== 1 ? "s" : ""}
+                                  </div>
+                                </div>
+                              </div>
+                              {jobsByWeekday.map((jobs, i) => {
+                                const dh = weekdayHeaders[i];
+                                return (
+                                  <div
+                                    key={i}
+                                    className={`border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""}`}
+                                    data-testid={`tech-cell-${tech.technician_id}-${dh.dayIdx}`}
+                                  >
+                                    {jobs.map((j) => (
+                                      <JobChip
+                                        key={j.booking_id}
+                                        job={j}
+                                        compact
+                                        colorClass={palette.chip}
+                                        isConflict={conflictedBookingIds.has(j.booking_id)}
+                                      />
+                                    ))}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+
+                    <div className="px-4 py-2.5 border-t-2 border-foreground/80 text-center text-xs font-bold uppercase tracking-widest text-foreground bg-white">
+                      {fmtRangeLabel(rangeStart, dayCount, "month")}
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           )}
 
