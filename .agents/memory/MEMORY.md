@@ -1,1 +1,2 @@
-- [Auth & monorepo gotchas](auth-and-monorepo-gotchas.md) — drizzle push TTY prompts (use psql), non-composite source libs need root `pnpm install`, UI gate ≠ API protection, Entra ID OIDC adaptation.
+- [Dynamics Dataverse write-back](dataverse-writeback.md) — how api-server syncs staged booking edits to Dynamics; OAuth/tenant gotchas; api-server has no auth layer.
+- [d365crm database](d365crm-database.md) — write-back reads crm.* tables; password breaks URL parsing; lookup names live in raw_json FormattedValue, not lookup tables.

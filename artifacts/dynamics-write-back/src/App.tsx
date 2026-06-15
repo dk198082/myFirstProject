@@ -2,12 +2,10 @@ import { Switch, Route, Router as WouterRouter, Link, useLocation } from "wouter
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Database, ClipboardList, LogOut } from "lucide-react";
-import { useAuth } from "@workspace/auth-web";
+import { Database, ClipboardList } from "lucide-react";
 import WorkOrders from "@/pages/WorkOrders";
 import Writebacks from "@/pages/Writebacks";
 import NotFound from "@/pages/not-found";
-import { AuthGate } from "@/components/AuthGate";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,7 +31,6 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 }
 
 function Layout({ children }: { children: React.ReactNode }) {
-  const { logout } = useAuth();
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-sidebar text-sidebar-foreground border-b border-sidebar-border">
@@ -50,18 +47,8 @@ function Layout({ children }: { children: React.ReactNode }) {
             </NavLink>
             <NavLink href="/writebacks">Queued Write-backs</NavLink>
           </nav>
-          <div className="ml-auto flex items-center gap-4">
-            <span className="text-xs text-sidebar-foreground/60">
-              Reads <span className="text-sidebar-foreground/80">d365crm</span> · Stages locally
-            </span>
-            <button
-              onClick={logout}
-              data-testid="button-logout"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Sign out</span>
-            </button>
+          <div className="ml-auto text-xs text-sidebar-foreground/60">
+            Reads <span className="text-sidebar-foreground/80">d365crm</span> · Stages locally
           </div>
         </div>
       </header>
@@ -86,11 +73,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AuthGate>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-        </AuthGate>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <Router />
+        </WouterRouter>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

@@ -10,7 +10,6 @@ import ScheduleBoard from "@/pages/ScheduleBoard";
 import Unscheduled from "@/pages/Unscheduled";
 import ResourceUtilization from "@/pages/ResourceUtilization";
 import NotFound from "@/pages/not-found";
-import { AuthGate } from "@/components/AuthGate";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,11 +39,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AuthGate>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-        </AuthGate>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <Router />
+        </WouterRouter>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

@@ -30,14 +30,7 @@ _Populate as you build — non-obvious choices a reader couldn't infer from the 
 
 ## Product
 
-- **technician-dashboard** and **dynamics-write-back** web apps, both protected by Microsoft (Azure Entra ID) sign-in.
-- Auth: OIDC against `https://login.microsoftonline.com/${TENANT_ID}/v2.0` using `CLIENT_ID`/`CLIENT_SECRET`/`TENANT_ID`. MFA is enforced Azure-side via Conditional Access (no app code). Sessions are stored in local Postgres (`DATABASE_URL`).
-- Auth server lives in `api-server` (`src/lib/auth.ts`, `src/routes/auth.ts`, `src/middlewares/authMiddleware.ts`). A single `/api/callback` serves both apps via the `return_to` cookie. Data API routes are guarded by `requireAuth` (only `/api/auth/*` and health are public). Shared web hook: `@workspace/auth-web`.
-
-### Azure app registration (required to log in)
-Register these in the Azure portal app registration for **each** domain (dev + prod):
-- Redirect URI (Web): `https://<domain>/api/callback`
-- Front-channel logout / post-logout redirect URI: `https://<domain>/`
+_Describe the high-level user-facing capabilities of this app once they exist._
 
 ## User preferences
 
