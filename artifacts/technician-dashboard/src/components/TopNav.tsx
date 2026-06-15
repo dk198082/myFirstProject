@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { CalendarClock, Globe, Briefcase, User, type LucideIcon } from "lucide-react";
+import { useAuth } from "@workspace/auth-web";
+import { CalendarClock, Globe, Briefcase, User, LogOut, type LucideIcon } from "lucide-react";
 
 type Tab = { href: string; label: string; icon: LucideIcon; testId: string };
 
@@ -12,6 +13,7 @@ const TABS: Tab[] = [
 
 export function TopNav({ rightSlot }: { rightSlot?: React.ReactNode }) {
   const [location] = useLocation();
+  const { logout } = useAuth();
 
   return (
     <header className="bg-sidebar text-sidebar-foreground shadow-md sticky top-0 z-20">
@@ -39,7 +41,17 @@ export function TopNav({ rightSlot }: { rightSlot?: React.ReactNode }) {
             );
           })}
         </nav>
-        {rightSlot && <div className="flex items-center gap-2 shrink-0">{rightSlot}</div>}
+        <div className="flex items-center gap-2 shrink-0">
+          {rightSlot}
+          <button
+            onClick={logout}
+            data-testid="button-logout"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Sign out</span>
+          </button>
+        </div>
       </div>
     </header>
   );
