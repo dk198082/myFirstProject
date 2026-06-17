@@ -580,6 +580,45 @@ export const GetWbScheduleBoardResponse = zod.object({
 
 
 /**
+ * @summary Get d365crm bookings grouped by region (territory) then technician (resource)
+ */
+export const GetWbJobsByRegionQueryParams = zod.object({
+  "status": zod.coerce.string().optional().describe('Filter by work order system status (e.g. Scheduled, Completed)')
+})
+
+export const GetWbJobsByRegionResponseItem = zod.object({
+  "regionid_id": zod.string(),
+  "region": zod.string(),
+  "owner_name": zod.string().nullish(),
+  "owner_email": zod.string().nullish(),
+  "company": zod.string().nullish(),
+  "technicians": zod.array(zod.object({
+  "technician_id": zod.string(),
+  "resource_name": zod.string().nullish(),
+  "user_email": zod.string().nullish(),
+  "jobs": zod.array(zod.object({
+  "booking_id": zod.string(),
+  "work_order_id": zod.string().nullish(),
+  "work_order_number": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "priority": zod.string().nullish(),
+  "system_status": zod.string().nullish(),
+  "sub_status": zod.string().nullish(),
+  "booking_status": zod.string().nullish(),
+  "service_address": zod.string().nullish(),
+  "customer_name": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "start_time": zod.string().nullish(),
+  "end_time": zod.string().nullish(),
+  "duration_minutes": zod.number().nullish()
+}))
+}))
+})
+export const GetWbJobsByRegionResponse = zod.array(GetWbJobsByRegionResponseItem)
+
+
+/**
  * @summary List d365crm work orders with status "Unscheduled" enriched with due date, duration, contact, and best-fit techs
  */
 export const GetWbUnscheduledJobsResponse = zod.object({

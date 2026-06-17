@@ -1092,6 +1092,217 @@ router.get("/wb/resource-utilization", async (req, res) => {
   }
 });
 
+// ── Jobs by region (d365crm parity with the FS /jobs-by-region endpoint) ──
+//
+// Region (territory) -> technician (resource) -> jobs (bookings + work order
+// details). Mirrors /wb/schedule-board grouping but is not date-bounded and
+// returns every booking (optionally filtered by work-order system status).
+// Resources mapped to a territory but with no bookings still render as empty
+// technician rows (parity with the FS board). Region owner/company metadata is
+// not modeled in the CRM mirror, so those fields are returned null.
+router.get("/wb/jobs-by-region", async (req, res) => {
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+
+  const statusFilter = ((req.query.status as string | undefined) ?? "").trim();
+  const params: string[] = [];
+  const statusClause = statusFilter
+    ? `AND wo.raw_json->>'msdyn_systemstatus@OData.Community.Display.V1.FormattedValue' = $${params.push(statusFilter)}`
+    : "";
+
+  try {
+    const result = await getCrmPool().query(
+      `
+      WITH res_terr AS (
+        SELECT DISTINCT ON (rt.msdyn_resource)
+               rt.msdyn_resource  AS resource_id,
+               rt.msdyn_territory AS territory_id
+        FROM crm.msdyn_resourceterritory rt
+        WHERE rt.msdyn_resource IS NOT NULL
+          AND rt.msdyn_territory IS NOT NULL
+          AND COALESCE(rt.is_deleted, false) = false
+        ORDER BY rt.msdyn_resource, rt.msdyn_territory
+      ),
+      bk AS (
+        SELECT
+          b.bookableresourcebookingid AS booking_id,
+          b.resource                  AS resource_id,
+          b.starttime                 AS start_time,
+          b.endtime                   AS end_time,
+          b.raw_json                  AS b_raw,
+          COALESCE(rt.territory_id, wo.msdyn_serviceterritory) AS territory_id,
+          wo.msdyn_workorderid        AS wo_id,
+          wo.msdyn_name               AS wo_number,
+          COALESCE(
+            wo.new_customerrequirement,
+            wo.raw_json->>'_msdyn_workordertype_value@OData.Community.Display.V1.FormattedValue'
+          )                           AS title,
+          wo.raw_json->>'_msdyn_priority_value@OData.Community.Display.V1.FormattedValue' AS priority,
+          wo.raw_json->>'msdyn_systemstatus@OData.Community.Display.V1.FormattedValue'    AS system_status,
+          wo.raw_json->>'msdyn_substatus@OData.Community.Display.V1.FormattedValue'       AS sub_status,
+          COALESCE(
+            wo.raw_json->>'_cf_servicelocation_value@OData.Community.Display.V1.FormattedValue',
+            NULLIF(wo.msdyn_address1, '')
+          )                           AS service_address,
+          wo.msdyn_city               AS city,
+          wo.msdyn_stateorprovince    AS state,
+          COALESCE(
+            acc.name,
+            wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue'
+          )                           AS customer_name
+        FROM crm.booking b
+        LEFT JOIN res_terr rt ON rt.resource_id = b.resource
+        LEFT JOIN crm.workorder wo ON wo.msdyn_workorderid = b.msdyn_workorder
+        LEFT JOIN crm.account acc ON acc.accountid = wo.msdyn_serviceaccount
+        WHERE COALESCE(b.is_deleted, false) = false
+          ${statusClause}
+      )
+      SELECT
+        ter.territoryid::text                        AS regionid_id,
+        ter.name                                     AS region,
+        COALESCE(br.bookableresourceid::text, bk.resource_id::text) AS technician_id,
+        COALESCE(
+          br.name,
+          bk.b_raw->>'_resource_value@OData.Community.Display.V1.FormattedValue'
+        )                                            AS resource_name,
+        br.msdyn_primaryemail                        AS user_email,
+        bk.booking_id::text                          AS booking_id,
+        bk.wo_id::text                               AS work_order_id,
+        bk.wo_number                                 AS work_order_number,
+        bk.title                                     AS title,
+        bk.priority                                  AS priority,
+        bk.system_status                             AS system_status,
+        bk.sub_status                                AS sub_status,
+        bk.b_raw->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue' AS booking_status,
+        bk.service_address                           AS service_address,
+        bk.customer_name                             AS customer_name,
+        bk.city                                      AS city,
+        bk.state                                     AS state,
+        bk.start_time                                AS start_time,
+        bk.end_time                                  AS end_time,
+        CASE
+          WHEN bk.start_time IS NOT NULL AND bk.end_time IS NOT NULL
+          THEN ROUND(EXTRACT(EPOCH FROM (bk.end_time - bk.start_time)) / 60)::int
+          ELSE NULL
+        END                                          AS duration_minutes
+      FROM bk
+      JOIN crm.territory ter ON ter.territoryid = bk.territory_id
+      LEFT JOIN crm.bookableresource br
+        ON br.bookableresourceid = bk.resource_id
+       AND COALESCE(br.is_deleted, false) = false
+
+      UNION ALL
+
+      SELECT
+        ter.territoryid::text                        AS regionid_id,
+        ter.name                                     AS region,
+        br.bookableresourceid::text                  AS technician_id,
+        br.name                                      AS resource_name,
+        br.msdyn_primaryemail                        AS user_email,
+        NULL::text                                   AS booking_id,
+        NULL::text                                   AS work_order_id,
+        NULL::text                                   AS work_order_number,
+        NULL::text                                   AS title,
+        NULL::text                                   AS priority,
+        NULL::text                                   AS system_status,
+        NULL::text                                   AS sub_status,
+        NULL::text                                   AS booking_status,
+        NULL::text                                   AS service_address,
+        NULL::text                                   AS customer_name,
+        NULL::text                                   AS city,
+        NULL::text                                   AS state,
+        NULL::timestamp                              AS start_time,
+        NULL::timestamp                              AS end_time,
+        NULL::int                                    AS duration_minutes
+      FROM res_terr rterr
+      JOIN crm.territory ter ON ter.territoryid = rterr.territory_id
+      JOIN crm.bookableresource br
+        ON br.bookableresourceid = rterr.resource_id
+       AND COALESCE(br.is_deleted, false) = false
+      WHERE NOT EXISTS (SELECT 1 FROM bk WHERE bk.resource_id = rterr.resource_id)
+
+      ORDER BY region ASC, resource_name ASC NULLS LAST, start_time ASC NULLS LAST
+      `,
+      params,
+    );
+
+    type TechRow = {
+      technician_id: string;
+      resource_name: string | null;
+      user_email: string | null;
+      jobs: unknown[];
+    };
+    type RegionRow = {
+      regionid_id: string;
+      region: string;
+      owner_name: string | null;
+      owner_email: string | null;
+      company: string | null;
+      technicians: Map<string, TechRow>;
+    };
+
+    const regionMap = new Map<string, RegionRow>();
+    for (const row of result.rows) {
+      const rid = row.regionid_id as string;
+      if (!regionMap.has(rid)) {
+        regionMap.set(rid, {
+          regionid_id: rid,
+          region: row.region,
+          owner_name: null,
+          owner_email: null,
+          company: null,
+          technicians: new Map(),
+        });
+      }
+      const rg = regionMap.get(rid)!;
+      const tid = row.technician_id as string | null;
+      if (!tid) continue;
+      if (!rg.technicians.has(tid)) {
+        rg.technicians.set(tid, {
+          technician_id: tid,
+          resource_name: row.resource_name,
+          user_email: row.user_email,
+          jobs: [],
+        });
+      }
+      if (!row.booking_id) continue;
+      rg.technicians.get(tid)!.jobs.push({
+        booking_id: row.booking_id,
+        work_order_id: row.work_order_id,
+        work_order_number: row.work_order_number,
+        title: row.title,
+        priority: row.priority,
+        system_status: row.system_status,
+        sub_status: row.sub_status,
+        booking_status: row.booking_status,
+        service_address: row.service_address,
+        customer_name: row.customer_name,
+        city: row.city,
+        state: row.state,
+        start_time: row.start_time,
+        end_time: row.end_time,
+        duration_minutes: row.duration_minutes,
+      });
+    }
+
+    const response = Array.from(regionMap.values()).map((rg) => ({
+      regionid_id: rg.regionid_id,
+      region: rg.region,
+      owner_name: rg.owner_name,
+      owner_email: rg.owner_email,
+      company: rg.company,
+      technicians: Array.from(rg.technicians.values()),
+    }));
+
+    res.json(response);
+  } catch (err) {
+    req.log.error({ err }, "Failed to get write-back jobs by region");
+    res.status(500).json({ error: "Failed to get jobs by region" });
+  }
+});
+
 const syncRequestSchema = z
   .object({
     ids: z.array(z.number().int().positive()).optional(),

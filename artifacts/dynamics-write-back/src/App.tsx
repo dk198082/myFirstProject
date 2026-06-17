@@ -2,10 +2,13 @@ import { Switch, Route, Router as WouterRouter, Link, useLocation } from "wouter
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Database, ClipboardList, CalendarRange } from "lucide-react";
+import { Database, ClipboardList, CalendarRange, Globe, CalendarClock, BarChart3 } from "lucide-react";
 import WorkOrders from "@/pages/WorkOrders";
 import Writebacks from "@/pages/Writebacks";
 import ScheduleBoard from "@/pages/ScheduleBoard";
+import JobsByRegion from "@/pages/JobsByRegion";
+import Unscheduled from "@/pages/Unscheduled";
+import ResourceUtilization from "@/pages/ResourceUtilization";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -51,6 +54,21 @@ function Layout({ children }: { children: React.ReactNode }) {
                 <CalendarRange className="h-4 w-4" /> Schedule Board
               </span>
             </NavLink>
+            <NavLink href="/jobs-by-region">
+              <span className="inline-flex items-center gap-1.5">
+                <Globe className="h-4 w-4" /> By Region
+              </span>
+            </NavLink>
+            <NavLink href="/unscheduled">
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarClock className="h-4 w-4" /> Unscheduled
+              </span>
+            </NavLink>
+            <NavLink href="/utilization">
+              <span className="inline-flex items-center gap-1.5">
+                <BarChart3 className="h-4 w-4" /> Utilization
+              </span>
+            </NavLink>
             <NavLink href="/writebacks">Queued Write-backs</NavLink>
           </nav>
           <div className="ml-auto text-xs text-sidebar-foreground/60">
@@ -69,6 +87,9 @@ function Router() {
       <Switch>
         <Route path="/" component={WorkOrders} />
         <Route path="/schedule-board" component={ScheduleBoard} />
+        <Route path="/jobs-by-region" component={JobsByRegion} />
+        <Route path="/unscheduled" component={Unscheduled} />
+        <Route path="/utilization" component={ResourceUtilization} />
         <Route path="/writebacks" component={Writebacks} />
         <Route component={NotFound} />
       </Switch>

@@ -417,6 +417,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/ScheduleBoard"
 
+  /wb/jobs-by-region:
+    get:
+      operationId: getWbJobsByRegion
+      tags: [writeback]
+      summary: Get d365crm bookings grouped by region (territory) then technician (resource)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Filter by work order system status (e.g. Scheduled, Completed)
+      responses:
+        "200":
+          description: Jobs grouped by region then technician (sourced from d365crm crm.* tables)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegionJobGroup"
+
   /wb/unscheduled-jobs:
     get:
       operationId: getWbUnscheduledJobs

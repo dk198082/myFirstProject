@@ -26,6 +26,7 @@ import type {
   GetResourceUtilizationParams,
   GetScheduleBoardParams,
   GetTechnicianByEmailParams,
+  GetWbJobsByRegionParams,
   GetWbResourceUtilizationParams,
   GetWbScheduleBoardParams,
   HealthStatus,
@@ -1459,6 +1460,90 @@ export function useGetWbScheduleBoard<TData = Awaited<ReturnType<typeof getWbSch
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetWbScheduleBoardQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetWbJobsByRegionUrl = (params?: GetWbJobsByRegionParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/wb/jobs-by-region?${stringifiedParams}` : `/api/wb/jobs-by-region`
+}
+
+/**
+ * @summary Get d365crm bookings grouped by region (territory) then technician (resource)
+ */
+export const getWbJobsByRegion = async (params?: GetWbJobsByRegionParams, options?: RequestInit): Promise<RegionJobGroup[]> => {
+
+  return customFetch<RegionJobGroup[]>(getGetWbJobsByRegionUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWbJobsByRegionQueryKey = (params?: GetWbJobsByRegionParams,) => {
+    return [
+    `/api/wb/jobs-by-region`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetWbJobsByRegionQueryOptions = <TData = Awaited<ReturnType<typeof getWbJobsByRegion>>, TError = ErrorType<unknown>>(params?: GetWbJobsByRegionParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbJobsByRegion>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWbJobsByRegionQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWbJobsByRegion>>> = ({ signal }) => getWbJobsByRegion(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWbJobsByRegion>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWbJobsByRegionQueryResult = NonNullable<Awaited<ReturnType<typeof getWbJobsByRegion>>>
+export type GetWbJobsByRegionQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get d365crm bookings grouped by region (territory) then technician (resource)
+ */
+
+export function useGetWbJobsByRegion<TData = Awaited<ReturnType<typeof getWbJobsByRegion>>, TError = ErrorType<unknown>>(
+ params?: GetWbJobsByRegionParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbJobsByRegion>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWbJobsByRegionQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

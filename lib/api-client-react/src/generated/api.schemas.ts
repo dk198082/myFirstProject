@@ -699,6 +699,13 @@ export const GetWbScheduleBoardView = {
   month: 'month',
 } as const;
 
+export type GetWbJobsByRegionParams = {
+/**
+ * Filter by work order system status (e.g. Scheduled, Completed)
+ */
+status?: string;
+};
+
 export type GetWbResourceUtilizationParams = {
 /**
  * ISO date (YYYY-MM-DD) within the desired period
