@@ -353,6 +353,22 @@ function fmtUtilHours(minutes: number): string {
   return `${m}m`;
 }
 
+// At-a-glance availability readout shown on idle technician rows (capacity
+// planning). An idle tech has booked nothing in the range, so we surface how
+// much capacity is free, e.g. "Idle · 0 of 40h booked".
+function IdleCapacityBadge({ capacityMinutes }: { capacityMinutes: number }) {
+  const capH = Math.round(capacityMinutes / 60);
+  return (
+    <div
+      className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700"
+      data-testid="idle-capacity-badge"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+      {capH > 0 ? `Idle · 0 of ${capH}h booked` : "Idle · available"}
+    </div>
+  );
+}
+
 // ── Unscheduled card helpers ──────────────────────────────────────────────────
 
 function fmtMins(mins: number | null | undefined): string {
@@ -722,6 +738,29 @@ export default function ScheduleBoard() {
     (s, r) => s + r.technicians.reduce((ts, t) => ts + t.jobs.length, 0),
     0,
   );
+
+  // Per-technician capacity (minutes) for the active range, sourced from the
+  // resource-utilization endpoint. Used to surface an idle tech's available
+  // capacity at a glance when capacity planning ("show idle techs") is on.
+  const techCapMinutesById = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of utilData?.regions ?? []) {
+      for (const t of r.technicians ?? []) {
+        m.set(t.technician_id, t.capacity_minutes ?? 0);
+      }
+    }
+    return m;
+  }, [utilData]);
+
+  // Fallback capacity when a tech isn't present in the utilization payload.
+  const defaultCapMinutes = useMemo(() => {
+    const weeklyHours = utilData?.default_weekly_capacity_hours ?? 40;
+    const periodWeeks = utilData?.period_weeks ?? (view === "week" ? 1 : 4);
+    return Math.round(weeklyHours * periodWeeks * 60);
+  }, [utilData, view]);
+
+  const idleCapMinutes = (technicianId: string) =>
+    techCapMinutesById.get(technicianId) ?? defaultCapMinutes;
 
   // Time horizon for unscheduled jobs driven by the active view (no separate toggle)
   const unscheduledHorizonDays = view === "week" ? 7 : 30;
@@ -1256,6 +1295,11 @@ export default function ScheduleBoard() {
                               <div className="text-[10px] text-foreground/50">
                                 {tech.jobs.length} job{tech.jobs.length !== 1 ? "s" : ""}
                               </div>
+                              {showIdleTechs && tech.jobs.length === 0 && (
+                                <IdleCapacityBadge
+                                  capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                />
+                              )}
                             </div>
                           </div>
                           {jobsByWeekday.map((jobs, i) => {
@@ -1466,6 +1510,11 @@ export default function ScheduleBoard() {
                               <div className="text-[10px] text-muted-foreground">
                                 {tech.jobs.length} job{tech.jobs.length !== 1 ? "s" : ""}
                               </div>
+                              {showIdleTechs && tech.jobs.length === 0 && (
+                                <IdleCapacityBadge
+                                  capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                />
+                              )}
                             </div>
                           </div>
                           {jobsByDay.map((jobs, i) => {
