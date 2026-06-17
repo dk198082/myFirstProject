@@ -36,6 +36,11 @@ import {
   Clock,
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
+import {
+  timeToMins,
+  conflictedIdsForTech,
+  wouldDropConflict,
+} from "@/lib/conflicts";
 
 type ViewMode = "week" | "month" | "tech";
 
@@ -124,15 +129,6 @@ function shiftIsoDays(iso: string | null | undefined, days: number): string | nu
   if (Number.isNaN(d.getTime())) return null;
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString();
-}
-
-function timeToMins(t: string | null | undefined): number | null {
-  if (!t) return null;
-  const [hStr, mStr] = t.split(":");
-  const h = Number(hStr);
-  const m = Number(mStr ?? "0");
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
-  return h * 60 + m;
 }
 
 function fmtDuration(start: string | null | undefined, end: string | null | undefined): string {
@@ -756,32 +752,7 @@ export default function ScheduleBoard() {
     for (const r of allRegions) {
       for (const t of r.technicians) {
         const jobs = (t.jobs ?? []) as ScheduleJob[];
-        const byDay = new Map<number, ScheduleJob[]>();
-        for (const j of jobs) {
-          const d = j.day_index ?? 0;
-          if (!byDay.has(d)) byDay.set(d, []);
-          byDay.get(d)!.push(j);
-        }
-        for (const dayJobs of byDay.values()) {
-          if (dayJobs.length < 2) continue;
-          for (let a = 0; a < dayJobs.length; a++) {
-            for (let b = a + 1; b < dayJobs.length; b++) {
-              const ja = dayJobs[a];
-              const jb = dayJobs[b];
-              const aStart = timeToMins(ja.crmstarttime);
-              const aEnd = timeToMins(ja.crmendtime);
-              const bStart = timeToMins(jb.crmstarttime);
-              const bEnd = timeToMins(jb.crmendtime);
-              if (aStart == null || bStart == null) continue;
-              const aEndE = aEnd ?? aStart + 1;
-              const bEndE = bEnd ?? bStart + 1;
-              if (aStart < bEndE && aEndE > bStart) {
-                ids.add(ja.booking_id);
-                ids.add(jb.booking_id);
-              }
-            }
-          }
-        }
+        for (const id of conflictedIdsForTech(jobs)) ids.add(id);
       }
     }
     return ids;
@@ -809,20 +780,13 @@ export default function ScheduleBoard() {
     const dragged = dragJobRef.current;
     if (!dragged) return false;
     const { job, sourceTechId } = dragged;
-    const deltaDays = targetDayIndex - (job.day_index ?? 0);
-    if (targetTechId === sourceTechId && deltaDays === 0) return false; // no-op
-    const aStart = timeToMins(job.crmstarttime);
-    if (aStart == null) return false;
-    const aEnd = timeToMins(job.crmendtime) ?? aStart + 1;
-    for (const other of jobsByTechId.get(targetTechId) ?? []) {
-      if (other.booking_id === job.booking_id) continue;
-      if ((other.day_index ?? 0) !== targetDayIndex) continue;
-      const bStart = timeToMins(other.crmstarttime);
-      if (bStart == null) continue;
-      const bEnd = timeToMins(other.crmendtime) ?? bStart + 1;
-      if (aStart < bEnd && aEnd > bStart) return true;
-    }
-    return false;
+    return wouldDropConflict(
+      job,
+      sourceTechId,
+      targetTechId,
+      targetDayIndex,
+      jobsByTechId.get(targetTechId) ?? [],
+    );
   };
 
   const toggleRegion = (id: string) => {
