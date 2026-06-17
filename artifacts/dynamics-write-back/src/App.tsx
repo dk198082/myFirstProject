@@ -25,7 +25,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   return (
     <Link
       href={href}
-      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+      className={`block px-3 py-2 rounded-md text-sm font-medium transition-colors ${
         active
           ? "bg-sidebar-accent text-sidebar-accent-foreground"
           : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
@@ -38,47 +38,45 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-sidebar text-sidebar-foreground border-b border-sidebar-border">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <Database className="h-5 w-5 text-sidebar-primary" />
-            <span className="font-semibold tracking-tight">Dynamics Write Back</span>
-          </div>
-          <nav className="flex items-center gap-1">
-            <NavLink href="/">
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarRange className="h-4 w-4" /> Schedule Board
-              </span>
-            </NavLink>
-            <NavLink href="/service-reports">
-              <span className="inline-flex items-center gap-1.5">
-                <FileBarChart className="h-4 w-4" /> Service Reports
-              </span>
-            </NavLink>
-            <NavLink href="/jobs-by-region">
-              <span className="inline-flex items-center gap-1.5">
-                <Globe className="h-4 w-4" /> By Region
-              </span>
-            </NavLink>
-            <NavLink href="/unscheduled">
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarClock className="h-4 w-4" /> Unscheduled
-              </span>
-            </NavLink>
-            <NavLink href="/work-orders">
-              <span className="inline-flex items-center gap-1.5">
-                <ClipboardList className="h-4 w-4" /> Work Orders
-              </span>
-            </NavLink>
-            <NavLink href="/writebacks">Queued Write-backs</NavLink>
-          </nav>
-          <div className="ml-auto text-xs text-sidebar-foreground/60">
-            Reads <span className="text-sidebar-foreground/80">d365crm</span> · Stages locally
-          </div>
+    <div className="min-h-screen bg-background flex">
+      <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col min-h-screen sticky top-0">
+        <div className="flex items-center gap-2 px-4 py-4 border-b border-sidebar-border">
+          <Database className="h-5 w-5 text-sidebar-primary" />
+          <span className="font-semibold tracking-tight">Dynamics Write Back</span>
         </div>
-      </header>
-      <main className="max-w-7xl mx-auto px-6 py-6">{children}</main>
+        <nav className="flex flex-col gap-1 p-3 flex-1">
+          <NavLink href="/">
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarRange className="h-4 w-4" /> Schedule Board
+            </span>
+          </NavLink>
+          <NavLink href="/jobs-by-region">
+            <span className="inline-flex items-center gap-1.5">
+              <Globe className="h-4 w-4" /> By Region
+            </span>
+          </NavLink>
+          <NavLink href="/unscheduled">
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarClock className="h-4 w-4" /> Unscheduled
+            </span>
+          </NavLink>
+          <NavLink href="/work-orders">
+            <span className="inline-flex items-center gap-1.5">
+              <ClipboardList className="h-4 w-4" /> Work Orders
+            </span>
+          </NavLink>
+          <NavLink href="/service-reports">
+            <span className="inline-flex items-center gap-1.5">
+              <FileBarChart className="h-4 w-4" /> Service Reports
+            </span>
+          </NavLink>
+          <NavLink href="/writebacks">Queued Write-backs</NavLink>
+        </nav>
+        <div className="px-4 py-3 text-xs text-sidebar-foreground/60 border-t border-sidebar-border">
+          Reads <span className="text-sidebar-foreground/80">d365crm</span> · Stages locally
+        </div>
+      </aside>
+      <main className="flex-1 min-w-0 px-6 py-6">{children}</main>
     </div>
   );
 }
