@@ -566,6 +566,10 @@ export default function ScheduleBoard() {
   // an unscheduled job, so the dialog can auto-fill the end time.
   const [editingDuration, setEditingDuration] = useState<number | null>(null);
   const [utilRegions, setUtilRegions] = useState<Set<string> | null>(null); // null = all
+  // Capacity-planning toggle. When false (default) the board hides technicians
+  // with no jobs in the current range to keep the view focused on scheduled
+  // work. When true, idle technicians are shown across all views and counts.
+  const [showIdleTechs, setShowIdleTechs] = useState(false);
 
   // Open the booking dialog in "new booking" mode for an unscheduled work order,
   // pre-filled with the work order and an optional suggested technician.
@@ -693,18 +697,22 @@ export default function ScheduleBoard() {
     [rangeStart, dayCount, view],
   );
 
-  // Display-only filter: only show technicians that have at least one job in the
-  // current range, and drop regions that end up with no such technicians. The API
-  // response is left untouched for other consumers.
+  // Display-only filter: by default only show technicians that have at least one
+  // job in the current range, and drop regions that end up with no such
+  // technicians. When `showIdleTechs` is on (capacity planning), show the full
+  // roster including idle technicians. The API response is left untouched for
+  // other consumers.
   const allRegions = useMemo(
     () =>
-      (data?.regions ?? [])
-        .map((r) => ({
-          ...r,
-          technicians: r.technicians.filter((t) => (t.jobs?.length ?? 0) > 0),
-        }))
-        .filter((r) => r.technicians.length > 0),
-    [data],
+      showIdleTechs
+        ? (data?.regions ?? [])
+        : (data?.regions ?? [])
+            .map((r) => ({
+              ...r,
+              technicians: r.technicians.filter((t) => (t.jobs?.length ?? 0) > 0),
+            }))
+            .filter((r) => r.technicians.length > 0),
+    [data, showIdleTechs],
   );
   const regions = useMemo(
     () =>
@@ -1048,9 +1056,11 @@ export default function ScheduleBoard() {
         </div>
       </div>
 
-      {/* Region filter */}
-      {!isLoading && allRegions.length > 0 && (
+      {/* Region filter + capacity-planning toggle */}
+      {!isLoading && data && (
         <div className="flex items-center gap-2 flex-wrap" data-testid="region-filter">
+          {allRegions.length > 0 && (
+            <>
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mr-1">
             Filter regions:
           </span>
@@ -1093,6 +1103,35 @@ export default function ScheduleBoard() {
               None
             </button>
           </div>
+            </>
+          )}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={showIdleTechs}
+            onClick={() => setShowIdleTechs((v) => !v)}
+            data-testid="toggle-show-idle-techs"
+            title="Show technicians with no jobs in the current range"
+            className={`ml-auto inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+              showIdleTechs
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card text-muted-foreground border-border hover:bg-accent"
+            }`}
+          >
+            <span
+              className={`relative inline-flex h-3.5 w-6 items-center rounded-full transition-colors ${
+                showIdleTechs ? "bg-primary-foreground/40" : "bg-muted-foreground/30"
+              }`}
+              aria-hidden
+            >
+              <span
+                className={`inline-block h-2.5 w-2.5 rounded-full bg-white shadow transition-transform ${
+                  showIdleTechs ? "translate-x-3" : "translate-x-0.5"
+                }`}
+              />
+            </span>
+            Show idle techs
+          </button>
         </div>
       )}
 
