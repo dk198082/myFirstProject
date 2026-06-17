@@ -343,19 +343,71 @@ function fmtUtilHours(minutes: number): string {
   return `${m}m`;
 }
 
+// Shared hover readout for the capacity badges. The badges only have room for a
+// single "X of Yh booked" figure, so the tooltip breaks that down into booked,
+// capacity, remaining, and utilization % to help dispatchers make confident
+// assignment decisions without leaving the board.
+function CapacityTooltipContent({
+  utilizedMinutes,
+  capacityMinutes,
+}: {
+  utilizedMinutes: number;
+  capacityMinutes: number;
+}) {
+  const pct = capacityMinutes > 0 ? Math.round((utilizedMinutes / capacityMinutes) * 100) : 0;
+  const remainingMinutes = capacityMinutes - utilizedMinutes;
+  const colors = utilColors(pct);
+  return (
+    <TooltipContent side="top" className="max-w-xs p-3 space-y-1 text-xs">
+      <div className="font-bold text-sm">Capacity</div>
+      <div className="border-t border-border pt-1.5 space-y-1">
+        <div className="flex justify-between gap-4">
+          <span className="font-medium text-muted-foreground">Booked:</span>
+          <span>{fmtUtilHours(utilizedMinutes)}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="font-medium text-muted-foreground">Capacity:</span>
+          <span>{capacityMinutes > 0 ? fmtUtilHours(capacityMinutes) : "—"}</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="font-medium text-muted-foreground">Remaining:</span>
+          <span>
+            {capacityMinutes > 0
+              ? remainingMinutes >= 0
+                ? fmtUtilHours(remainingMinutes)
+                : `-${fmtUtilHours(-remainingMinutes)}`
+              : "—"}
+          </span>
+        </div>
+        <div className="flex justify-between gap-4 pt-0.5">
+          <span className="font-medium text-muted-foreground">Utilization:</span>
+          <span className={`font-semibold ${capacityMinutes > 0 ? colors.text : ""}`}>
+            {capacityMinutes > 0 ? `${pct}%` : "—"}
+          </span>
+        </div>
+      </div>
+    </TooltipContent>
+  );
+}
+
 // At-a-glance availability readout shown on idle technician rows (capacity
 // planning). An idle tech has booked nothing in the range, so we surface how
 // much capacity is free, e.g. "Idle · 0 of 40h booked".
 function IdleCapacityBadge({ capacityMinutes }: { capacityMinutes: number }) {
   const capH = Math.round(capacityMinutes / 60);
   return (
-    <div
-      className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700"
-      data-testid="idle-capacity-badge"
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-      {capH > 0 ? `Idle · 0 of ${capH}h booked` : "Idle · available"}
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700"
+          data-testid="idle-capacity-badge"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+          {capH > 0 ? `Idle · 0 of ${capH}h booked` : "Idle · available"}
+        </div>
+      </TooltipTrigger>
+      <CapacityTooltipContent utilizedMinutes={0} capacityMinutes={capacityMinutes} />
+    </Tooltip>
   );
 }
 
@@ -377,14 +429,19 @@ function CapacityBadge({
   const colors = utilColors(pct);
   const barPct = Math.max(0, Math.min(100, pct));
   return (
-    <div className="mt-0.5 flex items-center gap-1.5" data-testid="capacity-badge">
-      <div className="h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-foreground/10">
-        <div className={`h-full rounded-full ${colors.bar}`} style={{ width: `${barPct}%` }} />
-      </div>
-      <span className={`text-[10px] font-medium ${colors.text}`}>
-        {capH > 0 ? `${utilH} of ${capH}h booked` : `${utilH}h booked`}
-      </span>
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="mt-0.5 flex items-center gap-1.5" data-testid="capacity-badge">
+          <div className="h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-foreground/10">
+            <div className={`h-full rounded-full ${colors.bar}`} style={{ width: `${barPct}%` }} />
+          </div>
+          <span className={`text-[10px] font-medium ${colors.text}`}>
+            {capH > 0 ? `${utilH} of ${capH}h booked` : `${utilH}h booked`}
+          </span>
+        </div>
+      </TooltipTrigger>
+      <CapacityTooltipContent utilizedMinutes={utilizedMinutes} capacityMinutes={capacityMinutes} />
+    </Tooltip>
   );
 }
 
