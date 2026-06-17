@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import {
   useUpdateWbBooking,
+  useCreateWbBooking,
   useListWbTechnicians,
   getListWbWorkOrdersQueryKey,
   getListWbWritebacksQueryKey,
   getGetWbScheduleBoardQueryKey,
+  getGetWbUnscheduledJobsQueryKey,
   type WbWorkOrder,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -48,14 +50,30 @@ function fromLocalInput(local: string): string | null {
 
 export function EditBookingDialog({
   row,
+  durationMinutes,
   onClose,
 }: {
   row: WbWorkOrder;
+  // Estimated job duration, used to auto-fill the end time when scheduling a new
+  // booking for an unscheduled work order.
+  durationMinutes?: number | null;
   onClose: () => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: technicians = [] } = useListWbTechnicians();
+
+  // New-booking mode: an unscheduled work order has no booking yet, so we create
+  // one rather than patching an existing booking.
+  const isNew = !row.booking_id;
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: getListWbWorkOrdersQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListWbWritebacksQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetWbScheduleBoardQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getGetWbUnscheduledJobsQueryKey() });
+  };
+
   const updateMutation = useUpdateWbBooking({
     mutation: {
       onSuccess: () => {
@@ -63,9 +81,7 @@ export function EditBookingDialog({
           title: "Write-back queued",
           description: `Edit staged locally for ${row.work_order_number ?? "booking"}.`,
         });
-        queryClient.invalidateQueries({ queryKey: getListWbWorkOrdersQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getListWbWritebacksQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetWbScheduleBoardQueryKey() });
+        invalidateAll();
         onClose();
       },
       onError: (err) => {
@@ -78,10 +94,45 @@ export function EditBookingDialog({
     },
   });
 
+  const createMutation = useCreateWbBooking({
+    mutation: {
+      onSuccess: () => {
+        toast({
+          title: "Booking queued",
+          description: `New booking staged locally for ${row.work_order_number ?? "work order"}.`,
+        });
+        invalidateAll();
+        onClose();
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to queue booking",
+          description: err instanceof Error ? err.message : "Unknown error",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  const isPending = updateMutation.isPending || createMutation.isPending;
+
   const seed = row.pending_writeback ?? row;
   const [start, setStart] = useState(toLocalInput(seed.start_time));
   const [end, setEnd] = useState(toLocalInput(seed.end_time));
   const [techId, setTechId] = useState<string>(seed.technician_id ?? UNASSIGNED);
+
+  // When scheduling a new booking, auto-fill the end time from the estimated
+  // duration as soon as the user picks a start (unless they've set one already).
+  const onStartChange = (value: string) => {
+    setStart(value);
+    if (isNew && durationMinutes && durationMinutes > 0 && !end && value) {
+      const d = new Date(value);
+      if (!isNaN(d.getTime())) {
+        d.setMinutes(d.getMinutes() + durationMinutes);
+        setEnd(toLocalInput(d.toISOString()));
+      }
+    }
+  };
 
   const sortedTechs = useMemo(
     () =>
@@ -92,22 +143,25 @@ export function EditBookingDialog({
   );
 
   const submit = () => {
-    if (!row.booking_id) return;
-    updateMutation.mutate({
-      bookingId: row.booking_id,
-      data: {
-        start_time: fromLocalInput(start),
-        end_time: fromLocalInput(end),
-        technician_id: techId === UNASSIGNED ? null : techId,
-      },
-    });
+    const data = {
+      start_time: fromLocalInput(start),
+      end_time: fromLocalInput(end),
+      technician_id: techId === UNASSIGNED ? null : techId,
+    };
+    if (isNew) {
+      if (!row.work_order_id) return;
+      createMutation.mutate({ workOrderId: row.work_order_id, data });
+    } else {
+      if (!row.booking_id) return;
+      updateMutation.mutate({ bookingId: row.booking_id, data });
+    }
   };
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit booking</DialogTitle>
+          <DialogTitle>{isNew ? "Schedule booking" : "Edit booking"}</DialogTitle>
           <DialogDescription>
             {row.work_order_number ?? "Work order"} · {row.title ?? "Untitled"}
           </DialogDescription>
@@ -120,7 +174,7 @@ export function EditBookingDialog({
               id="start"
               type="datetime-local"
               value={start}
-              onChange={(e) => setStart(e.target.value)}
+              onChange={(e) => onStartChange(e.target.value)}
             />
           </div>
           <div className="space-y-1.5">
@@ -150,18 +204,29 @@ export function EditBookingDialog({
           </div>
 
           <div className="rounded-md bg-muted/60 border border-border px-3 py-2 text-xs text-muted-foreground">
-            Edits are staged in the local <code className="font-mono">booking_writebacks</code> table.
-            Nothing is pushed to Dynamics until a sync job runs.
+            {isNew ? (
+              <>
+                A new booking is staged in the local{" "}
+                <code className="font-mono">booking_writebacks</code> queue. Nothing is created in
+                Dynamics until a sync job runs.
+              </>
+            ) : (
+              <>
+                Edits are staged in the local{" "}
+                <code className="font-mono">booking_writebacks</code> table. Nothing is pushed to
+                Dynamics until a sync job runs.
+              </>
+            )}
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={updateMutation.isPending}>
+          <Button variant="ghost" onClick={onClose} disabled={isPending}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={updateMutation.isPending}>
-            {updateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
-            Queue write-back
+          <Button onClick={submit} disabled={isPending}>
+            {isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+            {isNew ? "Queue booking" : "Queue write-back"}
           </Button>
         </DialogFooter>
       </DialogContent>

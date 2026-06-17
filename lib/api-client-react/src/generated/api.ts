@@ -215,6 +215,78 @@ export const useUpdateWbBooking = <TError = ErrorType<ErrorResponse>,
       return useMutation(getUpdateWbBookingMutationOptions(options));
     }
 
+export const getCreateWbBookingUrl = (workOrderId: string,) => {
+
+
+
+
+  return `/api/wb/work-orders/${workOrderId}/booking`
+}
+
+/**
+ * @summary Queue a write-back that schedules a new booking for an unscheduled work order (staged locally, not pushed to Dynamics)
+ */
+export const createWbBooking = async (workOrderId: string,
+    wbBookingUpdate: WbBookingUpdate, options?: RequestInit): Promise<WbWriteback> => {
+
+  return customFetch<WbWriteback>(getCreateWbBookingUrl(workOrderId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      wbBookingUpdate,)
+  }
+);}
+
+
+
+
+export const getCreateWbBookingMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWbBooking>>, TError,{workOrderId: string;data: BodyType<WbBookingUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createWbBooking>>, TError,{workOrderId: string;data: BodyType<WbBookingUpdate>}, TContext> => {
+
+const mutationKey = ['createWbBooking'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createWbBooking>>, {workOrderId: string;data: BodyType<WbBookingUpdate>}> = (props) => {
+          const {workOrderId,data} = props ?? {};
+
+          return  createWbBooking(workOrderId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateWbBookingMutationResult = NonNullable<Awaited<ReturnType<typeof createWbBooking>>>
+    export type CreateWbBookingMutationBody = BodyType<WbBookingUpdate>
+    export type CreateWbBookingMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Queue a write-back that schedules a new booking for an unscheduled work order (staged locally, not pushed to Dynamics)
+ */
+export const useCreateWbBooking = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWbBooking>>, TError,{workOrderId: string;data: BodyType<WbBookingUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createWbBooking>>,
+        TError,
+        {workOrderId: string;data: BodyType<WbBookingUpdate>},
+        TContext
+      > => {
+      return useMutation(getCreateWbBookingMutationOptions(options));
+    }
+
 export const getListWbWritebacksUrl = () => {
 
 

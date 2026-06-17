@@ -2,7 +2,14 @@ import { Router } from "express";
 import { z } from "zod";
 import { getCrmPool, isCrmConfigured } from "../lib/crmDb.js";
 import { localPool } from "../lib/localDb.js";
-import { isDataverseConfigured, patchBooking } from "../lib/dataverse.js";
+import { isDataverseConfigured, patchBooking, createBooking } from "../lib/dataverse.js";
+
+// Synthetic booking_id prefix for write-backs that schedule a brand-new booking
+// for an unscheduled work order. There is no crm.booking row yet, but
+// booking_writebacks.booking_id is NOT NULL, so we key these rows by
+// `new:<workOrderId>`. The sync path detects this prefix and creates a booking
+// in Dataverse instead of patching an existing one.
+const NEW_BOOKING_PREFIX = "new:";
 
 const isoOrNull = z
   .string()
@@ -250,6 +257,56 @@ router.patch("/wb/bookings/:bookingId", async (req, res) => {
     res.json(shapeWriteback(row, techNames));
   } catch (err) {
     req.log.error({ err, bookingId }, "Failed to queue booking write-back");
+    res.status(500).json({ error: "Failed to queue write-back" });
+  }
+});
+
+router.post("/wb/work-orders/:workOrderId/booking", async (req, res) => {
+  const { workOrderId } = req.params;
+  const parsed = bookingUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
+    return;
+  }
+  const body = parsed.data;
+
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+
+  try {
+    const existing = await getCrmPool().query<{ work_order_id: string }>(
+      `SELECT msdyn_workorderid::text AS work_order_id
+       FROM crm.workorder
+       WHERE msdyn_workorderid = $1 AND COALESCE(is_deleted, false) = false
+       LIMIT 1`,
+      [workOrderId],
+    );
+    if (existing.rows.length === 0) {
+      res.status(404).json({ error: "Work order not found" });
+      return;
+    }
+
+    const insert = await localPool.query<WritebackRow>(
+      `INSERT INTO booking_writebacks
+        (booking_id, work_order_id, start_time, end_time, technician_id, status)
+       VALUES ($1, $2, $3, $4, $5, 'queued')
+       RETURNING id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error`,
+      [
+        `${NEW_BOOKING_PREFIX}${workOrderId}`,
+        workOrderId,
+        body.start_time ?? null,
+        body.end_time ?? null,
+        body.technician_id ?? null,
+      ],
+    );
+
+    const row = insert.rows[0];
+    const techNames = await resolveTechNames([row.technician_id]);
+    res.json(shapeWriteback(row, techNames));
+  } catch (err) {
+    req.log.error({ err, workOrderId }, "Failed to queue new-booking write-back");
     res.status(500).json({ error: "Failed to queue write-back" });
   }
 });
@@ -1059,11 +1116,25 @@ router.post("/wb/sync", async (req, res) => {
 
     for (const row of queued.rows) {
       try {
-        await patchBooking(row.booking_id, {
-          startTime: toIso(row.start_time),
-          endTime: toIso(row.end_time),
-          resourceId: row.technician_id,
-        });
+        if (row.booking_id.startsWith(NEW_BOOKING_PREFIX)) {
+          // New-booking write-back: there is no booking to patch yet, so create
+          // one in Dataverse bound to the work order.
+          if (!row.work_order_id) {
+            throw new Error("Cannot create a booking without a work order id.");
+          }
+          await createBooking({
+            workOrderId: row.work_order_id,
+            startTime: toIso(row.start_time),
+            endTime: toIso(row.end_time),
+            resourceId: row.technician_id,
+          });
+        } else {
+          await patchBooking(row.booking_id, {
+            startTime: toIso(row.start_time),
+            endTime: toIso(row.end_time),
+            resourceId: row.technician_id,
+          });
+        }
         await localPool.query(
           `UPDATE booking_writebacks SET status = 'synced', synced_at = now(), error = NULL WHERE id = $1`,
           [row.id],

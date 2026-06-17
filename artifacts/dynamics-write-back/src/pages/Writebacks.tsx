@@ -33,7 +33,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Loader2, CheckCircle2, Clock, AlertCircle, UploadCloud } from "lucide-react";
+import { Loader2, CheckCircle2, Clock, AlertCircle, UploadCloud, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 function fmt(iso: string | null | undefined): string {
@@ -187,7 +187,13 @@ export default function Writebacks() {
                       {wb.id}
                     </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {wb.booking_id.slice(0, 8)}…
+                      {wb.booking_id.startsWith("new:") ? (
+                        <Badge variant="outline" className="gap-1 font-normal">
+                          <Plus className="h-3 w-3" /> New booking
+                        </Badge>
+                      ) : (
+                        <>{wb.booking_id.slice(0, 8)}…</>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm whitespace-nowrap">
                       {fmt(wb.start_time)}

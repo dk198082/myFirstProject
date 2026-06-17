@@ -5,6 +5,20 @@ description: Non-obvious crm.* column/source choices when building d365crm-backe
 
 # d365crm write-back endpoint schema quirks
 
+## New booking write-backs reuse the booking_writebacks table
+
+`booking_writebacks.booking_id` is NOT NULL, so scheduling a brand-new booking
+(for an unscheduled work order) stages a row with a **synthetic** booking id of
+the form `new:<workOrderId>` instead of adding a nullable column. The `/wb/sync`
+loop branches on this prefix: `new:` rows call `createBooking` (POST
+bookableresourcebooking, binds `msdyn_WorkOrder@odata.bind` + optional
+`Resource@odata.bind`), everything else calls `patchBooking`.
+
+**Why:** avoids a schema migration while still distinguishing create vs. patch.
+**How to apply:** any new write-back "verb" should keep using the prefix
+convention on `booking_id` and add a matching branch in the sync loop; the
+frontend detects `new:` to render a "New booking" badge.
+
 CRM-backed `/wb/*` endpoints in `artifacts/api-server/src/routes/writeback.ts` read the d365crm
 Postgres mirror (`crm.*` tables) via `getCrmPool()`. Several fields do NOT map the way the FS schema does:
 

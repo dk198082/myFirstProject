@@ -78,6 +78,34 @@ export const UpdateWbBookingResponse = zod.object({
 
 
 /**
+ * @summary Queue a write-back that schedules a new booking for an unscheduled work order (staged locally, not pushed to Dynamics)
+ */
+export const CreateWbBookingParams = zod.object({
+  "workOrderId": zod.coerce.string()
+})
+
+export const CreateWbBookingBody = zod.object({
+  "start_time": zod.string().nullish().describe('ISO 8601 timestamp'),
+  "end_time": zod.string().nullish().describe('ISO 8601 timestamp'),
+  "technician_id": zod.string().nullish()
+})
+
+export const CreateWbBookingResponse = zod.object({
+  "id": zod.number(),
+  "booking_id": zod.string(),
+  "work_order_id": zod.string().nullish(),
+  "start_time": zod.string().nullish(),
+  "end_time": zod.string().nullish(),
+  "technician_id": zod.string().nullish(),
+  "technician_name": zod.string().nullish(),
+  "status": zod.string(),
+  "created_at": zod.string(),
+  "synced_at": zod.string().nullish(),
+  "error": zod.string().nullish()
+})
+
+
+/**
  * @summary List all staged write-back entries (queued and synced), most recent first
  */
 export const ListWbWritebacksResponseItem = zod.object({

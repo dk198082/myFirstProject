@@ -225,6 +225,27 @@ function buildEditRow(job: ScheduleJob, technicianId: string): WbWorkOrder {
   };
 }
 
+// Build the WbWorkOrder shape for an unscheduled job. A null booking_id puts the
+// dialog in "new booking" mode so it stages a create rather than an edit.
+function buildNewBookingRow(job: UnscheduledJob, technicianId: string | null): WbWorkOrder {
+  return {
+    work_order_id: job.work_order_id ?? "",
+    work_order_number: job.work_order_number ?? null,
+    title: job.work_order_type ?? null,
+    system_status: "Unscheduled",
+    customer_name: job.customer_name ?? null,
+    booking_id: null,
+    booking_status: null,
+    start_time: null,
+    end_time: null,
+    technician_id: technicianId,
+    technician_name: technicianId
+      ? job.best_fit_techs?.find((t) => t.technician_id === technicianId)?.resource_name ?? null
+      : null,
+    pending_writeback: null,
+  };
+}
+
 function JobChip({
   job,
   compact,
@@ -397,15 +418,40 @@ const UNSCHEDULED_BUCKETS = [
   },
 ];
 
-function UnscheduledJobCard({ job, bucketIdx }: { job: UnscheduledJob; bucketIdx: number }) {
+function UnscheduledJobCard({
+  job,
+  bucketIdx,
+  onSchedule,
+}: {
+  job: UnscheduledJob;
+  bucketIdx: number;
+  onSchedule: (job: UnscheduledJob, technicianId: string | null) => void;
+}) {
   const t1 = job.best_fit_techs?.[0];
   const t2 = job.best_fit_techs?.[1];
   const duration = fmtMins(job.duration_minutes);
   const loc = [job.city, job.state].filter(Boolean).join(", ");
   const dateClass = UNSCHEDULED_BUCKETS[bucketIdx].dateClass;
+  const canSchedule = !!job.work_order_id;
 
   return (
-    <div className="bg-white rounded-lg border border-card-border shadow-sm hover:shadow-md transition-shadow p-4 flex flex-col gap-3 min-w-[260px] max-w-[300px] w-[280px] shrink-0">
+    <div
+      className={`group bg-white rounded-lg border border-card-border shadow-sm hover:shadow-md hover:border-primary/50 transition-all p-4 flex flex-col gap-3 min-w-[260px] max-w-[300px] w-[280px] shrink-0 ${canSchedule ? "cursor-pointer" : ""}`}
+      onClick={canSchedule ? () => onSchedule(job, t1?.technician_id ?? null) : undefined}
+      role={canSchedule ? "button" : undefined}
+      tabIndex={canSchedule ? 0 : undefined}
+      onKeyDown={
+        canSchedule
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSchedule(job, t1?.technician_id ?? null);
+              }
+            }
+          : undefined
+      }
+      data-testid={`unscheduled-card-${job.work_order_id ?? job.work_order_number}`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <span className="font-mono font-bold text-sm">WO# {job.work_order_number ?? "—"}</span>
@@ -473,14 +519,37 @@ function UnscheduledJobCard({ job, bucketIdx }: { job: UnscheduledJob; bucketIdx
       )}
 
       {(t1 || t2) && (
-        <div className="pt-2 border-t border-border space-y-1 mt-auto">
+        <div className="pt-2 border-t border-border space-y-1.5 mt-auto">
           <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Best Fit</div>
           {[t1, t2].filter(Boolean).map((t, i) => (
-            <div key={i} className="text-xs flex items-center justify-between gap-1">
-              <span className="font-medium truncate">{t!.resource_name ?? "—"}</span>
-              <span className="text-muted-foreground shrink-0 text-right">{fmtFamiliarity(t!)}</span>
-            </div>
+            <button
+              key={i}
+              type="button"
+              disabled={!canSchedule}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSchedule(job, t!.technician_id ?? null);
+              }}
+              className="w-full text-xs flex items-center justify-between gap-2 rounded-md border border-transparent px-1.5 py-1 -mx-1.5 text-left hover:border-primary/40 hover:bg-primary/5 transition-colors disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-transparent group/tech"
+              data-testid={`schedule-with-${job.work_order_id ?? job.work_order_number}-${t!.technician_id}`}
+              title={`Schedule with ${t!.resource_name ?? "technician"}`}
+            >
+              <span className="min-w-0">
+                <span className="font-medium truncate block">{t!.resource_name ?? "—"}</span>
+                <span className="text-muted-foreground truncate block text-[11px]">{fmtFamiliarity(t!)}</span>
+              </span>
+              <span className="shrink-0 inline-flex items-center gap-1 text-primary font-medium opacity-0 group-hover/tech:opacity-100 transition-opacity">
+                <CalendarClock className="h-3 w-3" />
+                Schedule
+              </span>
+            </button>
           ))}
+        </div>
+      )}
+
+      {canSchedule && (
+        <div className="text-[11px] text-muted-foreground italic text-center opacity-0 group-hover:opacity-100 transition-opacity">
+          Click card to schedule
         </div>
       )}
     </div>
@@ -493,7 +562,18 @@ export default function ScheduleBoard() {
   const [selectedRegions, setSelectedRegions] = useState<Set<string> | null>(null);
   const [selectedTechIds, setSelectedTechIds] = useState<Set<string> | null>(null);
   const [editing, setEditing] = useState<WbWorkOrder | null>(null);
+  // Estimated duration carried into the dialog when scheduling a new booking for
+  // an unscheduled job, so the dialog can auto-fill the end time.
+  const [editingDuration, setEditingDuration] = useState<number | null>(null);
   const [utilRegions, setUtilRegions] = useState<Set<string> | null>(null); // null = all
+
+  // Open the booking dialog in "new booking" mode for an unscheduled work order,
+  // pre-filled with the work order and an optional suggested technician.
+  const handleScheduleUnscheduled = (job: UnscheduledJob, technicianId: string | null) => {
+    if (!job.work_order_id) return;
+    setEditingDuration(job.duration_minutes ?? null);
+    setEditing(buildNewBookingRow(job, technicianId));
+  };
 
   // Drag-to-reschedule. The dragged payload (tile + source technician) lives in a
   // ref so the drop handler can read it synchronously — relying on state would be
@@ -1426,6 +1506,7 @@ export default function ScheduleBoard() {
                               key={job.work_order_id ?? job.work_order_number}
                               job={job}
                               bucketIdx={bi}
+                              onSchedule={handleScheduleUnscheduled}
                             />
                           ))}
                         </div>
@@ -1566,7 +1647,16 @@ export default function ScheduleBoard() {
         );
       })()}
 
-      {editing && <EditBookingDialog row={editing} onClose={() => setEditing(null)} />}
+      {editing && (
+        <EditBookingDialog
+          row={editing}
+          durationMinutes={editingDuration}
+          onClose={() => {
+            setEditing(null);
+            setEditingDuration(null);
+          }}
+        />
+      )}
     </div>
   );
 }

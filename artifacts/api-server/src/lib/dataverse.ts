@@ -119,3 +119,63 @@ export async function patchBooking(bookingId: string, patch: BookingPatch): Prom
     throw new Error(`Dataverse update failed (${res.status}): ${message}`);
   }
 }
+
+export interface BookingCreate {
+  workOrderId: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  resourceId?: string | null;
+}
+
+/**
+ * Create a new bookableresourcebooking in Dataverse for an unscheduled work
+ * order. The booking is bound to the work order (and resource, when provided).
+ * Start and end times are required so Dataverse can place the booking on the
+ * schedule. Throws with the Dataverse error message on failure.
+ */
+export async function createBooking(create: BookingCreate): Promise<void> {
+  const { baseUrl } = requireConfig();
+  const token = await getAccessToken();
+
+  if (!create.startTime || !create.endTime) {
+    throw new Error("A new booking requires both a start and end time.");
+  }
+
+  const payload: Record<string, unknown> = {
+    starttime: create.startTime,
+    endtime: create.endTime,
+    "msdyn_WorkOrder@odata.bind": `/msdyn_workorders(${create.workOrderId})`,
+  };
+  if (create.resourceId) {
+    payload["Resource@odata.bind"] = `/bookableresources(${create.resourceId})`;
+  }
+
+  const url = `${baseUrl}/api/data/${API_VERSION}/bookableresourcebookings`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "OData-MaxVersion": "4.0",
+      "OData-Version": "4.0",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    let message = text;
+    try {
+      const parsed = JSON.parse(text) as { error?: { message?: string } };
+      if (parsed.error?.message) message = parsed.error.message;
+    } catch {
+      // keep raw text
+    }
+    logger.error(
+      { workOrderId: create.workOrderId, status: res.status, message },
+      "Dataverse booking CREATE failed",
+    );
+    throw new Error(`Dataverse create failed (${res.status}): ${message}`);
+  }
+}
