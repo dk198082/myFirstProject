@@ -618,14 +618,31 @@ export default function ScheduleBoard() {
   // Stage a booking write-back when a tile is dropped onto a different
   // technician row and/or day column. The booking keeps its time-of-day and
   // duration; only the date (shifted by the column delta) and technician change.
-  const handleDropOnCell = (targetTechId: string, targetDayIndex: number) => {
+  const handleDropOnCell = (
+    targetTechId: string,
+    targetDayIndex: number,
+    targetTechName?: string | null,
+  ) => {
     const dragged = dragJobRef.current;
+    // Compute the conflict cue before endDrag() clears the drag ref.
+    const conflict = dropWouldConflict(targetTechId, targetDayIndex);
     endDrag();
     if (!dragged) return;
     const { job, sourceTechId } = dragged;
     const deltaDays = targetDayIndex - (job.day_index ?? 0);
     if (targetTechId === sourceTechId && deltaDays === 0) return; // no-op drop
     if (!job.booking_id) return;
+
+    // Dropping onto a slot that already has an overlapping booking would
+    // double-book the technician — confirm before staging the write-back.
+    if (conflict) {
+      const who = targetTechName?.trim() || "this technician";
+      const what = job.work_order_number ?? "this booking";
+      const ok = window.confirm(
+        `Scheduling ${what} here overlaps an existing booking for ${who} on this day. This will double-book the technician.\n\nReschedule anyway?`,
+      );
+      if (!ok) return;
+    }
 
     const newStart = shiftIsoDays(job.start_time, deltaDays);
     const newEnd = shiftIsoDays(job.end_time, deltaDays);
@@ -761,6 +778,44 @@ export default function ScheduleBoard() {
     }
     return ids;
   }, [allRegions]);
+
+  // Lookup of every technician's bookings, keyed by technician id, for fast
+  // conflict checks while dragging a tile over candidate drop cells.
+  const jobsByTechId = useMemo(() => {
+    const m = new Map<string, ScheduleJob[]>();
+    for (const r of allRegions) {
+      for (const t of r.technicians) {
+        const existing = m.get(t.technician_id) ?? [];
+        existing.push(...((t.jobs ?? []) as ScheduleJob[]));
+        m.set(t.technician_id, existing);
+      }
+    }
+    return m;
+  }, [allRegions]);
+
+  // Would dropping the currently dragged tile onto this cell overlap an existing
+  // booking for the target technician on that day? The move preserves the
+  // booking's time-of-day, so we compare its time window against the target
+  // cell's bookings. Returns false for no-op drops and when nothing is dragging.
+  const dropWouldConflict = (targetTechId: string, targetDayIndex: number): boolean => {
+    const dragged = dragJobRef.current;
+    if (!dragged) return false;
+    const { job, sourceTechId } = dragged;
+    const deltaDays = targetDayIndex - (job.day_index ?? 0);
+    if (targetTechId === sourceTechId && deltaDays === 0) return false; // no-op
+    const aStart = timeToMins(job.crmstarttime);
+    if (aStart == null) return false;
+    const aEnd = timeToMins(job.crmendtime) ?? aStart + 1;
+    for (const other of jobsByTechId.get(targetTechId) ?? []) {
+      if (other.booking_id === job.booking_id) continue;
+      if ((other.day_index ?? 0) !== targetDayIndex) continue;
+      const bStart = timeToMins(other.crmstarttime);
+      if (bStart == null) continue;
+      const bEnd = timeToMins(other.crmendtime) ?? bStart + 1;
+      if (aStart < bEnd && aEnd > bStart) return true;
+    }
+    return false;
+  };
 
   const toggleRegion = (id: string) => {
     setSelectedRegions((prev) => {
@@ -1204,11 +1259,22 @@ export default function ScheduleBoard() {
                             const dh = weekdayHeaders[i];
                             const cellKey = `${tech.technician_id}:${dh.dayIdx}`;
                             const isDropTarget = draggingId !== null && dragOverCell === cellKey;
+                            const conflictDrop =
+                              draggingId !== null &&
+                              dropWouldConflict(tech.technician_id, dh.dayIdx);
+                            const dropCue = conflictDrop
+                              ? isDropTarget
+                                ? "bg-amber-100 ring-2 ring-inset ring-amber-500"
+                                : "bg-amber-50 ring-1 ring-inset ring-amber-300"
+                              : isDropTarget
+                                ? "bg-primary/10 ring-2 ring-inset ring-primary"
+                                : "";
                             return (
                               <div
                                 key={i}
-                                className={`border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""} ${isDropTarget ? "bg-primary/10 ring-2 ring-inset ring-primary" : ""}`}
+                                className={`border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""} ${dropCue}`}
                                 data-testid={`tech-cell-${tech.technician_id}-${dh.dayIdx}`}
+                                aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
                                 onDragOver={(e) => {
                                   if (!dragJobRef.current) return;
                                   e.preventDefault();
@@ -1220,7 +1286,11 @@ export default function ScheduleBoard() {
                                 }}
                                 onDrop={(e) => {
                                   e.preventDefault();
-                                  handleDropOnCell(tech.technician_id, dh.dayIdx);
+                                  handleDropOnCell(
+                                    tech.technician_id,
+                                    dh.dayIdx,
+                                    tech.resource_name,
+                                  );
                                 }}
                               >
                                 {jobs.map((j) => {
@@ -1398,11 +1468,21 @@ export default function ScheduleBoard() {
                           {jobsByDay.map((jobs, i) => {
                             const cellKey = `${tech.technician_id}:${i}`;
                             const isDropTarget = draggingId !== null && dragOverCell === cellKey;
+                            const conflictDrop =
+                              draggingId !== null && dropWouldConflict(tech.technician_id, i);
+                            const dropCue = conflictDrop
+                              ? isDropTarget
+                                ? "bg-amber-100 ring-2 ring-inset ring-amber-500"
+                                : "bg-amber-50 ring-1 ring-inset ring-amber-300"
+                              : isDropTarget
+                                ? "bg-primary/10 ring-2 ring-inset ring-primary"
+                                : "";
                             return (
                               <div
                                 key={i}
-                                className={`border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${isDropTarget ? "bg-primary/10 ring-2 ring-inset ring-primary" : ""}`}
+                                className={`border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dropCue}`}
                                 data-testid={`cell-${tech.technician_id}-${i}`}
+                                aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
                                 onDragOver={(e) => {
                                   if (!dragJobRef.current) return;
                                   e.preventDefault();
@@ -1414,7 +1494,7 @@ export default function ScheduleBoard() {
                                 }}
                                 onDrop={(e) => {
                                   e.preventDefault();
-                                  handleDropOnCell(tech.technician_id, i);
+                                  handleDropOnCell(tech.technician_id, i, tech.resource_name);
                                 }}
                               >
                                 {jobs.map((j) => (
