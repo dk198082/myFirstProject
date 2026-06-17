@@ -596,7 +596,19 @@ export default function ScheduleBoard() {
     [rangeStart, dayCount, view],
   );
 
-  const allRegions = data?.regions ?? [];
+  // Display-only filter: only show technicians that have at least one job in the
+  // current range, and drop regions that end up with no such technicians. The API
+  // response is left untouched for other consumers.
+  const allRegions = useMemo(
+    () =>
+      (data?.regions ?? [])
+        .map((r) => ({
+          ...r,
+          technicians: r.technicians.filter((t) => (t.jobs?.length ?? 0) > 0),
+        }))
+        .filter((r) => r.technicians.length > 0),
+    [data],
+  );
   const regions = useMemo(
     () =>
       selectedRegions === null
