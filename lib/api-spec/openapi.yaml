@@ -478,6 +478,109 @@ paths:
               schema:
                 $ref: "#/components/schemas/ResourceUtilizationResponse"
 
+  /wb/reports/filters:
+    get:
+      operationId: getWbReportFilters
+      tags: [writeback]
+      summary: Filter dropdown options (regions, years, approvers) for the service-management reports
+      responses:
+        "200":
+          description: Available filter values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportFilters"
+
+  /wb/reports/completed-not-approved:
+    get:
+      operationId: getWbReportCompletedNotApproved
+      tags: [writeback]
+      summary: Service orders that are completed but not yet approved (PDF page 1)
+      parameters:
+        - name: region
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Service territory name, or "(Blank)" for work orders with no territory
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Filter by year of Completed On
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Filter by month (1-12) of Completed On
+      responses:
+        "200":
+          description: Completed-not-approved report (sourced from d365crm crm.* tables)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrderReport"
+
+  /wb/reports/approved-not-invoiced:
+    get:
+      operationId: getWbReportApprovedNotInvoiced
+      tags: [writeback]
+      summary: Service orders completed and approved but not yet invoiced (PDF page 2)
+      parameters:
+        - name: region
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Service territory name, or "(Blank)" for work orders with no territory
+      responses:
+        "200":
+          description: Approved-not-invoiced report (sourced from d365crm crm.* tables)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrderReport"
+
+  /wb/reports/weekly-approved:
+    get:
+      operationId: getWbReportWeeklyApproved
+      tags: [writeback]
+      summary: Weekly approved summary — counts by approver and ISO week of approval (PDF page 4)
+      parameters:
+        - name: region
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Service territory name, or "(Blank)" for work orders with no territory
+        - name: approved_by
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by approver name
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Filter by year of Approved On
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Filter by month (1-12) of Approved On
+      responses:
+        "200":
+          description: Weekly approved summary (sourced from d365crm crm.* tables)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyApprovedReport"
+
   /dashboard/summary:
     get:
       operationId: getDashboardSummary
@@ -1373,3 +1476,134 @@ components:
         - period_weeks
         - default_weekly_capacity_hours
         - regions
+
+    ReportFilters:
+      type: object
+      properties:
+        regions:
+          type: array
+          items:
+            type: string
+        years:
+          type: array
+          items:
+            type: integer
+        approvers:
+          type: array
+          items:
+            type: string
+      required:
+        - regions
+        - years
+        - approvers
+
+    ServiceOrderReportRow:
+      type: object
+      properties:
+        fsa_srv_num:
+          type: string
+          nullable: true
+        ax_srv_num:
+          type: string
+          nullable: true
+        company:
+          type: string
+          nullable: true
+        region:
+          type: string
+        location:
+          type: string
+          nullable: true
+        customer_name:
+          type: string
+          nullable: true
+        technician:
+          type: string
+          nullable: true
+        completed_on:
+          type: string
+          nullable: true
+        approved_on:
+          type: string
+          nullable: true
+        approved_by:
+          type: string
+          nullable: true
+        order_status:
+          type: string
+          nullable: true
+      required:
+        - fsa_srv_num
+        - ax_srv_num
+        - company
+        - region
+        - location
+        - customer_name
+        - technician
+        - completed_on
+        - approved_on
+        - approved_by
+        - order_status
+
+    ServiceOrderReport:
+      type: object
+      properties:
+        total:
+          type: integer
+        by_region:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountByRegion"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceOrderReportRow"
+      required:
+        - total
+        - by_region
+        - rows
+
+    CountByRegion:
+      type: object
+      properties:
+        region:
+          type: string
+        count:
+          type: integer
+      required:
+        - region
+        - count
+
+    WeeklyApprovedRow:
+      type: object
+      properties:
+        approved_by:
+          type: string
+        total:
+          type: integer
+        weeks:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+        - approved_by
+        - total
+        - weeks
+
+    WeeklyApprovedReport:
+      type: object
+      properties:
+        total:
+          type: integer
+        week_numbers:
+          type: array
+          items:
+            type: integer
+        approvers:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeeklyApprovedRow"
+      required:
+        - total
+        - week_numbers
+        - approvers

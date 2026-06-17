@@ -2,7 +2,8 @@ import { Switch, Route, Router as WouterRouter, Link, useLocation } from "wouter
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Database, ClipboardList, CalendarRange, Globe, CalendarClock, BarChart3 } from "lucide-react";
+import { Database, ClipboardList, CalendarRange, Globe, CalendarClock, BarChart3, LayoutDashboard } from "lucide-react";
+import Dashboard from "@/pages/Dashboard";
 import WorkOrders from "@/pages/WorkOrders";
 import Writebacks from "@/pages/Writebacks";
 import ScheduleBoard from "@/pages/ScheduleBoard";
@@ -69,6 +70,11 @@ function Layout({ children }: { children: React.ReactNode }) {
                 <ClipboardList className="h-4 w-4" /> Work Orders
               </span>
             </NavLink>
+            <NavLink href="/dashboard">
+              <span className="inline-flex items-center gap-1.5">
+                <LayoutDashboard className="h-4 w-4" /> Dashboard
+              </span>
+            </NavLink>
             <NavLink href="/writebacks">Queued Write-backs</NavLink>
           </nav>
           <div className="ml-auto text-xs text-sidebar-foreground/60">
@@ -90,6 +96,7 @@ function Router() {
         <Route path="/jobs-by-region" component={JobsByRegion} />
         <Route path="/unscheduled" component={Unscheduled} />
         <Route path="/work-orders" component={WorkOrders} />
+        <Route path="/dashboard" component={Dashboard} />
         <Route path="/schedule-board" component={ScheduleBoard} />
         <Route path="/writebacks" component={Writebacks} />
         <Route component={NotFound} />

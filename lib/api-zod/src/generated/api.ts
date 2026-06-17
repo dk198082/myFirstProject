@@ -679,6 +679,97 @@ export const GetWbResourceUtilizationResponse = zod.object({
 
 
 /**
+ * @summary Filter dropdown options (regions, years, approvers) for the service-management reports
+ */
+export const GetWbReportFiltersResponse = zod.object({
+  "regions": zod.array(zod.string()),
+  "years": zod.array(zod.number()),
+  "approvers": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Service orders that are completed but not yet approved (PDF page 1)
+ */
+export const GetWbReportCompletedNotApprovedQueryParams = zod.object({
+  "region": zod.coerce.string().optional().describe('Service territory name, or \"(Blank)\" for work orders with no territory'),
+  "year": zod.coerce.number().optional().describe('Filter by year of Completed On'),
+  "month": zod.coerce.number().optional().describe('Filter by month (1-12) of Completed On')
+})
+
+export const GetWbReportCompletedNotApprovedResponse = zod.object({
+  "total": zod.number(),
+  "by_region": zod.array(zod.object({
+  "region": zod.string(),
+  "count": zod.number()
+})),
+  "rows": zod.array(zod.object({
+  "fsa_srv_num": zod.string().nullable(),
+  "ax_srv_num": zod.string().nullable(),
+  "company": zod.string().nullable(),
+  "region": zod.string(),
+  "location": zod.string().nullable(),
+  "customer_name": zod.string().nullable(),
+  "technician": zod.string().nullable(),
+  "completed_on": zod.string().nullable(),
+  "approved_on": zod.string().nullable(),
+  "approved_by": zod.string().nullable(),
+  "order_status": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Service orders completed and approved but not yet invoiced (PDF page 2)
+ */
+export const GetWbReportApprovedNotInvoicedQueryParams = zod.object({
+  "region": zod.coerce.string().optional().describe('Service territory name, or \"(Blank)\" for work orders with no territory')
+})
+
+export const GetWbReportApprovedNotInvoicedResponse = zod.object({
+  "total": zod.number(),
+  "by_region": zod.array(zod.object({
+  "region": zod.string(),
+  "count": zod.number()
+})),
+  "rows": zod.array(zod.object({
+  "fsa_srv_num": zod.string().nullable(),
+  "ax_srv_num": zod.string().nullable(),
+  "company": zod.string().nullable(),
+  "region": zod.string(),
+  "location": zod.string().nullable(),
+  "customer_name": zod.string().nullable(),
+  "technician": zod.string().nullable(),
+  "completed_on": zod.string().nullable(),
+  "approved_on": zod.string().nullable(),
+  "approved_by": zod.string().nullable(),
+  "order_status": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Weekly approved summary — counts by approver and ISO week of approval (PDF page 4)
+ */
+export const GetWbReportWeeklyApprovedQueryParams = zod.object({
+  "region": zod.coerce.string().optional().describe('Service territory name, or \"(Blank)\" for work orders with no territory'),
+  "approved_by": zod.coerce.string().optional().describe('Filter by approver name'),
+  "year": zod.coerce.number().optional().describe('Filter by year of Approved On'),
+  "month": zod.coerce.number().optional().describe('Filter by month (1-12) of Approved On')
+})
+
+export const GetWbReportWeeklyApprovedResponse = zod.object({
+  "total": zod.number(),
+  "week_numbers": zod.array(zod.number()),
+  "approvers": zod.array(zod.object({
+  "approved_by": zod.string(),
+  "total": zod.number(),
+  "weeks": zod.record(zod.string(), zod.number())
+}))
+})
+
+
+/**
  * @summary Get overall dashboard summary stats
  */
 export const GetDashboardSummaryResponse = zod.object({

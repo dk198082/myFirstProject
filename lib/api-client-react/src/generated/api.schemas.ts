@@ -613,6 +613,51 @@ export interface ResourceUtilizationResponse {
   regions: UtilizationRegion[];
 }
 
+export interface ReportFilters {
+  regions: string[];
+  years: number[];
+  approvers: string[];
+}
+
+export interface ServiceOrderReportRow {
+  fsa_srv_num: string | null;
+  ax_srv_num: string | null;
+  company: string | null;
+  region: string;
+  location: string | null;
+  customer_name: string | null;
+  technician: string | null;
+  completed_on: string | null;
+  approved_on: string | null;
+  approved_by: string | null;
+  order_status: string | null;
+}
+
+export interface CountByRegion {
+  region: string;
+  count: number;
+}
+
+export interface ServiceOrderReport {
+  total: number;
+  by_region: CountByRegion[];
+  rows: ServiceOrderReportRow[];
+}
+
+export type WeeklyApprovedRowWeeks = {[key: string]: number};
+
+export interface WeeklyApprovedRow {
+  approved_by: string;
+  total: number;
+  weeks: WeeklyApprovedRowWeeks;
+}
+
+export interface WeeklyApprovedReport {
+  total: number;
+  week_numbers: number[];
+  approvers: WeeklyApprovedRow[];
+}
+
 export type ListWbWorkOrdersParams = {
 /**
  * Free-text filter on work order number, title, or customer
@@ -725,4 +770,45 @@ export const GetWbResourceUtilizationView = {
   month: 'month',
   quarter: 'quarter',
 } as const;
+
+export type GetWbReportCompletedNotApprovedParams = {
+/**
+ * Service territory name, or "(Blank)" for work orders with no territory
+ */
+region?: string;
+/**
+ * Filter by year of Completed On
+ */
+year?: number;
+/**
+ * Filter by month (1-12) of Completed On
+ */
+month?: number;
+};
+
+export type GetWbReportApprovedNotInvoicedParams = {
+/**
+ * Service territory name, or "(Blank)" for work orders with no territory
+ */
+region?: string;
+};
+
+export type GetWbReportWeeklyApprovedParams = {
+/**
+ * Service territory name, or "(Blank)" for work orders with no territory
+ */
+region?: string;
+/**
+ * Filter by approver name
+ */
+approved_by?: string;
+/**
+ * Filter by year of Approved On
+ */
+year?: number;
+/**
+ * Filter by month (1-12) of Approved On
+ */
+month?: number;
+};
 

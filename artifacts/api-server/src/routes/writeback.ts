@@ -1303,6 +1303,279 @@ router.get("/wb/jobs-by-region", async (req, res) => {
   }
 });
 
+// ─── Service Management Dashboard reports (PDF pages 1, 2, 4) ────────────────
+// All reports are at work-order grain. Region = service territory name;
+// "(Blank)" denotes a work order with no service territory.
+
+const REPORT_ROW_SELECT = `
+  SELECT
+    wo.msdyn_name                                                                   AS fsa_srv_num,
+    wo.raw_json->>'cf_axserviceorderid'                                             AS ax_srv_num,
+    wo.raw_json->>'_cf_companystructure_value@OData.Community.Display.V1.FormattedValue' AS company,
+    t.name                                                                          AS region,
+    wo.raw_json->>'_cf_servicelocation_value@OData.Community.Display.V1.FormattedValue'  AS location,
+    COALESCE(
+      a.name,
+      wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue'
+    )                                                                               AS customer_name,
+    tech.resource_name                                                              AS technician,
+    NULLIF(wo.raw_json->>'msdyn_completedon', '')::timestamptz                      AS completed_on,
+    NULLIF(wo.raw_json->>'cf_approvedon', '')::timestamptz                          AS approved_on,
+    wo.raw_json->>'_cf_approvedby_value@OData.Community.Display.V1.FormattedValue'   AS approved_by,
+    wo.raw_json->>'msdyn_systemstatus@OData.Community.Display.V1.FormattedValue'     AS order_status
+  FROM crm.workorder wo
+  LEFT JOIN crm.territory t ON t.territoryid = wo.msdyn_serviceterritory
+  LEFT JOIN crm.account a ON a.accountid = wo.msdyn_serviceaccount
+  LEFT JOIN LATERAL (
+    SELECT raw_json->>'_resource_value@OData.Community.Display.V1.FormattedValue' AS resource_name
+    FROM crm.booking
+    WHERE msdyn_workorder = wo.msdyn_workorderid AND COALESCE(is_deleted, false) = false
+    ORDER BY starttime ASC NULLS LAST
+    LIMIT 1
+  ) tech ON true
+`;
+
+type ReportRow = {
+  fsa_srv_num: string | null;
+  ax_srv_num: string | null;
+  company: string | null;
+  region: string | null;
+  location: string | null;
+  customer_name: string | null;
+  technician: string | null;
+  completed_on: Date | string | null;
+  approved_on: Date | string | null;
+  approved_by: string | null;
+  order_status: string | null;
+};
+
+function shapeReportRow(row: ReportRow) {
+  return {
+    fsa_srv_num: row.fsa_srv_num,
+    ax_srv_num: row.ax_srv_num,
+    company: row.company,
+    region: row.region ?? "(Blank)",
+    location: row.location,
+    customer_name: row.customer_name,
+    technician: row.technician,
+    completed_on: toIso(row.completed_on),
+    approved_on: toIso(row.approved_on),
+    approved_by: row.approved_by,
+    order_status: row.order_status,
+  };
+}
+
+// Append an optional region filter; "(Blank)" means no service territory.
+function appendRegionFilter(region: string, params: unknown[]): string {
+  if (!region) return "";
+  if (region === "(Blank)") return ` AND wo.msdyn_serviceterritory IS NULL`;
+  return ` AND t.name = $${params.push(region)}`;
+}
+
+const REPORT_DETAIL_LIMIT = 1000;
+
+// Filter dropdown options drawn from the full work-order universe.
+router.get("/wb/reports/filters", async (req, res) => {
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+  try {
+    const pool = getCrmPool();
+    const [regionsR, yearsR, approversR] = await Promise.all([
+      pool.query<{ region: string; has_blank: boolean }>(`
+        SELECT t.name AS region, false AS has_blank
+        FROM crm.workorder wo
+        JOIN crm.territory t ON t.territoryid = wo.msdyn_serviceterritory
+        WHERE COALESCE(wo.is_deleted, false) = false
+        GROUP BY t.name
+        ORDER BY t.name`),
+      pool.query<{ yr: number }>(`
+        SELECT DISTINCT EXTRACT(YEAR FROM ts)::int AS yr
+        FROM (
+          SELECT NULLIF(raw_json->>'msdyn_completedon', '')::timestamptz AS ts FROM crm.workorder WHERE COALESCE(is_deleted,false)=false
+          UNION ALL
+          SELECT NULLIF(raw_json->>'cf_approvedon', '')::timestamptz AS ts FROM crm.workorder WHERE COALESCE(is_deleted,false)=false
+        ) u
+        WHERE ts IS NOT NULL
+        ORDER BY yr DESC`),
+      pool.query<{ approver: string }>(`
+        SELECT DISTINCT raw_json->>'_cf_approvedby_value@OData.Community.Display.V1.FormattedValue' AS approver
+        FROM crm.workorder
+        WHERE COALESCE(is_deleted,false)=false
+          AND raw_json->>'_cf_approvedby_value@OData.Community.Display.V1.FormattedValue' IS NOT NULL
+        ORDER BY approver`),
+    ]);
+
+    const hasBlank = await pool.query<{ n: string }>(`
+      SELECT count(*)::text AS n FROM crm.workorder
+      WHERE COALESCE(is_deleted,false)=false AND msdyn_serviceterritory IS NULL`);
+
+    const regions = regionsR.rows.map((r) => r.region);
+    if (Number(hasBlank.rows[0]?.n ?? "0") > 0) regions.unshift("(Blank)");
+
+    res.json({
+      regions,
+      years: yearsR.rows.map((r) => r.yr),
+      approvers: approversR.rows.map((r) => r.approver),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to load report filters");
+    res.status(500).json({ error: "Failed to load report filters" });
+  }
+});
+
+// PDF page 1: Service Orders Completed not Approved.
+router.get("/wb/reports/completed-not-approved", async (req, res) => {
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+  const region = ((req.query.region as string | undefined) ?? "").trim();
+  const year = Number(req.query.year);
+  const month = Number(req.query.month);
+
+  try {
+    const params: unknown[] = [];
+    let where = `
+      WHERE COALESCE(wo.is_deleted, false) = false
+        AND NULLIF(wo.raw_json->>'msdyn_completedon', '') IS NOT NULL
+        AND NULLIF(wo.raw_json->>'cf_approvedon', '') IS NULL`;
+    where += appendRegionFilter(region, params);
+    if (Number.isFinite(year) && year > 0) {
+      where += ` AND EXTRACT(YEAR FROM (wo.raw_json->>'msdyn_completedon')::timestamptz) = $${params.push(year)}`;
+    }
+    if (Number.isFinite(month) && month >= 1 && month <= 12) {
+      where += ` AND EXTRACT(MONTH FROM (wo.raw_json->>'msdyn_completedon')::timestamptz) = $${params.push(month)}`;
+    }
+    res.json(await runServiceOrderReport(where, params, "completed_on"));
+  } catch (err) {
+    req.log.error({ err }, "Failed to run completed-not-approved report");
+    res.status(500).json({ error: "Failed to run report" });
+  }
+});
+
+// PDF page 2: Service Orders Completed and Approved not Invoiced.
+router.get("/wb/reports/approved-not-invoiced", async (req, res) => {
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+  const region = ((req.query.region as string | undefined) ?? "").trim();
+
+  try {
+    const params: unknown[] = [];
+    let where = `
+      WHERE COALESCE(wo.is_deleted, false) = false
+        AND NULLIF(wo.raw_json->>'cf_approvedon', '') IS NOT NULL
+        AND COALESCE(wo.raw_json->>'msdyn_systemstatus@OData.Community.Display.V1.FormattedValue', '') <> 'Invoiced'`;
+    where += appendRegionFilter(region, params);
+    res.json(await runServiceOrderReport(where, params, "approved_on"));
+  } catch (err) {
+    req.log.error({ err }, "Failed to run approved-not-invoiced report");
+    res.status(500).json({ error: "Failed to run report" });
+  }
+});
+
+// Shared executor for the page-1/2 service-order reports: total, count by
+// region, and a capped set of detail rows.
+async function runServiceOrderReport(
+  where: string,
+  params: unknown[],
+  orderColumn: "completed_on" | "approved_on",
+) {
+  const pool = getCrmPool();
+  const aggSql = `
+    SELECT COALESCE(t.name, '(Blank)') AS region, count(*)::int AS count
+    FROM crm.workorder wo
+    LEFT JOIN crm.territory t ON t.territoryid = wo.msdyn_serviceterritory
+    ${where}
+    GROUP BY COALESCE(t.name, '(Blank)')
+    ORDER BY count DESC`;
+  const orderExpr =
+    orderColumn === "completed_on"
+      ? `(wo.raw_json->>'msdyn_completedon')::timestamptz`
+      : `(wo.raw_json->>'cf_approvedon')::timestamptz`;
+  const detailSql = `${REPORT_ROW_SELECT} ${where} ORDER BY ${orderExpr} DESC NULLS LAST LIMIT ${REPORT_DETAIL_LIMIT}`;
+
+  const [agg, detail] = await Promise.all([
+    pool.query<{ region: string; count: number }>(aggSql, params),
+    pool.query<ReportRow>(detailSql, params),
+  ]);
+
+  const total = agg.rows.reduce((s, r) => s + Number(r.count), 0);
+  return {
+    total,
+    by_region: agg.rows.map((r) => ({ region: r.region, count: Number(r.count) })),
+    rows: detail.rows.map(shapeReportRow),
+  };
+}
+
+// PDF page 4: Weekly Approved Summary — count of approvals by approver and
+// ISO week of the approval date.
+router.get("/wb/reports/weekly-approved", async (req, res) => {
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+  const region = ((req.query.region as string | undefined) ?? "").trim();
+  const approvedBy = ((req.query.approved_by as string | undefined) ?? "").trim();
+  const year = Number(req.query.year);
+  const month = Number(req.query.month);
+
+  try {
+    const params: unknown[] = [];
+    let where = `
+      WHERE COALESCE(wo.is_deleted, false) = false
+        AND NULLIF(wo.raw_json->>'cf_approvedon', '') IS NOT NULL
+        AND wo.raw_json->>'_cf_approvedby_value@OData.Community.Display.V1.FormattedValue' IS NOT NULL`;
+    where += appendRegionFilter(region, params);
+    if (approvedBy) {
+      where += ` AND wo.raw_json->>'_cf_approvedby_value@OData.Community.Display.V1.FormattedValue' = $${params.push(approvedBy)}`;
+    }
+    if (Number.isFinite(year) && year > 0) {
+      where += ` AND EXTRACT(YEAR FROM (wo.raw_json->>'cf_approvedon')::timestamptz) = $${params.push(year)}`;
+    }
+    if (Number.isFinite(month) && month >= 1 && month <= 12) {
+      where += ` AND EXTRACT(MONTH FROM (wo.raw_json->>'cf_approvedon')::timestamptz) = $${params.push(month)}`;
+    }
+
+    const sql = `
+      SELECT
+        wo.raw_json->>'_cf_approvedby_value@OData.Community.Display.V1.FormattedValue' AS approved_by,
+        EXTRACT(WEEK FROM (wo.raw_json->>'cf_approvedon')::timestamptz)::int           AS week_no,
+        count(*)::int                                                                  AS cnt
+      FROM crm.workorder wo
+      LEFT JOIN crm.territory t ON t.territoryid = wo.msdyn_serviceterritory
+      ${where}
+      GROUP BY 1, 2`;
+    const result = await getCrmPool().query<{ approved_by: string; week_no: number; cnt: number }>(sql, params);
+
+    const weekSet = new Set<number>();
+    const byApprover = new Map<string, { approved_by: string; total: number; weeks: Record<string, number> }>();
+    let total = 0;
+    for (const row of result.rows) {
+      const wk = Number(row.week_no);
+      const cnt = Number(row.cnt);
+      weekSet.add(wk);
+      total += cnt;
+      if (!byApprover.has(row.approved_by)) {
+        byApprover.set(row.approved_by, { approved_by: row.approved_by, total: 0, weeks: {} });
+      }
+      const a = byApprover.get(row.approved_by)!;
+      a.total += cnt;
+      a.weeks[String(wk)] = (a.weeks[String(wk)] ?? 0) + cnt;
+    }
+
+    const week_numbers = Array.from(weekSet).sort((x, y) => x - y);
+    const approvers = Array.from(byApprover.values()).sort((x, y) => y.total - x.total);
+    res.json({ total, week_numbers, approvers });
+  } catch (err) {
+    req.log.error({ err }, "Failed to run weekly-approved report");
+    res.status(500).json({ error: "Failed to run report" });
+  }
+});
+
 const syncRequestSchema = z
   .object({
     ids: z.array(z.number().int().positive()).optional(),

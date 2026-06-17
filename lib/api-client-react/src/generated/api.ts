@@ -27,14 +27,19 @@ import type {
   GetScheduleBoardParams,
   GetTechnicianByEmailParams,
   GetWbJobsByRegionParams,
+  GetWbReportApprovedNotInvoicedParams,
+  GetWbReportCompletedNotApprovedParams,
+  GetWbReportWeeklyApprovedParams,
   GetWbResourceUtilizationParams,
   GetWbScheduleBoardParams,
   HealthStatus,
   ListWbWorkOrdersParams,
   RegionGroup,
   RegionJobGroup,
+  ReportFilters,
   ResourceUtilizationResponse,
   ScheduleBoard,
+  ServiceOrderReport,
   Technician,
   TechnicianJobsResponse,
   TechnicianSummary,
@@ -45,6 +50,7 @@ import type {
   WbTechnician,
   WbWorkOrder,
   WbWriteback,
+  WeeklyApprovedReport,
   WorkOrderDetail
 } from './api.schemas';
 
@@ -1705,6 +1711,335 @@ export function useGetWbResourceUtilization<TData = Awaited<ReturnType<typeof ge
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetWbResourceUtilizationQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetWbReportFiltersUrl = () => {
+
+
+
+
+  return `/api/wb/reports/filters`
+}
+
+/**
+ * @summary Filter dropdown options (regions, years, approvers) for the service-management reports
+ */
+export const getWbReportFilters = async ( options?: RequestInit): Promise<ReportFilters> => {
+
+  return customFetch<ReportFilters>(getGetWbReportFiltersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWbReportFiltersQueryKey = () => {
+    return [
+    `/api/wb/reports/filters`
+    ] as const;
+    }
+
+
+export const getGetWbReportFiltersQueryOptions = <TData = Awaited<ReturnType<typeof getWbReportFilters>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbReportFilters>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWbReportFiltersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWbReportFilters>>> = ({ signal }) => getWbReportFilters({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWbReportFilters>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWbReportFiltersQueryResult = NonNullable<Awaited<ReturnType<typeof getWbReportFilters>>>
+export type GetWbReportFiltersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Filter dropdown options (regions, years, approvers) for the service-management reports
+ */
+
+export function useGetWbReportFilters<TData = Awaited<ReturnType<typeof getWbReportFilters>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbReportFilters>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWbReportFiltersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetWbReportCompletedNotApprovedUrl = (params?: GetWbReportCompletedNotApprovedParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/wb/reports/completed-not-approved?${stringifiedParams}` : `/api/wb/reports/completed-not-approved`
+}
+
+/**
+ * @summary Service orders that are completed but not yet approved (PDF page 1)
+ */
+export const getWbReportCompletedNotApproved = async (params?: GetWbReportCompletedNotApprovedParams, options?: RequestInit): Promise<ServiceOrderReport> => {
+
+  return customFetch<ServiceOrderReport>(getGetWbReportCompletedNotApprovedUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWbReportCompletedNotApprovedQueryKey = (params?: GetWbReportCompletedNotApprovedParams,) => {
+    return [
+    `/api/wb/reports/completed-not-approved`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetWbReportCompletedNotApprovedQueryOptions = <TData = Awaited<ReturnType<typeof getWbReportCompletedNotApproved>>, TError = ErrorType<unknown>>(params?: GetWbReportCompletedNotApprovedParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbReportCompletedNotApproved>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWbReportCompletedNotApprovedQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWbReportCompletedNotApproved>>> = ({ signal }) => getWbReportCompletedNotApproved(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWbReportCompletedNotApproved>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWbReportCompletedNotApprovedQueryResult = NonNullable<Awaited<ReturnType<typeof getWbReportCompletedNotApproved>>>
+export type GetWbReportCompletedNotApprovedQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Service orders that are completed but not yet approved (PDF page 1)
+ */
+
+export function useGetWbReportCompletedNotApproved<TData = Awaited<ReturnType<typeof getWbReportCompletedNotApproved>>, TError = ErrorType<unknown>>(
+ params?: GetWbReportCompletedNotApprovedParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbReportCompletedNotApproved>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWbReportCompletedNotApprovedQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetWbReportApprovedNotInvoicedUrl = (params?: GetWbReportApprovedNotInvoicedParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/wb/reports/approved-not-invoiced?${stringifiedParams}` : `/api/wb/reports/approved-not-invoiced`
+}
+
+/**
+ * @summary Service orders completed and approved but not yet invoiced (PDF page 2)
+ */
+export const getWbReportApprovedNotInvoiced = async (params?: GetWbReportApprovedNotInvoicedParams, options?: RequestInit): Promise<ServiceOrderReport> => {
+
+  return customFetch<ServiceOrderReport>(getGetWbReportApprovedNotInvoicedUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWbReportApprovedNotInvoicedQueryKey = (params?: GetWbReportApprovedNotInvoicedParams,) => {
+    return [
+    `/api/wb/reports/approved-not-invoiced`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetWbReportApprovedNotInvoicedQueryOptions = <TData = Awaited<ReturnType<typeof getWbReportApprovedNotInvoiced>>, TError = ErrorType<unknown>>(params?: GetWbReportApprovedNotInvoicedParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbReportApprovedNotInvoiced>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWbReportApprovedNotInvoicedQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWbReportApprovedNotInvoiced>>> = ({ signal }) => getWbReportApprovedNotInvoiced(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWbReportApprovedNotInvoiced>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWbReportApprovedNotInvoicedQueryResult = NonNullable<Awaited<ReturnType<typeof getWbReportApprovedNotInvoiced>>>
+export type GetWbReportApprovedNotInvoicedQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Service orders completed and approved but not yet invoiced (PDF page 2)
+ */
+
+export function useGetWbReportApprovedNotInvoiced<TData = Awaited<ReturnType<typeof getWbReportApprovedNotInvoiced>>, TError = ErrorType<unknown>>(
+ params?: GetWbReportApprovedNotInvoicedParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbReportApprovedNotInvoiced>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWbReportApprovedNotInvoicedQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetWbReportWeeklyApprovedUrl = (params?: GetWbReportWeeklyApprovedParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/wb/reports/weekly-approved?${stringifiedParams}` : `/api/wb/reports/weekly-approved`
+}
+
+/**
+ * @summary Weekly approved summary — counts by approver and ISO week of approval (PDF page 4)
+ */
+export const getWbReportWeeklyApproved = async (params?: GetWbReportWeeklyApprovedParams, options?: RequestInit): Promise<WeeklyApprovedReport> => {
+
+  return customFetch<WeeklyApprovedReport>(getGetWbReportWeeklyApprovedUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWbReportWeeklyApprovedQueryKey = (params?: GetWbReportWeeklyApprovedParams,) => {
+    return [
+    `/api/wb/reports/weekly-approved`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetWbReportWeeklyApprovedQueryOptions = <TData = Awaited<ReturnType<typeof getWbReportWeeklyApproved>>, TError = ErrorType<unknown>>(params?: GetWbReportWeeklyApprovedParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbReportWeeklyApproved>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWbReportWeeklyApprovedQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWbReportWeeklyApproved>>> = ({ signal }) => getWbReportWeeklyApproved(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWbReportWeeklyApproved>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWbReportWeeklyApprovedQueryResult = NonNullable<Awaited<ReturnType<typeof getWbReportWeeklyApproved>>>
+export type GetWbReportWeeklyApprovedQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Weekly approved summary — counts by approver and ISO week of approval (PDF page 4)
+ */
+
+export function useGetWbReportWeeklyApproved<TData = Awaited<ReturnType<typeof getWbReportWeeklyApproved>>, TError = ErrorType<unknown>>(
+ params?: GetWbReportWeeklyApprovedParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbReportWeeklyApproved>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWbReportWeeklyApprovedQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
