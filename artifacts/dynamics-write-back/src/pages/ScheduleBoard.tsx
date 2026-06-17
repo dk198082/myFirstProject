@@ -388,6 +388,42 @@ function CapacityBadge({
   );
 }
 
+// Region-level roll-up of utilized vs. capacity hours for all techs in a region.
+// Lets a dispatcher gauge how loaded a whole region is at a glance (e.g.
+// "312 of 480h booked · 12 techs") with the same green/amber/red tinting used on
+// the per-tech CapacityBadge. Shown in each region header across all views.
+function RegionCapacityBadge({
+  utilizedMinutes,
+  capacityMinutes,
+  techCount,
+}: {
+  utilizedMinutes: number;
+  capacityMinutes: number;
+  techCount: number;
+}) {
+  const utilH = Math.round(utilizedMinutes / 60);
+  const capH = Math.round(capacityMinutes / 60);
+  const pct = capacityMinutes > 0 ? Math.round((utilizedMinutes / capacityMinutes) * 100) : 0;
+  const colors = utilColors(pct);
+  const barPct = Math.max(0, Math.min(100, pct));
+  return (
+    <div
+      className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 ${colors.bg} ${colors.text}`}
+      data-testid="region-capacity-badge"
+    >
+      <div className="h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-foreground/10">
+        <div className={`h-full rounded-full ${colors.bar}`} style={{ width: `${barPct}%` }} />
+      </div>
+      <span className="text-xs font-semibold whitespace-nowrap">
+        {capH > 0 ? `${utilH} of ${capH}h booked` : `${utilH}h booked`}
+        <span className="font-normal opacity-80">
+          {" "}· {techCount} tech{techCount !== 1 ? "s" : ""}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 // ── Unscheduled card helpers ──────────────────────────────────────────────────
 
 function fmtMins(mins: number | null | undefined): string {
@@ -1248,6 +1284,14 @@ export default function ScheduleBoard() {
             );
             if (techsInRegion.length === 0) return null;
             const regionJobCount = techsInRegion.reduce((s, t) => s + t.jobs.length, 0);
+            const regionUtilMinutes = techsInRegion.reduce(
+              (s, t) => s + techUtilMinutes(t.technician_id),
+              0,
+            );
+            const regionCapMinutes = techsInRegion.reduce(
+              (s, t) => s + idleCapMinutes(t.technician_id),
+              0,
+            );
             return (
               <Card
                 key={rg.regionid_id}
@@ -1267,6 +1311,13 @@ export default function ScheduleBoard() {
                     {techsInRegion.length} tech{techsInRegion.length !== 1 ? "s" : ""} · {regionJobCount} job
                     {regionJobCount !== 1 ? "s" : ""}
                   </Badge>
+                  <div className="ml-auto">
+                    <RegionCapacityBadge
+                      utilizedMinutes={regionUtilMinutes}
+                      capacityMinutes={regionCapMinutes}
+                      techCount={techsInRegion.length}
+                    />
+                  </div>
                 </div>
 
                 <CardContent className="p-0 overflow-x-auto">
@@ -1462,6 +1513,14 @@ export default function ScheduleBoard() {
         <div className="space-y-6">
           {regions.map((rg) => {
             const regionJobCount = rg.technicians.reduce((s, t) => s + t.jobs.length, 0);
+            const regionUtilMinutes = rg.technicians.reduce(
+              (s, t) => s + techUtilMinutes(t.technician_id),
+              0,
+            );
+            const regionCapMinutes = rg.technicians.reduce(
+              (s, t) => s + idleCapMinutes(t.technician_id),
+              0,
+            );
 
             return (
               <Card
@@ -1483,6 +1542,13 @@ export default function ScheduleBoard() {
                   <Badge className="bg-sidebar-primary/20 text-sidebar-primary-foreground hover:bg-sidebar-primary/20 text-xs border-0">
                     {regionJobCount} jobs
                   </Badge>
+                  <div className="ml-auto">
+                    <RegionCapacityBadge
+                      utilizedMinutes={regionUtilMinutes}
+                      capacityMinutes={regionCapMinutes}
+                      techCount={rg.technicians.length}
+                    />
+                  </div>
                 </div>
 
                 <CardContent className="p-0 overflow-x-auto">
