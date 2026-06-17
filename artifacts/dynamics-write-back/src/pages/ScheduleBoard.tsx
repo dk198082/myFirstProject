@@ -359,6 +359,35 @@ function IdleCapacityBadge({ capacityMinutes }: { capacityMinutes: number }) {
   );
 }
 
+// At-a-glance utilization readout for technicians that already have jobs in the
+// range. Surfaces how many hours are booked against capacity (e.g. "24 of 40h
+// booked") plus a small bar tinted by utilization, so a dispatcher can tell
+// whether a busy tech still has spare hours. Intentionally styled differently
+// from the green idle pill so idle techs keep reading as fully "free".
+function CapacityBadge({
+  utilizedMinutes,
+  capacityMinutes,
+}: {
+  utilizedMinutes: number;
+  capacityMinutes: number;
+}) {
+  const utilH = Math.round(utilizedMinutes / 60);
+  const capH = Math.round(capacityMinutes / 60);
+  const pct = capacityMinutes > 0 ? Math.round((utilizedMinutes / capacityMinutes) * 100) : 0;
+  const colors = utilColors(pct);
+  const barPct = Math.max(0, Math.min(100, pct));
+  return (
+    <div className="mt-0.5 flex items-center gap-1.5" data-testid="capacity-badge">
+      <div className="h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-foreground/10">
+        <div className={`h-full rounded-full ${colors.bar}`} style={{ width: `${barPct}%` }} />
+      </div>
+      <span className={`text-[10px] font-medium ${colors.text}`}>
+        {capH > 0 ? `${utilH} of ${capH}h booked` : `${utilH}h booked`}
+      </span>
+    </div>
+  );
+}
+
 // ── Unscheduled card helpers ──────────────────────────────────────────────────
 
 function fmtMins(mins: number | null | undefined): string {
@@ -742,6 +771,19 @@ export default function ScheduleBoard() {
     return m;
   }, [utilData]);
 
+  // Per-technician minutes already booked in the active range, sourced from the
+  // same resource-utilization endpoint. Used to surface remaining capacity on
+  // busy technician rows ("24 of 40h booked"), not just idle ones.
+  const techUtilMinutesById = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of utilData?.regions ?? []) {
+      for (const t of r.technicians ?? []) {
+        m.set(t.technician_id, t.utilized_minutes ?? 0);
+      }
+    }
+    return m;
+  }, [utilData]);
+
   // Fallback capacity when a tech isn't present in the utilization payload.
   const defaultCapMinutes = useMemo(() => {
     const weeklyHours = utilData?.default_weekly_capacity_hours ?? 40;
@@ -751,6 +793,9 @@ export default function ScheduleBoard() {
 
   const idleCapMinutes = (technicianId: string) =>
     techCapMinutesById.get(technicianId) ?? defaultCapMinutes;
+
+  const techUtilMinutes = (technicianId: string) =>
+    techUtilMinutesById.get(technicianId) ?? 0;
 
   // Time horizon for unscheduled jobs driven by the active view (no separate toggle)
   const unscheduledHorizonDays = view === "week" ? 7 : 30;
@@ -1285,11 +1330,18 @@ export default function ScheduleBoard() {
                               <div className="text-[10px] text-foreground/50">
                                 {tech.jobs.length} job{tech.jobs.length !== 1 ? "s" : ""}
                               </div>
-                              {showIdleTechs && tech.jobs.length === 0 && (
-                                <IdleCapacityBadge
-                                  capacityMinutes={idleCapMinutes(tech.technician_id)}
-                                />
-                              )}
+                              {tech.jobs.length === 0
+                                ? showIdleTechs && (
+                                    <IdleCapacityBadge
+                                      capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                    />
+                                  )
+                                : (
+                                    <CapacityBadge
+                                      utilizedMinutes={techUtilMinutes(tech.technician_id)}
+                                      capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                    />
+                                  )}
                             </div>
                           </div>
                           {jobsByWeekday.map((jobs, i) => {
@@ -1500,11 +1552,18 @@ export default function ScheduleBoard() {
                               <div className="text-[10px] text-muted-foreground">
                                 {tech.jobs.length} job{tech.jobs.length !== 1 ? "s" : ""}
                               </div>
-                              {showIdleTechs && tech.jobs.length === 0 && (
-                                <IdleCapacityBadge
-                                  capacityMinutes={idleCapMinutes(tech.technician_id)}
-                                />
-                              )}
+                              {tech.jobs.length === 0
+                                ? showIdleTechs && (
+                                    <IdleCapacityBadge
+                                      capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                    />
+                                  )
+                                : (
+                                    <CapacityBadge
+                                      utilizedMinutes={techUtilMinutes(tech.technician_id)}
+                                      capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                    />
+                                  )}
                             </div>
                           </div>
                           {jobsByDay.map((jobs, i) => {
