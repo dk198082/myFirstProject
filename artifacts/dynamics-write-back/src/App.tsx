@@ -46,12 +46,12 @@ function Layout({ children }: { children: React.ReactNode }) {
           <nav className="flex items-center gap-1">
             <NavLink href="/">
               <span className="inline-flex items-center gap-1.5">
-                <ClipboardList className="h-4 w-4" /> Work Orders
+                <CalendarRange className="h-4 w-4" /> Schedule Board
               </span>
             </NavLink>
-            <NavLink href="/schedule-board">
+            <NavLink href="/utilization">
               <span className="inline-flex items-center gap-1.5">
-                <CalendarRange className="h-4 w-4" /> Schedule Board
+                <BarChart3 className="h-4 w-4" /> Utilization
               </span>
             </NavLink>
             <NavLink href="/jobs-by-region">
@@ -64,9 +64,9 @@ function Layout({ children }: { children: React.ReactNode }) {
                 <CalendarClock className="h-4 w-4" /> Unscheduled
               </span>
             </NavLink>
-            <NavLink href="/utilization">
+            <NavLink href="/work-orders">
               <span className="inline-flex items-center gap-1.5">
-                <BarChart3 className="h-4 w-4" /> Utilization
+                <ClipboardList className="h-4 w-4" /> Work Orders
               </span>
             </NavLink>
             <NavLink href="/writebacks">Queued Write-backs</NavLink>
@@ -85,11 +85,12 @@ function Router() {
   return (
     <Layout>
       <Switch>
-        <Route path="/" component={WorkOrders} />
-        <Route path="/schedule-board" component={ScheduleBoard} />
+        <Route path="/" component={ScheduleBoard} />
+        <Route path="/utilization" component={ResourceUtilization} />
         <Route path="/jobs-by-region" component={JobsByRegion} />
         <Route path="/unscheduled" component={Unscheduled} />
-        <Route path="/utilization" component={ResourceUtilization} />
+        <Route path="/work-orders" component={WorkOrders} />
+        <Route path="/schedule-board" component={ScheduleBoard} />
         <Route path="/writebacks" component={Writebacks} />
         <Route component={NotFound} />
       </Switch>
