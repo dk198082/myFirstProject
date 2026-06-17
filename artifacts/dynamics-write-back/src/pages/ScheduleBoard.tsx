@@ -41,6 +41,7 @@ import {
   conflictedIdsForTech,
   wouldDropConflict,
 } from "@/lib/conflicts";
+import { shiftIsoDays } from "@/lib/dateShift";
 
 type ViewMode = "week" | "month" | "tech";
 
@@ -118,17 +119,6 @@ function fmtTime(t: string | null | undefined): string {
   const period = h >= 12 ? "PM" : "AM";
   const h12 = ((h + 11) % 12) + 1;
   return `${h12}:${mStr ?? "00"} ${period}`;
-}
-
-// Shift an ISO timestamp by whole UTC days, preserving time-of-day. The board
-// assigns jobs to day columns by UTC date, so shifting by the column delta both
-// preserves the booking's time/duration and lands it in the dropped-on column.
-function shiftIsoDays(iso: string | null | undefined, days: number): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString();
 }
 
 function fmtDuration(start: string | null | undefined, end: string | null | undefined): string {
