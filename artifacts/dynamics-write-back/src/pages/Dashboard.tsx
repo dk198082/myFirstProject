@@ -288,13 +288,18 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <Tabs defaultValue="completed-not-approved">
-        <TabsList>
-          <TabsTrigger value="completed-not-approved">Completed not Approved</TabsTrigger>
-          <TabsTrigger value="approved-not-invoiced">Approved not Invoiced</TabsTrigger>
-          <TabsTrigger value="weekly-approved">Weekly Approved</TabsTrigger>
+      <Tabs
+        defaultValue="completed-not-approved"
+        orientation="vertical"
+        className="flex flex-col gap-6 sm:flex-row sm:items-start"
+      >
+        <TabsList className="h-auto w-full shrink-0 flex-col items-stretch justify-start gap-1 p-1 sm:w-56">
+          <TabsTrigger className="w-full justify-start" value="completed-not-approved">Completed not Approved</TabsTrigger>
+          <TabsTrigger className="w-full justify-start" value="approved-not-invoiced">Approved not Invoiced</TabsTrigger>
+          <TabsTrigger className="w-full justify-start" value="weekly-approved">Weekly Approved</TabsTrigger>
         </TabsList>
 
+        <div className="min-w-0 flex-1">
         {/* Page 1 */}
         <TabsContent value="completed-not-approved" className="space-y-4">
           <div className="flex flex-wrap items-end gap-3">
@@ -410,6 +415,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </TabsContent>
+        </div>
       </Tabs>
     </div>
   );

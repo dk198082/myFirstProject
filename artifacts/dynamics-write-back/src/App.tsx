@@ -2,8 +2,9 @@ import { Switch, Route, Router as WouterRouter, Link, useLocation } from "wouter
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Database, ClipboardList, CalendarRange, Globe, CalendarClock, BarChart3, LayoutDashboard } from "lucide-react";
+import { Database, ClipboardList, CalendarRange, Globe, CalendarClock, FileBarChart } from "lucide-react";
 import Dashboard from "@/pages/Dashboard";
+import ServiceReports from "@/pages/ServiceReports";
 import WorkOrders from "@/pages/WorkOrders";
 import Writebacks from "@/pages/Writebacks";
 import ScheduleBoard from "@/pages/ScheduleBoard";
@@ -50,9 +51,9 @@ function Layout({ children }: { children: React.ReactNode }) {
                 <CalendarRange className="h-4 w-4" /> Schedule Board
               </span>
             </NavLink>
-            <NavLink href="/utilization">
+            <NavLink href="/service-reports">
               <span className="inline-flex items-center gap-1.5">
-                <BarChart3 className="h-4 w-4" /> Utilization
+                <FileBarChart className="h-4 w-4" /> Service Reports
               </span>
             </NavLink>
             <NavLink href="/jobs-by-region">
@@ -68,11 +69,6 @@ function Layout({ children }: { children: React.ReactNode }) {
             <NavLink href="/work-orders">
               <span className="inline-flex items-center gap-1.5">
                 <ClipboardList className="h-4 w-4" /> Work Orders
-              </span>
-            </NavLink>
-            <NavLink href="/dashboard">
-              <span className="inline-flex items-center gap-1.5">
-                <LayoutDashboard className="h-4 w-4" /> Dashboard
               </span>
             </NavLink>
             <NavLink href="/writebacks">Queued Write-backs</NavLink>
@@ -92,6 +88,7 @@ function Router() {
     <Layout>
       <Switch>
         <Route path="/" component={ScheduleBoard} />
+        <Route path="/service-reports" component={ServiceReports} />
         <Route path="/utilization" component={ResourceUtilization} />
         <Route path="/jobs-by-region" component={JobsByRegion} />
         <Route path="/unscheduled" component={Unscheduled} />
