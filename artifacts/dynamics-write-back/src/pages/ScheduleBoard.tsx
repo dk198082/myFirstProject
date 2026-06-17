@@ -464,20 +464,25 @@ function RegionCapacityBadge({
   const colors = utilColors(pct);
   const barPct = Math.max(0, Math.min(100, pct));
   return (
-    <div
-      className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 ${colors.bg} ${colors.text}`}
-      data-testid="region-capacity-badge"
-    >
-      <div className="h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-foreground/10">
-        <div className={`h-full rounded-full ${colors.bar}`} style={{ width: `${barPct}%` }} />
-      </div>
-      <span className="text-xs font-semibold whitespace-nowrap">
-        {capH > 0 ? `${utilH} of ${capH}h booked` : `${utilH}h booked`}
-        <span className="font-normal opacity-80">
-          {" "}· {techCount} tech{techCount !== 1 ? "s" : ""}
-        </span>
-      </span>
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 ${colors.bg} ${colors.text}`}
+          data-testid="region-capacity-badge"
+        >
+          <div className="h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-foreground/10">
+            <div className={`h-full rounded-full ${colors.bar}`} style={{ width: `${barPct}%` }} />
+          </div>
+          <span className="text-xs font-semibold whitespace-nowrap">
+            {capH > 0 ? `${utilH} of ${capH}h booked` : `${utilH}h booked`}
+            <span className="font-normal opacity-80">
+              {" "}· {techCount} tech{techCount !== 1 ? "s" : ""}
+            </span>
+          </span>
+        </div>
+      </TooltipTrigger>
+      <CapacityTooltipContent utilizedMinutes={utilizedMinutes} capacityMinutes={capacityMinutes} />
+    </Tooltip>
   );
 }
 
