@@ -1,2 +1,1 @@
-- [Dynamics Dataverse write-back](dataverse-writeback.md) — how api-server syncs staged booking edits to Dynamics; OAuth/tenant gotchas; api-server has no auth layer.
-- [d365crm database](d365crm-database.md) — write-back reads crm.* tables; password breaks URL parsing; lookup names live in raw_json FormattedValue, not lookup tables.
+- [Schedule board parity (FS vs d365crm)](schedule-board-parity.md) — CRM board must fall back resource→territory to the work order's service territory, and resolve names from raw_json FormattedValue keys.

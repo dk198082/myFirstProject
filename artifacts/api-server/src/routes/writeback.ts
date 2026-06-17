@@ -350,10 +350,21 @@ router.get("/wb/schedule-board", async (req, res) => {
 
   try {
     // Group by territory (region) -> resource (technician) -> bookings.
-    // Each resource is mapped to a single territory via crm.msdyn_resourceterritory
+    //
+    // A resource is normally mapped to a territory via crm.msdyn_resourceterritory
     // (DISTINCT ON keeps one mapping when a resource spans multiple territories).
-    // Resource names fall back to the formatted name embedded in booking.raw_json
-    // and customer names fall back to the workorder's formatted serviceaccount value.
+    // When a booking's resource has no such mapping, the booking falls back to its
+    // work order's service territory (wo.msdyn_serviceterritory) so it still lands
+    // on the board instead of disappearing.
+    //
+    // Resource names fall back to the formatted name embedded in booking.raw_json,
+    // and customer names fall back to the workorder's formatted serviceaccount value,
+    // to cope with sparse crm.bookableresource / crm.account rows.
+    //
+    // The query is a UNION of:
+    //   (A) every in-range booking, region resolved per the rule above; and
+    //   (B) mapped resources that have no in-range bookings, so technician rows
+    //       still render with an empty schedule (parity with the FS board).
     const result = await getCrmPool().query(
       `
       WITH res_terr AS (
@@ -365,43 +376,89 @@ router.get("/wb/schedule-board", async (req, res) => {
           AND rt.msdyn_territory IS NOT NULL
           AND COALESCE(rt.is_deleted, false) = false
         ORDER BY rt.msdyn_resource, rt.msdyn_territory
+      ),
+      bk AS (
+        SELECT
+          b.bookableresourcebookingid AS booking_id,
+          b.resource                  AS resource_id,
+          b.starttime                 AS start_time,
+          b.endtime                   AS end_time,
+          b.raw_json                  AS b_raw,
+          COALESCE(rt.territory_id, wo.msdyn_serviceterritory) AS territory_id,
+          wo.msdyn_workorderid        AS wo_id,
+          wo.msdyn_name               AS wo_number,
+          COALESCE(
+            wo.new_customerrequirement,
+            wo.raw_json->>'_msdyn_workordertype_value@OData.Community.Display.V1.FormattedValue'
+          )                           AS title,
+          wo.raw_json->>'msdyn_systemstatus@OData.Community.Display.V1.FormattedValue' AS system_status,
+          wo.msdyn_city               AS city,
+          wo.msdyn_stateorprovince    AS state,
+          COALESCE(
+            acc.name,
+            wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue'
+          )                           AS customer_name
+        FROM crm.booking b
+        LEFT JOIN res_terr rt ON rt.resource_id = b.resource
+        LEFT JOIN crm.workorder wo ON wo.msdyn_workorderid = b.msdyn_workorder
+        LEFT JOIN crm.account acc ON acc.accountid = wo.msdyn_serviceaccount
+        WHERE b.starttime >= $1::date
+          AND b.starttime <  $2::date
+          AND COALESCE(b.is_deleted, false) = false
       )
+      SELECT
+        ter.territoryid::text                        AS regionid_id,
+        ter.name                                     AS region,
+        COALESCE(br.bookableresourceid::text, bk.resource_id::text) AS technician_id,
+        COALESCE(
+          br.name,
+          bk.b_raw->>'_resource_value@OData.Community.Display.V1.FormattedValue'
+        )                                            AS resource_name,
+        br.msdyn_primaryemail                        AS user_email,
+        bk.booking_id::text                          AS booking_id,
+        bk.start_time                                AS start_time,
+        bk.end_time                                  AS end_time,
+        bk.b_raw->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue' AS booking_status,
+        bk.wo_id::text                               AS work_order_id,
+        bk.wo_number                                 AS work_order_number,
+        bk.title                                     AS title,
+        bk.system_status                             AS system_status,
+        bk.city                                      AS city,
+        bk.state                                     AS state,
+        bk.customer_name                             AS customer_name
+      FROM bk
+      JOIN crm.territory ter ON ter.territoryid = bk.territory_id
+      LEFT JOIN crm.bookableresource br
+        ON br.bookableresourceid = bk.resource_id
+       AND COALESCE(br.is_deleted, false) = false
+
+      UNION ALL
+
       SELECT
         ter.territoryid::text                        AS regionid_id,
         ter.name                                     AS region,
         br.bookableresourceid::text                  AS technician_id,
         br.name                                      AS resource_name,
         br.msdyn_primaryemail                        AS user_email,
-        b.bookableresourcebookingid::text            AS booking_id,
-        b.starttime                                  AS start_time,
-        b.endtime                                    AS end_time,
-        b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue' AS booking_status,
-        wo.msdyn_workorderid::text                   AS work_order_id,
-        wo.msdyn_name                                AS work_order_number,
-        COALESCE(
-          wo.new_customerrequirement,
-          wo.raw_json->>'_msdyn_workordertype_value@OData.Community.Display.V1.FormattedValue'
-        )                                            AS title,
-        wo.raw_json->>'msdyn_systemstatus@OData.Community.Display.V1.FormattedValue' AS system_status,
-        wo.msdyn_city                                AS city,
-        wo.msdyn_stateorprovince                     AS state,
-        COALESCE(
-          acc.name,
-          wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue'
-        )                                            AS customer_name
+        NULL::text                                   AS booking_id,
+        NULL::timestamp                              AS start_time,
+        NULL::timestamp                              AS end_time,
+        NULL::text                                   AS booking_status,
+        NULL::text                                   AS work_order_id,
+        NULL::text                                   AS work_order_number,
+        NULL::text                                   AS title,
+        NULL::text                                   AS system_status,
+        NULL::text                                   AS city,
+        NULL::text                                   AS state,
+        NULL::text                                   AS customer_name
       FROM res_terr rterr
       JOIN crm.territory ter ON ter.territoryid = rterr.territory_id
       JOIN crm.bookableresource br
         ON br.bookableresourceid = rterr.resource_id
        AND COALESCE(br.is_deleted, false) = false
-      LEFT JOIN crm.booking b
-        ON b.resource = br.bookableresourceid
-       AND b.starttime >= $1::date
-       AND b.starttime <  $2::date
-       AND COALESCE(b.is_deleted, false) = false
-      LEFT JOIN crm.workorder wo ON wo.msdyn_workorderid = b.msdyn_workorder
-      LEFT JOIN crm.account acc ON acc.accountid = wo.msdyn_serviceaccount
-      ORDER BY ter.name ASC, br.name ASC, b.starttime ASC NULLS LAST
+      WHERE NOT EXISTS (SELECT 1 FROM bk WHERE bk.resource_id = rterr.resource_id)
+
+      ORDER BY region ASC, resource_name ASC, start_time ASC NULLS LAST
       `,
       [rangeStart, rangeEnd],
     );

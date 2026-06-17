@@ -1,20 +1,28 @@
 ---
 name: Schedule board parity (FS vs d365crm)
-description: How the two schedule-board endpoints map regions→techs→bookings and a shared spec/handler quirk
+description: How the two schedule-board endpoints map regions→techs→bookings, with the required CRM territory/name fallbacks
 ---
 
 # Schedule board parity (FS vs d365crm)
 
-There are two schedule-board endpoints that must stay design/shape-identical:
+Two schedule-board endpoints must stay design/shape-identical:
 - `GET /schedule-board` (FS Azure DB) in `scheduleBoard.ts`
 - `GET /wb/schedule-board` (d365crm crm.* tables) in `writeback.ts`
 
-## Region→technician mapping
-- FS groups by `technicians.regionid_id` (a direct single-region field on the tech).
-- CRM analog is `crm.msdyn_resourceterritory` (resource→territory), DISTINCT ON resource.
-- **There is NO fallback to work-order service territory in either endpoint.** A booking only appears on the board if its technician/resource has a region/territory mapping. Do not "add" a work-order-territory fallback — it is not part of the reference design and would break parity.
+## Region→technician mapping (CRM side)
+- Primary: `crm.msdyn_resourceterritory` (resource→territory), DISTINCT ON resource.
+- **Required fallback:** when a booking's resource has NO territory mapping, place it under the work order's service territory (`crm.workorder.msdyn_serviceterritory`). Do NOT drop such bookings.
+- **Why:** using `msdyn_resourceterritory` alone silently drops bookings whose resource lacks a mapping, which breaks parity with the FS board (where every booking's tech has a region). The fallback keeps every booking on the board.
+- The CRM query is a UNION: (A) every in-range booking with territory resolved via COALESCE(resource_territory, wo_service_territory); (B) mapped resources with no in-range bookings, so empty technician rows still render (parity with the FS board's LEFT JOIN behavior).
+
+## Human-readable name fallbacks (CRM sparsity)
+crm.* lookup tables are sparse, so resolve display names with COALESCE to the FormattedValue keys in `raw_json`:
+- resource/tech name → `_resource_value@OData.Community.Display.V1.FormattedValue` (booking raw_json) when `bookableresource.name` is null.
+- customer name → `_msdyn_serviceaccount_value@...FormattedValue` (workorder raw_json) when `account.name` is null.
+- system status, work order type/title, booking status all come from workorder/booking `raw_json` FormattedValue keys.
 
 ## start-param convention
-**Both** endpoints mark `start` as `required: false` in `openapi.yaml` but the handlers return 400 when it is missing. This mismatch is intentional/established — the frontends always pass `start`. Don't "fix" the wb endpoint's spec to diverge from the FS one; keep them consistent.
+Both endpoints mark `start` as `required: false` in `openapi.yaml` but the handlers return 400 when it is missing; the frontends always pass it. This mirrors the existing FS endpoint — keep them consistent, don't special-case the CRM side.
 
-**Why:** A code review flagged these as bugs, but they match the existing FS endpoint's own convention; changing only the CRM side would create inconsistency, and adding a territory fallback would surface bookings the reference design intentionally omits.
+## DB access quirk
+`D365CRM_DATABASE_URL`'s password contains chars (`% # ! ^`) that break URL percent-decoding, so `psql "$D365CRM_DATABASE_URL"` and pg's `connectionString` both fail. `getCrmPool()` (`api-server/src/lib/crmDb.ts`) regex-parses the URL into discrete pg fields. For ad-hoc probes, reuse that same manual parse; never pass the raw URL to pg directly.
