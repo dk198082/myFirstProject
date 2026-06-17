@@ -15,7 +15,11 @@ import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { refetchOnWindowFocus: false, staleTime: 30_000 },
+    queries: {
+      refetchOnWindowFocus: true,
+      staleTime: 30_000,
+      refetchInterval: 30_000,
+    },
   },
 });
 
@@ -39,7 +43,7 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex">
-      <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col min-h-screen sticky top-0">
+      <aside className="w-60 shrink-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col h-screen sticky top-0 self-start overflow-y-auto">
         <div className="flex items-center gap-2 px-4 py-4 border-b border-sidebar-border">
           <Database className="h-5 w-5 text-sidebar-primary" />
           <span className="font-semibold tracking-tight">Dynamics Write Back</span>
