@@ -1662,9 +1662,15 @@ export default function ScheduleBoard() {
         const utilSelectNone = () => setUtilRegions(new Set());
         const isUtilRegionSelected = (id: string) => utilRegions === null || utilRegions.has(id);
 
-        const visibleUtilRegions = utilRegions === null
+        const visibleUtilRegions = (utilRegions === null
           ? allUtilRegions
-          : allUtilRegions.filter((r) => utilRegions.has(r.regionid_id));
+          : allUtilRegions.filter((r) => utilRegions.has(r.regionid_id)))
+          // Show only resources that actually have jobs in the period.
+          .map((r) => ({
+            ...r,
+            technicians: (r.technicians ?? []).filter((t) => (t.job_count ?? 0) > 0),
+          }))
+          .filter((r) => r.technicians.length > 0);
 
         return (
           <div className="space-y-3" data-testid="panel-resource-utilization">
