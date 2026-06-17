@@ -1911,7 +1911,11 @@ export default function ScheduleBoard() {
                     <CardContent className="p-0">
                       <div className="px-4 py-2.5 border-b border-border flex items-center gap-3">
                         <h3 className="text-sm font-semibold flex-1">{rg.region}</h3>
-                        <Badge variant="outline" className="text-xs">{techs.length} tech{techs.length !== 1 ? "s" : ""}</Badge>
+                        <RegionCapacityBadge
+                          utilizedMinutes={totalUtil}
+                          capacityMinutes={totalCap}
+                          techCount={techs.length}
+                        />
                         <span className={`text-sm font-bold tabular-nums ${rc.text}`}>{regionPct}% avg</span>
                       </div>
                       {techs.length === 0 ? (
