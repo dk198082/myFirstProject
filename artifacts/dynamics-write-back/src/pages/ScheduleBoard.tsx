@@ -1,11 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useGetWbScheduleBoard,
   useGetWbUnscheduledJobs,
   useGetWbResourceUtilization,
+  useUpdateWbBooking,
+  getListWbWorkOrdersQueryKey,
+  getListWbWritebacksQueryKey,
+  getGetWbScheduleBoardQueryKey,
+  getGetWbResourceUtilizationQueryKey,
   type WbWorkOrder,
   type UnscheduledJob,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -106,6 +113,17 @@ function fmtTime(t: string | null | undefined): string {
   const period = h >= 12 ? "PM" : "AM";
   const h12 = ((h + 11) % 12) + 1;
   return `${h12}:${mStr ?? "00"} ${period}`;
+}
+
+// Shift an ISO timestamp by whole UTC days, preserving time-of-day. The board
+// assigns jobs to day columns by UTC date, so shifting by the column delta both
+// preserves the booking's time/duration and lands it in the dropped-on column.
+function shiftIsoDays(iso: string | null | undefined, days: number): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString();
 }
 
 function timeToMins(t: string | null | undefined): number | null {
@@ -213,19 +231,34 @@ function JobChip({
   colorClass,
   isConflict,
   onOpen,
+  onDragStart,
+  onDragEnd,
+  isDragging,
 }: {
   job: ScheduleJob;
   compact: boolean;
   colorClass: string;
   isConflict?: boolean;
   onOpen: () => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+  isDragging?: boolean;
 }) {
   const isCancelled = (job.system_status ?? "").toLowerCase() === "cancelled";
   const chip = (
     <button
       type="button"
+      draggable
       onClick={onOpen}
-      className={`w-full text-left text-[11px] leading-tight rounded border ${compact ? "px-1 py-0.5" : "px-1.5 py-1"} cursor-pointer transition-colors ${isCancelled ? cancelledChipColor() : colorClass} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""}`}
+      onDragStart={(e) => {
+        onDragStart?.();
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", job.booking_id);
+        }
+      }}
+      onDragEnd={() => onDragEnd?.()}
+      className={`w-full text-left text-[11px] leading-tight rounded border ${compact ? "px-1 py-0.5" : "px-1.5 py-1"} cursor-grab active:cursor-grabbing transition-colors ${isCancelled ? cancelledChipColor() : colorClass} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""} ${isDragging ? "opacity-40" : ""}`}
       data-testid={`chip-job-${job.booking_id}`}
     >
       <div className="flex items-center gap-1">
@@ -462,6 +495,81 @@ export default function ScheduleBoard() {
   const [editing, setEditing] = useState<WbWorkOrder | null>(null);
   const [utilRegions, setUtilRegions] = useState<Set<string> | null>(null); // null = all
 
+  // Drag-to-reschedule. The dragged payload (tile + source technician) lives in a
+  // ref so the drop handler can read it synchronously — relying on state would be
+  // racy because React may not have flushed the onDragStart update before onDrop.
+  // `draggingId` and `dragOverCell` are state purely for visual feedback (dimming
+  // the dragged tile and highlighting the hovered drop cell `${techId}:${dayIdx}`).
+  const dragJobRef = useRef<{ job: ScheduleJob; sourceTechId: string } | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+
+  const startDrag = (job: ScheduleJob, sourceTechId: string) => {
+    dragJobRef.current = { job, sourceTechId };
+    setDraggingId(job.booking_id);
+  };
+
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const moveMutation = useUpdateWbBooking({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListWbWorkOrdersQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListWbWritebacksQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetWbScheduleBoardQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetWbResourceUtilizationQueryKey() });
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to reschedule",
+          description: err instanceof Error ? err.message : "Unknown error",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  const endDrag = () => {
+    dragJobRef.current = null;
+    setDraggingId(null);
+    setDragOverCell(null);
+  };
+
+  // Stage a booking write-back when a tile is dropped onto a different
+  // technician row and/or day column. The booking keeps its time-of-day and
+  // duration; only the date (shifted by the column delta) and technician change.
+  const handleDropOnCell = (targetTechId: string, targetDayIndex: number) => {
+    const dragged = dragJobRef.current;
+    endDrag();
+    if (!dragged) return;
+    const { job, sourceTechId } = dragged;
+    const deltaDays = targetDayIndex - (job.day_index ?? 0);
+    if (targetTechId === sourceTechId && deltaDays === 0) return; // no-op drop
+    if (!job.booking_id) return;
+
+    const newStart = shiftIsoDays(job.start_time, deltaDays);
+    const newEnd = shiftIsoDays(job.end_time, deltaDays);
+
+    moveMutation.mutate(
+      {
+        bookingId: job.booking_id,
+        data: {
+          start_time: newStart,
+          end_time: newEnd,
+          technician_id: targetTechId,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Reschedule queued",
+            description: `${job.work_order_number ?? "Booking"} staged for write-back.`,
+          });
+        },
+      },
+    );
+  };
+
   // Tech view reuses month data from the API.
   const apiView: "week" | "month" = view === "week" ? "week" : "month";
   const { data, isLoading, error } = useGetWbScheduleBoard({ start, view: apiView });
@@ -671,7 +779,7 @@ export default function ScheduleBoard() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Schedule Board</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Live from the d365crm database, grouped by region and technician. Click a job tile to stage a booking write-back.
+          Live from the d365crm database, grouped by region and technician. Click a job tile to edit, or drag it to another day or technician to reschedule.
         </p>
       </div>
 
@@ -1002,22 +1110,47 @@ export default function ScheduleBoard() {
                           </div>
                           {jobsByWeekday.map((jobs, i) => {
                             const dh = weekdayHeaders[i];
+                            const cellKey = `${tech.technician_id}:${dh.dayIdx}`;
+                            const isDropTarget = draggingId !== null && dragOverCell === cellKey;
                             return (
                               <div
                                 key={i}
-                                className={`border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""}`}
+                                className={`border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""} ${isDropTarget ? "bg-primary/10 ring-2 ring-inset ring-primary" : ""}`}
                                 data-testid={`tech-cell-${tech.technician_id}-${dh.dayIdx}`}
+                                onDragOver={(e) => {
+                                  if (!dragJobRef.current) return;
+                                  e.preventDefault();
+                                  e.dataTransfer.dropEffect = "move";
+                                  if (dragOverCell !== cellKey) setDragOverCell(cellKey);
+                                }}
+                                onDragLeave={() => {
+                                  setDragOverCell((prev) => (prev === cellKey ? null : prev));
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  handleDropOnCell(tech.technician_id, dh.dayIdx);
+                                }}
                               >
                                 {jobs.map((j) => {
                                   const isCancelled =
                                     (j.system_status ?? "").toLowerCase() === "cancelled";
                                   const isConflict = conflictedBookingIds.has(j.booking_id);
+                                  const isDragging = draggingId === j.booking_id;
                                   return (
                                     <button
                                       type="button"
                                       key={j.booking_id}
+                                      draggable
                                       onClick={() => setEditing(buildEditRow(j, tech.technician_id))}
-                                      className={`block w-full text-left text-[11px] leading-tight rounded border-l-4 pl-1.5 py-1 pr-1 cursor-pointer ${palette.chip.replace(/hover:bg-\S+/g, "").trim()} ${isCancelled ? "opacity-50 line-through" : ""} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""}`}
+                                      onDragStart={(e) => {
+                                        startDrag(j, tech.technician_id);
+                                        if (e.dataTransfer) {
+                                          e.dataTransfer.effectAllowed = "move";
+                                          e.dataTransfer.setData("text/plain", j.booking_id);
+                                        }
+                                      }}
+                                      onDragEnd={endDrag}
+                                      className={`block w-full text-left text-[11px] leading-tight rounded border-l-4 pl-1.5 py-1 pr-1 cursor-grab active:cursor-grabbing ${palette.chip.replace(/hover:bg-\S+/g, "").trim()} ${isCancelled ? "opacity-50 line-through" : ""} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""} ${isDragging ? "opacity-40" : ""}`}
                                       style={{ borderLeftColor: "currentColor" }}
                                       data-testid={`tech-job-${j.booking_id}`}
                                     >
@@ -1170,24 +1303,44 @@ export default function ScheduleBoard() {
                               </div>
                             </div>
                           </div>
-                          {jobsByDay.map((jobs, i) => (
-                            <div
-                              key={i}
-                              className="border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px]"
-                              data-testid={`cell-${tech.technician_id}-${i}`}
-                            >
-                              {jobs.map((j) => (
-                                <JobChip
-                                  key={j.booking_id}
-                                  job={j}
-                                  compact={view === "month"}
-                                  colorClass={palette.chip}
-                                  isConflict={conflictedBookingIds.has(j.booking_id)}
-                                  onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
-                                />
-                              ))}
-                            </div>
-                          ))}
+                          {jobsByDay.map((jobs, i) => {
+                            const cellKey = `${tech.technician_id}:${i}`;
+                            const isDropTarget = draggingId !== null && dragOverCell === cellKey;
+                            return (
+                              <div
+                                key={i}
+                                className={`border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${isDropTarget ? "bg-primary/10 ring-2 ring-inset ring-primary" : ""}`}
+                                data-testid={`cell-${tech.technician_id}-${i}`}
+                                onDragOver={(e) => {
+                                  if (!dragJobRef.current) return;
+                                  e.preventDefault();
+                                  e.dataTransfer.dropEffect = "move";
+                                  if (dragOverCell !== cellKey) setDragOverCell(cellKey);
+                                }}
+                                onDragLeave={() => {
+                                  setDragOverCell((prev) => (prev === cellKey ? null : prev));
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  handleDropOnCell(tech.technician_id, i);
+                                }}
+                              >
+                                {jobs.map((j) => (
+                                  <JobChip
+                                    key={j.booking_id}
+                                    job={j}
+                                    compact={view === "month"}
+                                    colorClass={palette.chip}
+                                    isConflict={conflictedBookingIds.has(j.booking_id)}
+                                    onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
+                                    onDragStart={() => startDrag(j, tech.technician_id)}
+                                    onDragEnd={endDrag}
+                                    isDragging={draggingId === j.booking_id}
+                                  />
+                                ))}
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     })}

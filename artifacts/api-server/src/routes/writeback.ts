@@ -476,10 +476,88 @@ router.get("/wb/schedule-board", async (req, res) => {
       technicians: Map<string, TechRow>;
     };
 
+    // Overlay queued (not-yet-synced) booking write-backs so the board optimistically
+    // reflects staged reschedules: a queued move shifts a booking's start/end and can
+    // reassign it to another technician. booking_writebacks lives in the app DB
+    // (localPool), separate from the CRM mirror (getCrmPool()), so it is fetched here
+    // and merged in JS rather than joined in SQL.
+    const boardBookingIds = result.rows
+      .map((row) => row.booking_id as string | null)
+      .filter((v): v is string => !!v);
+    const overlayByBooking = new Map<
+      string,
+      { start_time: Date | string | null; end_time: Date | string | null; technician_id: string | null }
+    >();
+    if (boardBookingIds.length > 0) {
+      const queued = await localPool.query<{
+        booking_id: string;
+        start_time: Date | string | null;
+        end_time: Date | string | null;
+        technician_id: string | null;
+      }>(
+        `
+        SELECT DISTINCT ON (booking_id)
+               booking_id, start_time, end_time, technician_id
+        FROM booking_writebacks
+        WHERE booking_id = ANY($1::text[]) AND status = 'queued'
+        ORDER BY booking_id, created_at DESC
+        `,
+        [boardBookingIds],
+      );
+      for (const q of queued.rows) {
+        overlayByBooking.set(q.booking_id, {
+          start_time: q.start_time,
+          end_time: q.end_time,
+          technician_id: q.technician_id,
+        });
+      }
+    }
+
     const regionMap = new Map<string, RegionRow>();
     const rangeStartMs = start.getTime();
     const maxDayIndex = dayCount - 1;
 
+    // Map each technician to its region/display info so a write-back that reassigns a
+    // booking to another technician can re-home it under the correct row/region.
+    type TechInfo = { regionid_id: string; resource_name: string | null; user_email: string | null };
+    const techInfo = new Map<string, TechInfo>();
+    for (const row of result.rows) {
+      const tid = row.technician_id as string | null;
+      if (tid && !techInfo.has(tid)) {
+        techInfo.set(tid, {
+          regionid_id: row.regionid_id as string,
+          resource_name: row.resource_name,
+          user_email: row.user_email,
+        });
+      }
+    }
+
+    const ensureTechRow = (
+      regionid_id: string,
+      region: string,
+      tech: { technician_id: string; resource_name: string | null; user_email: string | null },
+    ): TechRow => {
+      if (!regionMap.has(regionid_id)) {
+        regionMap.set(regionid_id, {
+          regionid_id,
+          region,
+          company: null,
+          technicians: new Map(),
+        });
+      }
+      const rg = regionMap.get(regionid_id)!;
+      if (!rg.technicians.has(tech.technician_id)) {
+        rg.technicians.set(tech.technician_id, {
+          technician_id: tech.technician_id,
+          resource_name: tech.resource_name,
+          user_email: tech.user_email,
+          jobs: [],
+        });
+      }
+      return rg.technicians.get(tech.technician_id)!;
+    };
+
+    // Pass 1: materialize all regions and technician rows (including empty ones).
     for (const row of result.rows) {
       const rid = row.regionid_id as string;
       if (!regionMap.has(rid)) {
@@ -490,32 +568,60 @@ router.get("/wb/schedule-board", async (req, res) => {
           technicians: new Map(),
         });
       }
-      const rg = regionMap.get(rid)!;
-
-      if (!row.technician_id) continue;
-      const tid = row.technician_id as string;
-      if (!rg.technicians.has(tid)) {
-        rg.technicians.set(tid, {
+      const tid = row.technician_id as string | null;
+      if (tid) {
+        ensureTechRow(rid, row.region, {
           technician_id: tid,
           resource_name: row.resource_name,
           user_email: row.user_email,
-          jobs: [],
         });
       }
+    }
 
+    // Pass 2: place each booking, applying any queued write-back overlay.
+    for (const row of result.rows) {
       if (!row.booking_id || !row.start_time) continue;
 
-      const startParts = tsParts(row.start_time);
-      const endParts = tsParts(row.end_time);
-      const startDate =
-        row.start_time instanceof Date ? row.start_time : new Date(row.start_time);
+      const overlay = overlayByBooking.get(row.booking_id as string);
+      const effStart = overlay?.start_time ?? row.start_time;
+      const effEnd = overlay?.end_time ?? row.end_time;
+
+      let targetRegionId = row.regionid_id as string;
+      let targetRegion = row.region as string;
+      let targetTechId = row.technician_id as string;
+      let targetTechName = row.resource_name as string | null;
+      let targetUserEmail = row.user_email as string | null;
+      if (overlay?.technician_id && overlay.technician_id !== targetTechId) {
+        const info = techInfo.get(overlay.technician_id);
+        targetTechId = overlay.technician_id;
+        if (info) {
+          targetRegionId = info.regionid_id;
+          const tr = regionMap.get(info.regionid_id);
+          targetRegion = tr?.region ?? targetRegion;
+          targetTechName = info.resource_name;
+          targetUserEmail = info.user_email;
+        } else {
+          targetTechName = null;
+          targetUserEmail = null;
+        }
+      }
+
+      const techRow = ensureTechRow(targetRegionId, targetRegion, {
+        technician_id: targetTechId,
+        resource_name: targetTechName,
+        user_email: targetUserEmail,
+      });
+
+      const startParts = tsParts(effStart);
+      const endParts = tsParts(effEnd);
+      const startDate = effStart instanceof Date ? effStart : new Date(effStart);
       const dayIndex = Math.floor(
         (Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()) -
           rangeStartMs) /
           86_400_000,
       );
 
-      rg.technicians.get(tid)!.jobs.push({
+      techRow.jobs.push({
         booking_id: row.booking_id,
         work_order_id: row.work_order_id,
         work_order_number: row.work_order_number,
@@ -523,7 +629,7 @@ router.get("/wb/schedule-board", async (req, res) => {
         system_status: row.system_status,
         booking_status: row.booking_status,
         customer_name: row.customer_name,
-        technician_name: row.resource_name,
+        technician_name: targetTechName,
         contact_name: null,
         contact_businessphone: null,
         crmstart_time: startParts.date,

@@ -17,6 +17,13 @@ Postgres mirror (`crm.*` tables) via `getCrmPool()`. Several fields do NOT map t
   `EXTRACT(EPOCH FROM (endtime - starttime)) / 60`.
 - **Resource→region mapping**: join `crm.msdyn_resourceterritory` (resource→territory). Use `DISTINCT ON
   (resource)` because a resource can have multiple territory rows.
+- **Staged write-back overlay on the schedule board**: `booking_writebacks` lives in the app DB (`localPool`),
+  a DIFFERENT database from the CRM mirror (`getCrmPool()`) — you CANNOT join them in one SQL query. Fetch the
+  board from CRM, fetch queued (status='queued', latest-per-booking via `DISTINCT ON`) write-backs from localPool,
+  then overlay in JS. A move can reassign technician, so re-home the booking under the target tech's row/region
+  (build a techId→{regionid_id,name,email} map from the board rows) and recompute day_index from the staged start.
+  **Why:** without this overlay, drag-to-reschedule stages a row but the board (and client-side conflict
+  highlighting, which is derived from job start/end+tech) keeps showing the old position until sync.
 
 **Why:** these were discovered by probing the live CRM DB; guessing FS-equivalent column names fails at runtime
 (e.g. `column wo.msdyn_displayaddress does not exist`).
