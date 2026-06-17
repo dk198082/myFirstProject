@@ -795,6 +795,13 @@ router.get("/wb/unscheduled-jobs", async (req, res) => {
       ) due ON true
       WHERE wo.raw_json->>'msdyn_systemstatus@OData.Community.Display.V1.FormattedValue' = 'Unscheduled'
         AND COALESCE(wo.is_deleted, false) = false
+        -- Exclude Calibration/Service jobs whose calibration due date is before 2026.
+        -- Jobs with no due date (or due in 2026+) are kept.
+        AND (
+          COALESCE(wo.raw_json->>'_msdyn_workordertype_value@OData.Community.Display.V1.FormattedValue', '') <> 'Calibration/Service'
+          OR due.due_date IS NULL
+          OR due.due_date >= DATE '2026-01-01'
+        )
       ORDER BY due.due_date ASC NULLS LAST, region ASC NULLS LAST, wo.msdyn_name ASC NULLS LAST
     `);
 
