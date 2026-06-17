@@ -351,6 +351,16 @@ export interface ScheduleJob {
   crmend_time?: string | null;
   /** @nullable */
   crmendtime?: string | null;
+  /**
+     * Full ISO 8601 booking start timestamp (used to seed the booking edit dialog).
+     * @nullable
+     */
+  start_time?: string | null;
+  /**
+     * Full ISO 8601 booking end timestamp (used to seed the booking edit dialog).
+     * @nullable
+     */
+  end_time?: string | null;
   /** @nullable */
   city?: string | null;
   /** @nullable */
@@ -666,6 +676,25 @@ export type GetScheduleBoardView = typeof GetScheduleBoardView[keyof typeof GetS
 
 
 export const GetScheduleBoardView = {
+  week: 'week',
+  month: 'month',
+} as const;
+
+export type GetWbScheduleBoardParams = {
+/**
+ * ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month.
+ */
+start?: string;
+/**
+ * Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.
+ */
+view?: GetWbScheduleBoardView;
+};
+
+export type GetWbScheduleBoardView = typeof GetWbScheduleBoardView[keyof typeof GetWbScheduleBoardView];
+
+
+export const GetWbScheduleBoardView = {
   week: 'week',
   month: 'month',
 } as const;

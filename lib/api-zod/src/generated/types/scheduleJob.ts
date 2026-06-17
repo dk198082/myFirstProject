@@ -34,6 +34,16 @@ export interface ScheduleJob {
   crmend_time?: string | null;
   /** @nullable */
   crmendtime?: string | null;
+  /**
+     * Full ISO 8601 booking start timestamp (used to seed the booking edit dialog).
+     * @nullable
+     */
+  start_time?: string | null;
+  /**
+     * Full ISO 8601 booking end timestamp (used to seed the booking edit dialog).
+     * @nullable
+     */
+  end_time?: string | null;
   /** @nullable */
   city?: string | null;
   /** @nullable */

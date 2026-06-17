@@ -26,6 +26,7 @@ import type {
   GetResourceUtilizationParams,
   GetScheduleBoardParams,
   GetTechnicianByEmailParams,
+  GetWbScheduleBoardParams,
   HealthStatus,
   ListWbWorkOrdersParams,
   RegionGroup,
@@ -1301,6 +1302,90 @@ export function useGetScheduleBoard<TData = Awaited<ReturnType<typeof getSchedul
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetScheduleBoardQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetWbScheduleBoardUrl = (params?: GetWbScheduleBoardParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/wb/schedule-board?${stringifiedParams}` : `/api/wb/schedule-board`
+}
+
+/**
+ * @summary Get the d365crm schedule board (weekly or monthly) grouped by region (territory) then technician (resource)
+ */
+export const getWbScheduleBoard = async (params?: GetWbScheduleBoardParams, options?: RequestInit): Promise<ScheduleBoard> => {
+
+  return customFetch<ScheduleBoard>(getGetWbScheduleBoardUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWbScheduleBoardQueryKey = (params?: GetWbScheduleBoardParams,) => {
+    return [
+    `/api/wb/schedule-board`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetWbScheduleBoardQueryOptions = <TData = Awaited<ReturnType<typeof getWbScheduleBoard>>, TError = ErrorType<unknown>>(params?: GetWbScheduleBoardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbScheduleBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWbScheduleBoardQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWbScheduleBoard>>> = ({ signal }) => getWbScheduleBoard(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWbScheduleBoard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWbScheduleBoardQueryResult = NonNullable<Awaited<ReturnType<typeof getWbScheduleBoard>>>
+export type GetWbScheduleBoardQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the d365crm schedule board (weekly or monthly) grouped by region (territory) then technician (resource)
+ */
+
+export function useGetWbScheduleBoard<TData = Awaited<ReturnType<typeof getWbScheduleBoard>>, TError = ErrorType<unknown>>(
+ params?: GetWbScheduleBoardParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbScheduleBoard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWbScheduleBoardQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

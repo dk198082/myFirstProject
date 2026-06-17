@@ -359,6 +359,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/ScheduleBoard"
 
+  /wb/schedule-board:
+    get:
+      operationId: getWbScheduleBoard
+      tags: [writeback]
+      summary: Get the d365crm schedule board (weekly or monthly) grouped by region (territory) then technician (resource)
+      parameters:
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month.
+        - name: view
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [week, month]
+          description: "Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`."
+      responses:
+        "200":
+          description: Schedule board (sourced from d365crm crm.* tables) grouped by region then technician for the given range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleBoard"
+
   /dashboard/summary:
     get:
       operationId: getDashboardSummary
@@ -817,6 +844,12 @@ components:
           type: ["string", "null"]
         crmendtime:
           type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+          description: Full ISO 8601 booking start timestamp (used to seed the booking edit dialog).
+        end_time:
+          type: ["string", "null"]
+          description: Full ISO 8601 booking end timestamp (used to seed the booking edit dialog).
         city:
           type: ["string", "null"]
         state:

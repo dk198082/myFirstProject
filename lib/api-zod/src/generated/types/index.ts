@@ -20,6 +20,8 @@ export * from './getResourceUtilizationView';
 export * from './getScheduleBoardParams';
 export * from './getScheduleBoardView';
 export * from './getTechnicianByEmailParams';
+export * from './getWbScheduleBoardParams';
+export * from './getWbScheduleBoardView';
 export * from './healthStatus';
 export * from './job';
 export * from './listWbWorkOrdersParams';

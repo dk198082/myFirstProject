@@ -491,6 +491,57 @@ export const GetScheduleBoardResponse = zod.object({
   "crmstarttime": zod.string().nullish(),
   "crmend_time": zod.string().nullish(),
   "crmendtime": zod.string().nullish(),
+  "start_time": zod.string().nullish().describe('Full ISO 8601 booking start timestamp (used to seed the booking edit dialog).'),
+  "end_time": zod.string().nullish().describe('Full ISO 8601 booking end timestamp (used to seed the booking edit dialog).'),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "day_index": zod.number().describe('0-based offset from `range_start` (0 = first day in range)')
+}))
+}))
+}))
+})
+
+
+/**
+ * @summary Get the d365crm schedule board (weekly or monthly) grouped by region (territory) then technician (resource)
+ */
+export const GetWbScheduleBoardQueryParams = zod.object({
+  "start": zod.coerce.string().optional().describe('ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month.'),
+  "view": zod.enum(['week', 'month']).optional().describe('Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.')
+})
+
+export const GetWbScheduleBoardResponse = zod.object({
+  "view": zod.enum(['week', 'month']),
+  "range_start": zod.string(),
+  "range_end": zod.string(),
+  "day_count": zod.number(),
+  "week_start": zod.string().describe('Legacy alias for `range_start`'),
+  "week_end": zod.string().describe('Legacy alias for `range_end`'),
+  "regions": zod.array(zod.object({
+  "regionid_id": zod.string(),
+  "region": zod.string(),
+  "company": zod.string().nullish(),
+  "technicians": zod.array(zod.object({
+  "technician_id": zod.string(),
+  "resource_name": zod.string().nullish(),
+  "user_email": zod.string().nullish(),
+  "jobs": zod.array(zod.object({
+  "booking_id": zod.string(),
+  "work_order_id": zod.string().nullish(),
+  "work_order_number": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "system_status": zod.string().nullish(),
+  "booking_status": zod.string().nullish(),
+  "customer_name": zod.string().nullish(),
+  "technician_name": zod.string().nullish(),
+  "contact_name": zod.string().nullish(),
+  "contact_businessphone": zod.string().nullish(),
+  "crmstart_time": zod.string().nullish(),
+  "crmstarttime": zod.string().nullish(),
+  "crmend_time": zod.string().nullish(),
+  "crmendtime": zod.string().nullish(),
+  "start_time": zod.string().nullish().describe('Full ISO 8601 booking start timestamp (used to seed the booking edit dialog).'),
+  "end_time": zod.string().nullish().describe('Full ISO 8601 booking end timestamp (used to seed the booking edit dialog).'),
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
   "day_index": zod.number().describe('0-based offset from `range_start` (0 = first day in range)')

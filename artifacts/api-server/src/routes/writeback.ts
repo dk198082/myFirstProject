@@ -306,6 +306,203 @@ router.get("/wb/technicians", async (req, res) => {
   }
 });
 
+function tsParts(v: Date | string | null | undefined): {
+  date: string | null;
+  time: string | null;
+  iso: string | null;
+} {
+  if (v == null) return { date: null, time: null, iso: null };
+  const d = v instanceof Date ? v : new Date(v);
+  if (Number.isNaN(d.getTime())) return { date: null, time: null, iso: null };
+  const iso = d.toISOString();
+  return { date: iso.slice(0, 10), time: iso.slice(11, 19), iso };
+}
+
+router.get("/wb/schedule-board", async (req, res) => {
+  const viewRaw = (req.query.view as string | undefined) ?? "week";
+  const view: "week" | "month" = viewRaw === "month" ? "month" : "week";
+
+  const startRaw = ((req.query.start as string | undefined) ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startRaw)) {
+    res.status(400).json({ error: "start query param required (YYYY-MM-DD)" });
+    return;
+  }
+
+  const seed = new Date(startRaw + "T00:00:00Z");
+  let start: Date;
+  let endDate: Date;
+  if (view === "month") {
+    start = new Date(Date.UTC(seed.getUTCFullYear(), seed.getUTCMonth(), 1));
+    endDate = new Date(Date.UTC(seed.getUTCFullYear(), seed.getUTCMonth() + 1, 1));
+  } else {
+    start = seed;
+    endDate = new Date(start);
+    endDate.setUTCDate(endDate.getUTCDate() + 7);
+  }
+  const rangeStart = start.toISOString().slice(0, 10);
+  const rangeEnd = endDate.toISOString().slice(0, 10);
+  const dayCount = Math.round((endDate.getTime() - start.getTime()) / 86_400_000);
+
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+
+  try {
+    // Group by territory (region) -> resource (technician) -> bookings.
+    // Each resource is mapped to a single territory via crm.msdyn_resourceterritory
+    // (DISTINCT ON keeps one mapping when a resource spans multiple territories).
+    // Resource names fall back to the formatted name embedded in booking.raw_json
+    // and customer names fall back to the workorder's formatted serviceaccount value.
+    const result = await getCrmPool().query(
+      `
+      WITH res_terr AS (
+        SELECT DISTINCT ON (rt.msdyn_resource)
+               rt.msdyn_resource AS resource_id,
+               rt.msdyn_territory AS territory_id
+        FROM crm.msdyn_resourceterritory rt
+        WHERE rt.msdyn_resource IS NOT NULL
+          AND rt.msdyn_territory IS NOT NULL
+          AND COALESCE(rt.is_deleted, false) = false
+        ORDER BY rt.msdyn_resource, rt.msdyn_territory
+      )
+      SELECT
+        ter.territoryid::text                        AS regionid_id,
+        ter.name                                     AS region,
+        br.bookableresourceid::text                  AS technician_id,
+        br.name                                      AS resource_name,
+        br.msdyn_primaryemail                        AS user_email,
+        b.bookableresourcebookingid::text            AS booking_id,
+        b.starttime                                  AS start_time,
+        b.endtime                                    AS end_time,
+        b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue' AS booking_status,
+        wo.msdyn_workorderid::text                   AS work_order_id,
+        wo.msdyn_name                                AS work_order_number,
+        COALESCE(
+          wo.new_customerrequirement,
+          wo.raw_json->>'_msdyn_workordertype_value@OData.Community.Display.V1.FormattedValue'
+        )                                            AS title,
+        wo.raw_json->>'msdyn_systemstatus@OData.Community.Display.V1.FormattedValue' AS system_status,
+        wo.msdyn_city                                AS city,
+        wo.msdyn_stateorprovince                     AS state,
+        COALESCE(
+          acc.name,
+          wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue'
+        )                                            AS customer_name
+      FROM res_terr rterr
+      JOIN crm.territory ter ON ter.territoryid = rterr.territory_id
+      JOIN crm.bookableresource br
+        ON br.bookableresourceid = rterr.resource_id
+       AND COALESCE(br.is_deleted, false) = false
+      LEFT JOIN crm.booking b
+        ON b.resource = br.bookableresourceid
+       AND b.starttime >= $1::date
+       AND b.starttime <  $2::date
+       AND COALESCE(b.is_deleted, false) = false
+      LEFT JOIN crm.workorder wo ON wo.msdyn_workorderid = b.msdyn_workorder
+      LEFT JOIN crm.account acc ON acc.accountid = wo.msdyn_serviceaccount
+      ORDER BY ter.name ASC, br.name ASC, b.starttime ASC NULLS LAST
+      `,
+      [rangeStart, rangeEnd],
+    );
+
+    type TechRow = {
+      technician_id: string;
+      resource_name: string | null;
+      user_email: string | null;
+      jobs: unknown[];
+    };
+    type RegionRow = {
+      regionid_id: string;
+      region: string;
+      company: string | null;
+      technicians: Map<string, TechRow>;
+    };
+
+    const regionMap = new Map<string, RegionRow>();
+    const rangeStartMs = start.getTime();
+    const maxDayIndex = dayCount - 1;
+
+    for (const row of result.rows) {
+      const rid = row.regionid_id as string;
+      if (!regionMap.has(rid)) {
+        regionMap.set(rid, {
+          regionid_id: rid,
+          region: row.region,
+          company: null,
+          technicians: new Map(),
+        });
+      }
+      const rg = regionMap.get(rid)!;
+
+      if (!row.technician_id) continue;
+      const tid = row.technician_id as string;
+      if (!rg.technicians.has(tid)) {
+        rg.technicians.set(tid, {
+          technician_id: tid,
+          resource_name: row.resource_name,
+          user_email: row.user_email,
+          jobs: [],
+        });
+      }
+
+      if (!row.booking_id || !row.start_time) continue;
+
+      const startParts = tsParts(row.start_time);
+      const endParts = tsParts(row.end_time);
+      const startDate =
+        row.start_time instanceof Date ? row.start_time : new Date(row.start_time);
+      const dayIndex = Math.floor(
+        (Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()) -
+          rangeStartMs) /
+          86_400_000,
+      );
+
+      rg.technicians.get(tid)!.jobs.push({
+        booking_id: row.booking_id,
+        work_order_id: row.work_order_id,
+        work_order_number: row.work_order_number,
+        title: row.title,
+        system_status: row.system_status,
+        booking_status: row.booking_status,
+        customer_name: row.customer_name,
+        technician_name: row.resource_name,
+        contact_name: null,
+        contact_businessphone: null,
+        crmstart_time: startParts.date,
+        crmstarttime: startParts.time,
+        crmend_time: endParts.date,
+        crmendtime: endParts.time,
+        start_time: startParts.iso,
+        end_time: endParts.iso,
+        city: row.city ?? null,
+        state: row.state ?? null,
+        day_index: Math.max(0, Math.min(maxDayIndex, dayIndex)),
+      });
+    }
+
+    const regions = Array.from(regionMap.values()).map((rg) => ({
+      regionid_id: rg.regionid_id,
+      region: rg.region,
+      company: rg.company,
+      technicians: Array.from(rg.technicians.values()),
+    }));
+
+    res.json({
+      view,
+      range_start: rangeStart,
+      range_end: rangeEnd,
+      day_count: dayCount,
+      week_start: rangeStart,
+      week_end: rangeEnd,
+      regions,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get write-back schedule board");
+    res.status(500).json({ error: "Failed to get schedule board" });
+  }
+});
+
 const syncRequestSchema = z
   .object({
     ids: z.array(z.number().int().positive()).optional(),
