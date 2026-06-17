@@ -386,6 +386,46 @@ paths:
               schema:
                 $ref: "#/components/schemas/ScheduleBoard"
 
+  /wb/unscheduled-jobs:
+    get:
+      operationId: getWbUnscheduledJobs
+      tags: [writeback]
+      summary: List d365crm work orders with status "Unscheduled" enriched with due date, duration, contact, and best-fit techs
+      responses:
+        "200":
+          description: List of unscheduled work orders (sourced from d365crm crm.* tables)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnscheduledJobsResponse"
+
+  /wb/resource-utilization:
+    get:
+      operationId: getWbResourceUtilization
+      tags: [writeback]
+      summary: Per-technician (resource) utilization for a week, month, or quarter grouped by region (territory), sourced from d365crm
+      parameters:
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD) within the desired period
+        - name: view
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [week, month, quarter]
+          description: Period granularity — week (default), month, or quarter
+      responses:
+        "200":
+          description: Utilization grouped by region then technician (sourced from d365crm crm.* tables)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceUtilizationResponse"
+
   /dashboard/summary:
     get:
       operationId: getDashboardSummary

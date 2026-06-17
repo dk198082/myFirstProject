@@ -560,6 +560,345 @@ router.get("/wb/schedule-board", async (req, res) => {
   }
 });
 
+// ── Unscheduled jobs (d365crm parity with the FS /unscheduled-jobs endpoint) ──
+//
+// Returns crm.workorder rows with system status "Unscheduled", enriched with a
+// calibration due date, estimated duration, contact, and a ranked best-fit tech
+// list. Best-fit ranking mirrors the FS endpoint: there is no geo data, so techs
+// are scored by region match and historical familiarity with the job's city/state
+// and region (derived from past bookings).
+type WbFamRow = {
+  technician_id: string;
+  resource_name: string | null;
+  region: string | null;
+  city_key: string | null;
+  state_key: string | null;
+  region_key: string | null;
+  city_jobs: number;
+};
+
+function keyCS(city: string | null | undefined, state: string | null | undefined): string {
+  return `${(city ?? "").toLowerCase().trim()}|${(state ?? "").toLowerCase().trim()}`;
+}
+function keyR(r: string | null | undefined): string {
+  return (r ?? "").toLowerCase().trim();
+}
+
+router.get("/wb/unscheduled-jobs", async (req, res) => {
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+
+  try {
+    // 1. Unscheduled work orders enriched.
+    const woResult = await getCrmPool().query(`
+      SELECT
+        wo.msdyn_workorderid::text AS work_order_id,
+        wo.msdyn_name              AS work_order_number,
+        wo.raw_json->>'_msdyn_workordertype_value@OData.Community.Display.V1.FormattedValue' AS work_order_type,
+        NULLIF(wo.cf_axsalesorder, '') AS sales_order_number,
+        COALESCE(
+          wo.raw_json->>'_cf_servicelocation_value@OData.Community.Display.V1.FormattedValue',
+          NULLIF(wo.msdyn_address1, '')
+        )                          AS servicelocation,
+        COALESCE(
+          acc.name,
+          wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue'
+        )                          AS customer_name,
+        wo.msdyn_city              AS city,
+        wo.msdyn_stateorprovince   AS state,
+        COALESCE(
+          ter.name,
+          wo.raw_json->>'_msdyn_serviceterritory_value@OData.Community.Display.V1.FormattedValue'
+        )                          AS region,
+        NULLIF(wo.cf_ponumber, '') AS po_number,
+        COALESCE(
+          ct.fullname,
+          wo.raw_json->>'_cf_contactperson_value@OData.Community.Display.V1.FormattedValue'
+        )                          AS contact_name,
+        COALESCE(ct.telephone1, ct.mobilephone) AS contact_phone,
+        due.due_date,
+        NULLIF(wo.raw_json->>'msdyn_totalestimatedduration', '')::int AS duration_minutes
+      FROM crm.workorder wo
+      LEFT JOIN crm.account acc ON acc.accountid = wo.msdyn_serviceaccount
+      LEFT JOIN crm.territory ter ON ter.territoryid = wo.msdyn_serviceterritory
+      LEFT JOIN crm.contact ct ON ct.contactid = wo.cf_contactperson
+      LEFT JOIN LATERAL (
+        SELECT MIN(woce.cf_nextcalibrationdate) AS due_date
+        FROM crm.cf_workordercustomerequipment woce
+        WHERE woce.workorderid = wo.msdyn_workorderid
+          AND COALESCE(woce.is_deleted, false) = false
+      ) due ON true
+      WHERE wo.raw_json->>'msdyn_systemstatus@OData.Community.Display.V1.FormattedValue' = 'Unscheduled'
+        AND COALESCE(wo.is_deleted, false) = false
+      ORDER BY due.due_date ASC NULLS LAST, region ASC NULLS LAST, wo.msdyn_name ASC NULLS LAST
+    `);
+
+    // 2. Familiarity: per resource, count past bookings grouped by city+state and
+    //    region (territory of the booking's work order).
+    const famResult = await getCrmPool().query(`
+      SELECT
+        br.bookableresourceid::text AS technician_id,
+        COALESCE(br.name, b.raw_json->>'_resource_value@OData.Community.Display.V1.FormattedValue') AS resource_name,
+        ter.name                    AS region,
+        LOWER(TRIM(wo.msdyn_city))  AS city_key,
+        LOWER(TRIM(wo.msdyn_stateorprovince)) AS state_key,
+        LOWER(TRIM(rter.name))      AS region_key,
+        COUNT(*)::int               AS city_jobs
+      FROM crm.booking b
+      JOIN crm.workorder wo ON wo.msdyn_workorderid = b.msdyn_workorder
+      LEFT JOIN crm.bookableresource br ON br.bookableresourceid = b.resource
+      LEFT JOIN crm.msdyn_resourceterritory rt
+        ON rt.msdyn_resource = b.resource AND COALESCE(rt.is_deleted, false) = false
+      LEFT JOIN crm.territory ter ON ter.territoryid = rt.msdyn_territory
+      LEFT JOIN crm.territory rter ON rter.territoryid = wo.msdyn_serviceterritory
+      WHERE b.resource IS NOT NULL
+        AND b.starttime IS NOT NULL
+        AND b.starttime < NOW()
+        AND COALESCE(b.is_deleted, false) = false
+      GROUP BY br.bookableresourceid,
+               COALESCE(br.name, b.raw_json->>'_resource_value@OData.Community.Display.V1.FormattedValue'),
+               ter.name,
+               LOWER(TRIM(wo.msdyn_city)),
+               LOWER(TRIM(wo.msdyn_stateorprovince)),
+               LOWER(TRIM(rter.name))
+    `);
+
+    type TechMeta = { resource_name: string | null; region: string | null };
+    const techMeta = new Map<string, TechMeta>();
+    const cityCount = new Map<string, number>();
+    const regionCount = new Map<string, number>();
+    for (const row of famResult.rows as WbFamRow[]) {
+      if (!row.technician_id) continue;
+      // Keep the first region seen (a resource may have past jobs across regions);
+      // prefer one where the resource has a territory mapping.
+      const existing = techMeta.get(row.technician_id);
+      if (!existing || (existing.region == null && row.region != null)) {
+        techMeta.set(row.technician_id, { resource_name: row.resource_name, region: row.region });
+      }
+      const ck = `${row.technician_id}::${row.city_key ?? ""}|${row.state_key ?? ""}`;
+      cityCount.set(ck, (cityCount.get(ck) ?? 0) + row.city_jobs);
+      const rk = `${row.technician_id}::${row.region_key ?? ""}`;
+      regionCount.set(rk, (regionCount.get(rk) ?? 0) + row.city_jobs);
+    }
+
+    // Also include every resource with a territory mapping (some may have no past
+    // bookings yet) so the best-fit pool isn't limited to historically active techs.
+    const allTechsResult = await getCrmPool().query(`
+      SELECT DISTINCT ON (br.bookableresourceid)
+             br.bookableresourceid::text AS technician_id,
+             br.name                     AS resource_name,
+             ter.name                    AS region
+      FROM crm.msdyn_resourceterritory rt
+      JOIN crm.bookableresource br
+        ON br.bookableresourceid = rt.msdyn_resource AND COALESCE(br.is_deleted, false) = false
+      JOIN crm.territory ter ON ter.territoryid = rt.msdyn_territory
+      WHERE COALESCE(rt.is_deleted, false) = false
+      ORDER BY br.bookableresourceid
+    `);
+    for (const t of allTechsResult.rows) {
+      if (!techMeta.has(t.technician_id)) {
+        techMeta.set(t.technician_id, { resource_name: t.resource_name, region: t.region });
+      }
+    }
+
+    // 3. Build best-fit list per job.
+    const jobs = woResult.rows.map((r) => {
+      const cityKey = keyCS(r.city, r.state);
+      const regionKey = keyR(r.region);
+      const scored = Array.from(techMeta.entries()).map(([techId, meta]) => {
+        const cityJobs = cityCount.get(`${techId}::${cityKey}`) ?? 0;
+        const regionJobs = regionCount.get(`${techId}::${regionKey}`) ?? 0;
+        const sameRegion = keyR(meta.region) === regionKey && regionKey !== "";
+        const rank = (sameRegion ? 1_000_000 : 0) + cityJobs * 1000 + regionJobs;
+        return { techId, meta, cityJobs, regionJobs, sameRegion, rank };
+      });
+
+      const best = scored
+        .filter((s) => s.rank > 0)
+        .sort((a, b) => b.rank - a.rank)
+        .slice(0, 2)
+        .map((s) => ({
+          technician_id: s.techId,
+          resource_name: s.meta.resource_name,
+          region: s.meta.region,
+          city_jobs: s.cityJobs,
+          region_jobs: s.regionJobs,
+          same_region: s.sameRegion,
+        }));
+
+      const due =
+        r.due_date instanceof Date
+          ? r.due_date.toISOString().slice(0, 10)
+          : r.due_date != null
+            ? String(r.due_date).slice(0, 10)
+            : null;
+
+      return {
+        work_order_id: r.work_order_id,
+        work_order_number: r.work_order_number,
+        work_order_type: r.work_order_type ?? null,
+        sales_order_number: r.sales_order_number ?? null,
+        servicelocation: r.servicelocation,
+        customer_name: r.customer_name,
+        city: r.city,
+        state: r.state,
+        region: r.region,
+        po_number: r.po_number,
+        contact_name: r.contact_name,
+        contact_phone: r.contact_phone,
+        due_date: due,
+        duration_minutes: r.duration_minutes ?? null,
+        best_fit_techs: best,
+      };
+    });
+
+    res.json({ jobs });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get write-back unscheduled jobs");
+    res.status(500).json({ error: "Failed to get unscheduled jobs" });
+  }
+});
+
+// ── Resource utilization (d365crm parity with the FS endpoint) ───────────────
+const WB_DEFAULT_WEEKLY_CAPACITY_HOURS = 40;
+type WbUtilView = "week" | "month" | "quarter";
+
+function wbComputeRange(startRaw: string, view: WbUtilView) {
+  const d = new Date(startRaw + "T00:00:00Z");
+  let rangeStart: Date;
+  let rangeEnd: Date;
+
+  if (view === "month") {
+    rangeStart = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+    rangeEnd = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+  } else if (view === "quarter") {
+    const quarterStartMonth = Math.floor(d.getUTCMonth() / 3) * 3;
+    rangeStart = new Date(Date.UTC(d.getUTCFullYear(), quarterStartMonth, 1));
+    rangeEnd = new Date(Date.UTC(d.getUTCFullYear(), quarterStartMonth + 3, 1));
+  } else {
+    rangeStart = new Date(startRaw + "T00:00:00Z");
+    rangeEnd = new Date(rangeStart);
+    rangeEnd.setUTCDate(rangeEnd.getUTCDate() + 7);
+  }
+
+  const daysInRange = (rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24);
+  const periodWeeks = Math.round((daysInRange / 7) * 10) / 10;
+  const capacityMinutes = Math.round((daysInRange / 7) * WB_DEFAULT_WEEKLY_CAPACITY_HOURS * 60);
+
+  return {
+    rangeStart: rangeStart.toISOString().slice(0, 10),
+    rangeEnd: rangeEnd.toISOString().slice(0, 10),
+    periodWeeks,
+    capacityMinutes,
+  };
+}
+
+router.get("/wb/resource-utilization", async (req, res) => {
+  const startRaw = ((req.query.start as string | undefined) ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startRaw)) {
+    res.status(400).json({ error: "start query param required (YYYY-MM-DD)" });
+    return;
+  }
+
+  const viewRaw = ((req.query.view as string | undefined) ?? "week").trim();
+  const view: WbUtilView =
+    viewRaw === "month" ? "month" : viewRaw === "quarter" ? "quarter" : "week";
+
+  const { rangeStart, rangeEnd, periodWeeks, capacityMinutes } = wbComputeRange(startRaw, view);
+
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+
+  try {
+    // Each region (territory) lists its mapped resources (technicians) with the
+    // minutes booked inside the range. Duration is derived from booking start/end
+    // (the CRM booking has no stored duration column). Resources are mapped to
+    // territories via crm.msdyn_resourceterritory (DISTINCT ON keeps one mapping).
+    const result = await getCrmPool().query(
+      `
+      WITH res_terr AS (
+        SELECT DISTINCT ON (rt.msdyn_resource)
+               rt.msdyn_resource  AS resource_id,
+               rt.msdyn_territory AS territory_id
+        FROM crm.msdyn_resourceterritory rt
+        WHERE rt.msdyn_resource IS NOT NULL
+          AND rt.msdyn_territory IS NOT NULL
+          AND COALESCE(rt.is_deleted, false) = false
+        ORDER BY rt.msdyn_resource, rt.msdyn_territory
+      )
+      SELECT
+        ter.territoryid::text         AS regionid_id,
+        ter.name                      AS region,
+        br.bookableresourceid::text   AS technician_id,
+        br.name                       AS resource_name,
+        COALESCE(SUM(EXTRACT(EPOCH FROM (b.endtime - b.starttime)) / 60), 0)::int AS utilized_minutes,
+        COUNT(b.bookableresourcebookingid)::int AS job_count
+      FROM res_terr rterr
+      JOIN crm.territory ter ON ter.territoryid = rterr.territory_id
+      JOIN crm.bookableresource br
+        ON br.bookableresourceid = rterr.resource_id AND COALESCE(br.is_deleted, false) = false
+      LEFT JOIN crm.booking b
+        ON b.resource = br.bookableresourceid
+       AND b.starttime >= $1::date
+       AND b.starttime <  $2::date
+       AND b.endtime IS NOT NULL
+       AND COALESCE(b.is_deleted, false) = false
+      GROUP BY ter.territoryid, ter.name, br.bookableresourceid, br.name
+      ORDER BY ter.name ASC, br.name ASC NULLS LAST
+      `,
+      [rangeStart, rangeEnd],
+    );
+
+    type RegionRow = {
+      regionid_id: string;
+      region: string;
+      technicians: Array<{
+        technician_id: string;
+        resource_name: string | null;
+        utilized_minutes: number;
+        capacity_minutes: number;
+        utilization_pct: number;
+        job_count: number;
+      }>;
+    };
+
+    const regionMap = new Map<string, RegionRow>();
+    for (const row of result.rows) {
+      const rid = row.regionid_id as string;
+      if (!regionMap.has(rid)) {
+        regionMap.set(rid, { regionid_id: rid, region: row.region, technicians: [] });
+      }
+      if (!row.technician_id) continue;
+      regionMap.get(rid)!.technicians.push({
+        technician_id: row.technician_id,
+        resource_name: row.resource_name,
+        utilized_minutes: row.utilized_minutes,
+        capacity_minutes: capacityMinutes,
+        utilization_pct: capacityMinutes
+          ? Math.round((row.utilized_minutes / capacityMinutes) * 1000) / 10
+          : 0,
+        job_count: row.job_count,
+      });
+    }
+
+    res.json({
+      view,
+      range_start: rangeStart,
+      range_end: rangeEnd,
+      period_weeks: periodWeeks,
+      default_weekly_capacity_hours: WB_DEFAULT_WEEKLY_CAPACITY_HOURS,
+      regions: Array.from(regionMap.values()),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Failed to get write-back resource utilization");
+    res.status(500).json({ error: "Failed to get resource utilization" });
+  }
+});
+
 const syncRequestSchema = z
   .object({
     ids: z.array(z.number().int().positive()).optional(),

@@ -26,6 +26,7 @@ import type {
   GetResourceUtilizationParams,
   GetScheduleBoardParams,
   GetTechnicianByEmailParams,
+  GetWbResourceUtilizationParams,
   GetWbScheduleBoardParams,
   HealthStatus,
   ListWbWorkOrdersParams,
@@ -1386,6 +1387,167 @@ export function useGetWbScheduleBoard<TData = Awaited<ReturnType<typeof getWbSch
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetWbScheduleBoardQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetWbUnscheduledJobsUrl = () => {
+
+
+
+
+  return `/api/wb/unscheduled-jobs`
+}
+
+/**
+ * @summary List d365crm work orders with status "Unscheduled" enriched with due date, duration, contact, and best-fit techs
+ */
+export const getWbUnscheduledJobs = async ( options?: RequestInit): Promise<UnscheduledJobsResponse> => {
+
+  return customFetch<UnscheduledJobsResponse>(getGetWbUnscheduledJobsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWbUnscheduledJobsQueryKey = () => {
+    return [
+    `/api/wb/unscheduled-jobs`
+    ] as const;
+    }
+
+
+export const getGetWbUnscheduledJobsQueryOptions = <TData = Awaited<ReturnType<typeof getWbUnscheduledJobs>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbUnscheduledJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWbUnscheduledJobsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWbUnscheduledJobs>>> = ({ signal }) => getWbUnscheduledJobs({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWbUnscheduledJobs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWbUnscheduledJobsQueryResult = NonNullable<Awaited<ReturnType<typeof getWbUnscheduledJobs>>>
+export type GetWbUnscheduledJobsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List d365crm work orders with status "Unscheduled" enriched with due date, duration, contact, and best-fit techs
+ */
+
+export function useGetWbUnscheduledJobs<TData = Awaited<ReturnType<typeof getWbUnscheduledJobs>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbUnscheduledJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWbUnscheduledJobsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetWbResourceUtilizationUrl = (params?: GetWbResourceUtilizationParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/wb/resource-utilization?${stringifiedParams}` : `/api/wb/resource-utilization`
+}
+
+/**
+ * @summary Per-technician (resource) utilization for a week, month, or quarter grouped by region (territory), sourced from d365crm
+ */
+export const getWbResourceUtilization = async (params?: GetWbResourceUtilizationParams, options?: RequestInit): Promise<ResourceUtilizationResponse> => {
+
+  return customFetch<ResourceUtilizationResponse>(getGetWbResourceUtilizationUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWbResourceUtilizationQueryKey = (params?: GetWbResourceUtilizationParams,) => {
+    return [
+    `/api/wb/resource-utilization`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetWbResourceUtilizationQueryOptions = <TData = Awaited<ReturnType<typeof getWbResourceUtilization>>, TError = ErrorType<unknown>>(params?: GetWbResourceUtilizationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbResourceUtilization>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWbResourceUtilizationQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWbResourceUtilization>>> = ({ signal }) => getWbResourceUtilization(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWbResourceUtilization>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWbResourceUtilizationQueryResult = NonNullable<Awaited<ReturnType<typeof getWbResourceUtilization>>>
+export type GetWbResourceUtilizationQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Per-technician (resource) utilization for a week, month, or quarter grouped by region (territory), sourced from d365crm
+ */
+
+export function useGetWbResourceUtilization<TData = Awaited<ReturnType<typeof getWbResourceUtilization>>, TError = ErrorType<unknown>>(
+ params?: GetWbResourceUtilizationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbResourceUtilization>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWbResourceUtilizationQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

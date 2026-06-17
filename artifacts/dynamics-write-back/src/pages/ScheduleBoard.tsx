@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   useGetWbScheduleBoard,
+  useGetWbUnscheduledJobs,
+  useGetWbResourceUtilization,
   type WbWorkOrder,
+  type UnscheduledJob,
 } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +25,8 @@ import {
   AlertTriangle,
   Printer,
   User,
+  MapPin,
+  Clock,
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 
@@ -282,16 +287,194 @@ function JobChip({
   );
 }
 
+// ── Utilization helpers ───────────────────────────────────────────────────────
+
+function utilColors(pct: number) {
+  if (pct > 100) return { bar: "bg-red-500", text: "text-red-700", bg: "bg-red-50" };
+  if (pct >= 80) return { bar: "bg-amber-500", text: "text-amber-700", bg: "bg-amber-50" };
+  return { bar: "bg-emerald-500", text: "text-emerald-700", bg: "bg-emerald-50" };
+}
+
+function fmtUtilHours(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+}
+
+// ── Unscheduled card helpers ──────────────────────────────────────────────────
+
+function fmtMins(mins: number | null | undefined): string {
+  if (mins == null || mins <= 0) return "";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
+}
+
+function fmtDateShort(iso: string | null | undefined): string {
+  if (!iso) return "No due date";
+  const d = new Date(iso + "T00:00:00Z");
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+function getBucketIndex(dueDateISO: string | null | undefined): number {
+  if (!dueDateISO) return 2;
+  const d = new Date(dueDateISO + "T00:00:00Z");
+  if (Number.isNaN(d.getTime())) return 2;
+  const diffDays = (d.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+  if (diffDays <= 14) return 0;
+  if (diffDays <= 28) return 1;
+  return 2;
+}
+
+function sortByDue(a: UnscheduledJob, b: UnscheduledJob): number {
+  if (!a.due_date && !b.due_date) return 0;
+  if (!a.due_date) return 1;
+  if (!b.due_date) return -1;
+  return a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0;
+}
+
+function fmtFamiliarity(t: { city_jobs: number; region_jobs: number; same_region: boolean; region?: string | null }): string {
+  const parts: string[] = [];
+  if (t.same_region && t.region) parts.push(t.region);
+  if (t.city_jobs > 0) parts.push(`${t.city_jobs} prior in city`);
+  else if (t.region_jobs > 0) parts.push(`${t.region_jobs} prior in region`);
+  return parts.join(" · ") || (t.region ?? "");
+}
+
+const UNSCHEDULED_BUCKETS = [
+  {
+    label: "Due Within 2 Weeks", sublabel: "Highest priority",
+    border: "border-red-400", headerClass: "bg-red-50 border-b border-red-200 text-red-900",
+    badgeClass: "bg-red-100 text-red-800 border border-red-200", dateClass: "text-red-700 font-semibold",
+  },
+  {
+    label: "Due in 3–4 Weeks", sublabel: "Plan ahead",
+    border: "border-amber-400", headerClass: "bg-amber-50 border-b border-amber-200 text-amber-900",
+    badgeClass: "bg-amber-100 text-amber-800 border border-amber-200", dateClass: "text-amber-700 font-semibold",
+  },
+  {
+    label: "Due in 4+ Weeks", sublabel: "Future / unset",
+    border: "border-slate-300", headerClass: "bg-slate-50 border-b border-slate-200 text-slate-800",
+    badgeClass: "bg-slate-100 text-slate-700 border border-slate-200", dateClass: "text-slate-600",
+  },
+];
+
+function UnscheduledJobCard({ job, bucketIdx }: { job: UnscheduledJob; bucketIdx: number }) {
+  const t1 = job.best_fit_techs?.[0];
+  const t2 = job.best_fit_techs?.[1];
+  const duration = fmtMins(job.duration_minutes);
+  const loc = [job.city, job.state].filter(Boolean).join(", ");
+  const dateClass = UNSCHEDULED_BUCKETS[bucketIdx].dateClass;
+
+  return (
+    <div className="bg-white rounded-lg border border-card-border shadow-sm hover:shadow-md transition-shadow p-4 flex flex-col gap-3 min-w-[260px] max-w-[300px] w-[280px] shrink-0">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <span className="font-mono font-bold text-sm">WO# {job.work_order_number ?? "—"}</span>
+          {job.work_order_type && (
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <Badge
+                variant="outline"
+                className={`text-xs px-1.5 py-0 h-4 font-normal ${
+                  job.work_order_type.toLowerCase() === "install"
+                    ? "border-violet-400 text-violet-700 bg-violet-50"
+                    : "border-blue-300 text-blue-700 bg-blue-50"
+                }`}
+              >
+                {job.work_order_type}
+              </Badge>
+              {job.work_order_type.toLowerCase() === "install" && job.sales_order_number && (
+                <span className="text-xs text-muted-foreground font-mono">SO: {job.sales_order_number}</span>
+              )}
+            </div>
+          )}
+        </div>
+        <span className={`text-xs whitespace-nowrap shrink-0 ${dateClass}`}>
+          {fmtDateShort(job.due_date)}
+        </span>
+      </div>
+
+      <div>
+        <div className="text-sm font-semibold text-foreground leading-tight">{job.customer_name ?? "—"}</div>
+        {job.servicelocation && (
+          <div className="text-xs text-muted-foreground truncate">{job.servicelocation}</div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <MapPin className="h-3 w-3 shrink-0" />
+        <span className="truncate">{loc || "—"}</span>
+        {job.region && (
+          <Badge variant="secondary" className="text-xs px-1.5 py-0 h-4 ml-auto shrink-0">{job.region}</Badge>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+        {job.po_number && <span className="font-mono truncate">PO: {job.po_number}</span>}
+        {duration && (
+          <span className="flex items-center gap-1 shrink-0">
+            <Clock className="h-3 w-3" />
+            {duration}
+          </span>
+        )}
+      </div>
+
+      {(job.contact_name || job.contact_phone) && (
+        <div className="text-xs text-muted-foreground flex items-start gap-1.5">
+          <User className="h-3 w-3 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            {job.contact_name && <div className="truncate">{job.contact_name}</div>}
+            {job.contact_phone && (
+              <div className="flex items-center gap-1">
+                <Phone className="h-3 w-3 shrink-0" />
+                <span className="truncate">{job.contact_phone}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {(t1 || t2) && (
+        <div className="pt-2 border-t border-border space-y-1 mt-auto">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Best Fit</div>
+          {[t1, t2].filter(Boolean).map((t, i) => (
+            <div key={i} className="text-xs flex items-center justify-between gap-1">
+              <span className="font-medium truncate">{t!.resource_name ?? "—"}</span>
+              <span className="text-muted-foreground shrink-0 text-right">{fmtFamiliarity(t!)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ScheduleBoard() {
   const [view, setView] = useState<ViewMode>("week");
   const [start, setStart] = useState<string>(() => startOfWeekISO(new Date()));
   const [selectedRegions, setSelectedRegions] = useState<Set<string> | null>(null);
   const [selectedTechIds, setSelectedTechIds] = useState<Set<string> | null>(null);
   const [editing, setEditing] = useState<WbWorkOrder | null>(null);
+  const [utilRegions, setUtilRegions] = useState<Set<string> | null>(null); // null = all
 
   // Tech view reuses month data from the API.
   const apiView: "week" | "month" = view === "week" ? "week" : "month";
   const { data, isLoading, error } = useGetWbScheduleBoard({ start, view: apiView });
+
+  const { data: unscheduledData } = useGetWbUnscheduledJobs();
+  const unscheduledJobs = unscheduledData?.jobs ?? [];
+
+  // Resource utilization — shares start date + view with the board
+  const utilView = view === "week" ? "week" : "month";
+  const { data: utilData, isLoading: utilLoading } = useGetWbResourceUtilization({
+    start,
+    view: utilView,
+  });
 
   const dayCount = data?.day_count ?? (view === "week" ? 7 : 30);
   const rangeStart = data?.range_start ?? start;
@@ -318,6 +501,29 @@ export default function ScheduleBoard() {
     (s, r) => s + r.technicians.reduce((ts, t) => ts + t.jobs.length, 0),
     0,
   );
+
+  // Time horizon for unscheduled jobs driven by the active view (no separate toggle)
+  const unscheduledHorizonDays = view === "week" ? 7 : 30;
+
+  // Map selected regionid_ids → region name strings for unscheduled job filtering
+  const activeRegionNames = useMemo(() => {
+    if (selectedRegions === null) return null;
+    return new Set(
+      allRegions.filter((r) => selectedRegions.has(r.regionid_id)).map((r) => r.region),
+    );
+  }, [allRegions, selectedRegions]);
+
+  // Unscheduled jobs filtered by active region + view-derived horizon
+  const visibleUnscheduledJobs = useMemo(() => {
+    return unscheduledJobs.filter((j) => {
+      if (activeRegionNames !== null && (j.region == null || !activeRegionNames.has(j.region)))
+        return false;
+      if (!j.due_date) return unscheduledHorizonDays >= 30;
+      const diffDays =
+        (new Date(j.due_date + "T00:00:00Z").getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+      return diffDays <= unscheduledHorizonDays;
+    });
+  }, [unscheduledJobs, activeRegionNames, unscheduledHorizonDays]);
 
   // Detect double-booked jobs: same tech, same day, overlapping time windows.
   const conflictedBookingIds = useMemo(() => {
@@ -999,6 +1205,201 @@ export default function ScheduleBoard() {
           No jobs scheduled this {view}. Try a different {view}.
         </div>
       )}
+
+      {/* ── Unscheduled Jobs panel ─────────────────────────────────────── */}
+      {!isLoading && (() => {
+        const buckets: UnscheduledJob[][] = [[], [], []];
+        for (const j of visibleUnscheduledJobs) buckets[getBucketIndex(j.due_date)].push(j);
+        buckets.forEach((b) => b.sort(sortByDue));
+        const horizonLabel = view === "week" ? "next 7 days" : "next 30 days";
+        return (
+          <div className="space-y-3" data-testid="card-unscheduled-jobs">
+            {/* Section header */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Briefcase className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">Unscheduled Jobs</h2>
+              <Badge variant="secondary" className="ml-1 text-[10px]">{visibleUnscheduledJobs.length}</Badge>
+              <span className="text-xs text-muted-foreground">· due within {horizonLabel}</span>
+              {activeRegionNames !== null && (
+                <span className="text-xs text-muted-foreground">
+                  · {activeRegionNames.size} region{activeRegionNames.size !== 1 ? "s" : ""} selected
+                </span>
+              )}
+            </div>
+
+            {visibleUnscheduledJobs.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground italic bg-card border border-card-border rounded-lg">
+                No unscheduled jobs match the current filters.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {UNSCHEDULED_BUCKETS.map((bucket, bi) => (
+                  <div
+                    key={bi}
+                    className={`rounded-lg border-2 ${bucket.border} overflow-hidden`}
+                    data-testid={`unscheduled-bucket-${bi}`}
+                  >
+                    {/* Bucket header */}
+                    <div className={`px-4 py-2.5 flex items-center gap-2 ${bucket.headerClass}`}>
+                      <span className="text-sm font-semibold">{bucket.label}</span>
+                      <span className="text-xs opacity-70">{bucket.sublabel}</span>
+                      <span className={`ml-auto text-xs font-semibold px-1.5 py-0.5 rounded ${bucket.badgeClass}`}>
+                        {buckets[bi].length}
+                      </span>
+                    </div>
+
+                    {/* Horizontal card strip */}
+                    <div className="bg-slate-50/60 px-3 py-3 overflow-x-auto">
+                      {buckets[bi].length === 0 ? (
+                        <div className="text-center text-xs text-muted-foreground italic py-4 min-h-[60px] flex items-center justify-center">
+                          No jobs in this window
+                        </div>
+                      ) : (
+                        <div className="flex gap-3 pb-1">
+                          {buckets[bi].map((job) => (
+                            <UnscheduledJobCard
+                              key={job.work_order_id ?? job.work_order_number}
+                              job={job}
+                              bucketIdx={bi}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Resource Utilization panel ─────────────────────────────────── */}
+      {(() => {
+        const allUtilRegions = utilData?.regions ?? [];
+        const weeklyHours = utilData?.default_weekly_capacity_hours ?? 40;
+        const periodWeeks = utilData?.period_weeks ?? 1;
+        const capTotal = Math.round(weeklyHours * periodWeeks);
+        const capLabel = utilView === "week"
+          ? `${weeklyHours}h/wk`
+          : `~${capTotal}h/${utilView === "month" ? "mo" : "qtr"}`;
+
+        const toggleUtilRegion = (id: string) => {
+          setUtilRegions((prev) => {
+            const current = prev ?? new Set(allUtilRegions.map((r) => r.regionid_id));
+            const next = new Set(current);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            if (next.size === allUtilRegions.length) return null;
+            return next;
+          });
+        };
+        const utilSelectAll = () => setUtilRegions(null);
+        const utilSelectNone = () => setUtilRegions(new Set());
+        const isUtilRegionSelected = (id: string) => utilRegions === null || utilRegions.has(id);
+
+        const visibleUtilRegions = utilRegions === null
+          ? allUtilRegions
+          : allUtilRegions.filter((r) => utilRegions.has(r.regionid_id));
+
+        return (
+          <div className="space-y-3" data-testid="panel-resource-utilization">
+            {/* Section header */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">Resource Utilization</h2>
+              <span className="text-xs text-muted-foreground">· {capLabel} capacity</span>
+              <div className="ml-auto flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs text-muted-foreground shrink-0">Regions:</span>
+                <button
+                  onClick={utilSelectAll}
+                  className={`px-2 py-0.5 text-xs rounded border transition-colors ${utilRegions === null ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+                >All</button>
+                <button
+                  onClick={utilSelectNone}
+                  className={`px-2 py-0.5 text-xs rounded border transition-colors ${utilRegions !== null && utilRegions.size === 0 ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+                >None</button>
+                <span className="text-muted-foreground/40 text-xs">|</span>
+                {allUtilRegions.map((r) => (
+                  <button
+                    key={r.regionid_id}
+                    onClick={() => toggleUtilRegion(r.regionid_id)}
+                    className={`px-2 py-0.5 text-xs rounded border transition-colors ${isUtilRegionSelected(r.regionid_id) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+                  >
+                    {r.region}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-500 inline-block" /> Healthy (&lt;80%)</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-amber-500 inline-block" /> High (80–100%)</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-red-500 inline-block" /> Over (&gt;100%)</span>
+            </div>
+
+            {utilLoading && (
+              <div className="space-y-2">
+                {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-24" />)}
+              </div>
+            )}
+
+            {!utilLoading && visibleUtilRegions.length === 0 && (
+              <div className="text-center text-sm text-muted-foreground py-6 italic">No regions selected.</div>
+            )}
+
+            <div className="space-y-3">
+              {visibleUtilRegions.map((rg) => {
+                const techs = rg.technicians ?? [];
+                const totalUtil = techs.reduce((s, t) => s + (t.utilized_minutes ?? 0), 0);
+                const totalCap = techs.reduce((s, t) => s + (t.capacity_minutes ?? 0), 0);
+                const regionPct = totalCap ? Math.round((totalUtil / totalCap) * 1000) / 10 : 0;
+                const rc = utilColors(regionPct);
+                return (
+                  <Card key={rg.regionid_id} className="border border-card-border shadow-sm" data-testid={`util-region-${rg.regionid_id}`}>
+                    <CardContent className="p-0">
+                      <div className="px-4 py-2.5 border-b border-border flex items-center gap-3">
+                        <h3 className="text-sm font-semibold flex-1">{rg.region}</h3>
+                        <Badge variant="outline" className="text-xs">{techs.length} tech{techs.length !== 1 ? "s" : ""}</Badge>
+                        <span className={`text-sm font-bold tabular-nums ${rc.text}`}>{regionPct}% avg</span>
+                      </div>
+                      {techs.length === 0 ? (
+                        <div className="px-4 py-4 text-center text-xs text-muted-foreground italic">No technicians.</div>
+                      ) : (
+                        <div className="divide-y divide-border">
+                          {techs.map((t) => {
+                            const pct = t.utilization_pct ?? 0;
+                            const colors = utilColors(pct);
+                            const capH = Math.round((t.capacity_minutes ?? 0) / 60);
+                            return (
+                              <div key={t.technician_id} className="px-4 py-2 grid grid-cols-12 gap-3 items-center" data-testid={`util-tech-${t.technician_id}`}>
+                                <div className="col-span-3 min-w-0">
+                                  <div className="text-xs font-medium truncate">{t.resource_name ?? "—"}</div>
+                                  <div className="text-[10px] text-muted-foreground">{t.job_count} job{t.job_count !== 1 ? "s" : ""}</div>
+                                </div>
+                                <div className="col-span-6">
+                                  <div className={`relative h-4 w-full rounded ${colors.bg}`}>
+                                    <div className={`absolute top-0 left-0 h-4 rounded ${colors.bar} transition-all`} style={{ width: `${Math.min(100, pct)}%` }} />
+                                    {pct > 100 && <div className="absolute top-0 right-0 h-4 w-1 bg-red-700 rounded-r" />}
+                                  </div>
+                                </div>
+                                <div className={`col-span-2 text-xs font-semibold tabular-nums ${colors.text}`}>{pct.toFixed(1)}%</div>
+                                <div className="col-span-1 text-[10px] text-muted-foreground text-right tabular-nums whitespace-nowrap">
+                                  {fmtUtilHours(t.utilized_minutes ?? 0)} / {capH}h
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {editing && <EditBookingDialog row={editing} onClose={() => setEditing(null)} />}
     </div>

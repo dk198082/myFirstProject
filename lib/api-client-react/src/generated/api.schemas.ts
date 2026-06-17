@@ -699,3 +699,23 @@ export const GetWbScheduleBoardView = {
   month: 'month',
 } as const;
 
+export type GetWbResourceUtilizationParams = {
+/**
+ * ISO date (YYYY-MM-DD) within the desired period
+ */
+start?: string;
+/**
+ * Period granularity — week (default), month, or quarter
+ */
+view?: GetWbResourceUtilizationView;
+};
+
+export type GetWbResourceUtilizationView = typeof GetWbResourceUtilizationView[keyof typeof GetWbResourceUtilizationView];
+
+
+export const GetWbResourceUtilizationView = {
+  week: 'week',
+  month: 'month',
+  quarter: 'quarter',
+} as const;
+
