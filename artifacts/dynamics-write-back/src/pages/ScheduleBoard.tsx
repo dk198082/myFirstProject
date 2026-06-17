@@ -41,7 +41,7 @@ import {
   conflictedIdsForTech,
   wouldDropConflict,
 } from "@/lib/conflicts";
-import { shiftIsoDays } from "@/lib/dateShift";
+import { planDrop } from "@/lib/dropPlan";
 
 type ViewMode = "week" | "month" | "tech";
 
@@ -664,13 +664,15 @@ export default function ScheduleBoard() {
     endDrag();
     if (!dragged) return;
     const { job, sourceTechId } = dragged;
-    const deltaDays = targetDayIndex - (job.day_index ?? 0);
-    if (targetTechId === sourceTechId && deltaDays === 0) return; // no-op drop
-    if (!job.booking_id) return;
+
+    // Pure decision: delta computation, no-op detection, conflict gating, and
+    // the write-back payload all live in planDrop so they can be unit-tested.
+    const decision = planDrop(job, sourceTechId, targetTechId, targetDayIndex, conflict);
+    if (decision.action === "noop") return;
 
     // Dropping onto a slot that already has an overlapping booking would
     // double-book the technician — confirm before staging the write-back.
-    if (conflict) {
+    if (decision.requiresConfirmation) {
       const who = targetTechName?.trim() || "this technician";
       const what = job.work_order_number ?? "this booking";
       const ok = window.confirm(
@@ -679,17 +681,10 @@ export default function ScheduleBoard() {
       if (!ok) return;
     }
 
-    const newStart = shiftIsoDays(job.start_time, deltaDays);
-    const newEnd = shiftIsoDays(job.end_time, deltaDays);
-
     moveMutation.mutate(
       {
-        bookingId: job.booking_id,
-        data: {
-          start_time: newStart,
-          end_time: newEnd,
-          technician_id: targetTechId,
-        },
+        bookingId: decision.bookingId,
+        data: decision.update,
       },
       {
         onSuccess: () => {
