@@ -34,6 +34,7 @@ import {
   User,
   MapPin,
   Clock,
+  Download,
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 import {
@@ -341,6 +342,26 @@ function fmtUtilHours(minutes: number): string {
   if (h && m) return `${h}h ${m}m`;
   if (h) return `${h}h`;
   return `${m}m`;
+}
+
+// Quote a single CSV cell, escaping embedded quotes and wrapping when the value
+// contains a comma, quote, or newline (RFC 4180).
+function csvCell(value: string | number): string {
+  const s = String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Trigger a client-side download of CSV text as a file.
+function downloadCsv(filename: string, csv: string): void {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // Shared hover readout for the capacity badges. The badges only have room for a
@@ -1857,6 +1878,37 @@ export default function ScheduleBoard() {
           }))
           .filter((r) => r.technicians.length > 0);
 
+        const exportUtilizationCsv = () => {
+          const header = [
+            "Region",
+            "Technician",
+            "Job Count",
+            "Utilized Hours",
+            "Capacity Hours",
+            "Utilization %",
+          ];
+          const rows: string[][] = [];
+          for (const rg of visibleUtilRegions) {
+            for (const t of rg.technicians ?? []) {
+              const utilizedHours = (t.utilized_minutes ?? 0) / 60;
+              const capacityHours = (t.capacity_minutes ?? 0) / 60;
+              rows.push([
+                rg.region,
+                t.resource_name ?? "—",
+                String(t.job_count ?? 0),
+                utilizedHours.toFixed(2),
+                capacityHours.toFixed(2),
+                (t.utilization_pct ?? 0).toFixed(1),
+              ]);
+            }
+          }
+          const csv = [header, ...rows]
+            .map((row) => row.map(csvCell).join(","))
+            .join("\r\n");
+          const periodEnd = utilView === "week" ? addDaysISO(start, 6) : addDaysISO(addMonthsISO(start, 1), -1);
+          downloadCsv(`resource-utilization_${start}_to_${periodEnd}.csv`, csv);
+        };
+
         return (
           <div className="space-y-3" data-testid="panel-resource-utilization">
             {/* Section header */}
@@ -1865,6 +1917,18 @@ export default function ScheduleBoard() {
               <h2 className="text-sm font-semibold text-foreground">Resource Utilization</h2>
               <span className="text-xs text-muted-foreground">· {capLabel} capacity</span>
               <div className="ml-auto flex items-center gap-1.5 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2 text-xs gap-1"
+                  onClick={exportUtilizationCsv}
+                  disabled={visibleUtilRegions.length === 0}
+                  data-testid="button-export-utilization-csv"
+                >
+                  <Download className="h-3 w-3" />
+                  Export CSV
+                </Button>
+                <span className="text-muted-foreground/40 text-xs">|</span>
                 <span className="text-xs text-muted-foreground shrink-0">Regions:</span>
                 <button
                   onClick={utilSelectAll}
