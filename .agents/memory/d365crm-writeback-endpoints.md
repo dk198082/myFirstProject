@@ -39,6 +39,23 @@ Postgres mirror (`crm.*` tables) via `getCrmPool()`. Several fields do NOT map t
   **Why:** without this overlay, drag-to-reschedule stages a row but the board (and client-side conflict
   highlighting, which is derived from job start/end+tech) keeps showing the old position until sync.
 
+## Resource utilization must clamp spans and exclude cancelled bookings
+
+`/wb/resource-utilization` sums booking start→end as utilized time. The CRM mirror contains
+outlier bookings spanning thousands of wall-clock hours, so summing raw spans yielded absurd
+percentages (e.g. 23462% from one booking). Two safeguards:
+- Exclude cancelled / no-show bookings via `NOT ILIKE 'cancel%'` / `NOT ILIKE '%no show%'` on the
+  `_bookingstatus_value@...FormattedValue` (live statuses seen: Completed, Scheduled, Canceled, In Progress).
+- Clamp each booking to the query window AND to 8 working hours per calendar day it spans
+  (40h/week ÷ 5). Per-day clamp = `LEAST(rangeMinutes, (days_spanned+1) * workingMinPerDay)`.
+
+**GOTCHA — Postgres `LEAST`/`GREATEST` ignore NULLs.** When clamping a LEFT JOIN's columns against
+range bounds (`LEAST(b.endtime, $rangeEnd)`), an *unmatched* row (b.* all NULL) does NOT yield NULL —
+it returns the non-null bound, so a technician with zero bookings gets a bogus positive contribution.
+Guard the whole per-booking expression with `CASE WHEN b.<pk> IS NULL THEN 0 ELSE ... END`.
+**Why:** `SUM(EXTRACT(... endtime-starttime))` is naturally NULL-safe; switching to LEAST/GREATEST
+clamps silently broke that NULL-safety until guarded.
+
 **Why:** these were discovered by probing the live CRM DB; guessing FS-equivalent column names fails at runtime
 (e.g. `column wo.msdyn_displayaddress does not exist`).
 
