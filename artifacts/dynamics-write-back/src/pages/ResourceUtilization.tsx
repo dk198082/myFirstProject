@@ -112,7 +112,16 @@ export default function ResourceUtilization() {
     { query: { queryKey: ["getWbResourceUtilization", start, view] } },
   );
 
-  const regions = data?.regions ?? [];
+  // Only show resources that actually have booked work in the period. Capacity
+  // itself is a uniform default per resource, so "without any capacity" means
+  // resources sitting idle (no jobs / no utilized time). Drop regions that end
+  // up empty after filtering.
+  const regions = (data?.regions ?? [])
+    .map((rg) => ({
+      ...rg,
+      technicians: (rg.technicians ?? []).filter((t) => (t.job_count ?? 0) > 0),
+    }))
+    .filter((rg) => rg.technicians.length > 0);
   const weeklyHours = data?.default_weekly_capacity_hours ?? 40;
   const periodWeeks = data?.period_weeks ?? 1;
 
