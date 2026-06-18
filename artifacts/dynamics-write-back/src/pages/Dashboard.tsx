@@ -237,9 +237,11 @@ export default function Dashboard() {
   const yearOpts = years.map((y) => ({ v: String(y), l: String(y) }));
   const approverOpts = approvers.map((a) => ({ v: a, l: a }));
 
+  const currentYear = String(new Date().getFullYear());
+
   // Page 1 filters
   const [p1Region, setP1Region] = useState(ALL);
-  const [p1Year, setP1Year] = useState(ALL);
+  const [p1Year, setP1Year] = useState(currentYear);
   const [p1Month, setP1Month] = useState(ALL);
 
   // Page 2 filters
@@ -247,7 +249,7 @@ export default function Dashboard() {
 
   // Page 4 filters
   const [p4Region, setP4Region] = useState(ALL);
-  const [p4Year, setP4Year] = useState(ALL);
+  const [p4Year, setP4Year] = useState(currentYear);
   const [p4Month, setP4Month] = useState(ALL);
   const [p4Approver, setP4Approver] = useState(ALL);
 

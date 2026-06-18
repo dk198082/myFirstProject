@@ -1391,13 +1391,10 @@ router.get("/wb/reports/filters", async (req, res) => {
         GROUP BY t.name
         ORDER BY t.name`),
       pool.query<{ yr: number }>(`
-        SELECT DISTINCT EXTRACT(YEAR FROM ts)::int AS yr
-        FROM (
-          SELECT NULLIF(raw_json->>'msdyn_completedon', '')::timestamptz AS ts FROM crm.workorder WHERE COALESCE(is_deleted,false)=false
-          UNION ALL
-          SELECT NULLIF(raw_json->>'cf_approvedon', '')::timestamptz AS ts FROM crm.workorder WHERE COALESCE(is_deleted,false)=false
-        ) u
-        WHERE ts IS NOT NULL
+        SELECT DISTINCT EXTRACT(YEAR FROM NULLIF(raw_json->>'createdon', '')::timestamptz)::int AS yr
+        FROM crm.workorder
+        WHERE COALESCE(is_deleted,false)=false
+          AND NULLIF(raw_json->>'createdon', '') IS NOT NULL
         ORDER BY yr DESC`),
       pool.query<{ approver: string }>(`
         SELECT DISTINCT raw_json->>'_cf_approvedby_value@OData.Community.Display.V1.FormattedValue' AS approver
@@ -1443,10 +1440,10 @@ router.get("/wb/reports/completed-not-approved", async (req, res) => {
         AND NULLIF(wo.raw_json->>'cf_approvedon', '') IS NULL`;
     where += appendRegionFilter(region, params);
     if (Number.isFinite(year) && year > 0) {
-      where += ` AND EXTRACT(YEAR FROM (wo.raw_json->>'msdyn_completedon')::timestamptz) = $${params.push(year)}`;
+      where += ` AND EXTRACT(YEAR FROM NULLIF(wo.raw_json->>'createdon', '')::timestamptz) = $${params.push(year)}`;
     }
     if (Number.isFinite(month) && month >= 1 && month <= 12) {
-      where += ` AND EXTRACT(MONTH FROM (wo.raw_json->>'msdyn_completedon')::timestamptz) = $${params.push(month)}`;
+      where += ` AND EXTRACT(MONTH FROM NULLIF(wo.raw_json->>'createdon', '')::timestamptz) = $${params.push(month)}`;
     }
     res.json(await runServiceOrderReport(where, params, "completed_on"));
   } catch (err) {
@@ -1534,10 +1531,10 @@ router.get("/wb/reports/weekly-approved", async (req, res) => {
       where += ` AND wo.raw_json->>'_cf_approvedby_value@OData.Community.Display.V1.FormattedValue' = $${params.push(approvedBy)}`;
     }
     if (Number.isFinite(year) && year > 0) {
-      where += ` AND EXTRACT(YEAR FROM (wo.raw_json->>'cf_approvedon')::timestamptz) = $${params.push(year)}`;
+      where += ` AND EXTRACT(YEAR FROM NULLIF(wo.raw_json->>'createdon', '')::timestamptz) = $${params.push(year)}`;
     }
     if (Number.isFinite(month) && month >= 1 && month <= 12) {
-      where += ` AND EXTRACT(MONTH FROM (wo.raw_json->>'cf_approvedon')::timestamptz) = $${params.push(month)}`;
+      where += ` AND EXTRACT(MONTH FROM NULLIF(wo.raw_json->>'createdon', '')::timestamptz) = $${params.push(month)}`;
     }
 
     const sql = `
