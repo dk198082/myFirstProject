@@ -192,6 +192,8 @@ type ScheduleJob = {
   city?: string | null;
   state?: string | null;
   day_index: number;
+  span_start_day?: number | null;
+  span_end_day?: number | null;
 };
 
 // Build the shape EditBookingDialog expects (WbWorkOrder) from a board tile.
@@ -233,6 +235,28 @@ function buildNewBookingRow(job: UnscheduledJob, technicianId: string | null): W
   };
 }
 
+// Count distinct bookings in a chip list. Multi-day bookings emit one chip per
+// spanned day, so the raw chip count over-reports the number of bookings.
+function distinctJobCount(jobs: { booking_id: string }[]): number {
+  return new Set(jobs.map((j) => j.booking_id)).size;
+}
+
+// Label for a chip's time range. A multi-day booking renders one chip per day:
+// the first day runs from its start time onward (→), interior days are full
+// days, and the last day runs until its end time.
+function chipTimeLabel(job: ScheduleJob): string {
+  const start = fmtTime(job.crmstarttime);
+  const end = fmtTime(job.crmendtime);
+  const spanStart = job.span_start_day ?? job.day_index;
+  const spanEnd = job.span_end_day ?? job.day_index;
+  if (spanEnd <= spanStart) {
+    return end ? `${start}–${end}` : start;
+  }
+  if (job.day_index <= spanStart) return start ? `${start} →` : "→";
+  if (job.day_index >= spanEnd) return end ? `→ ${end}` : "→";
+  return "All day";
+}
+
 function JobChip({
   job,
   compact,
@@ -253,12 +277,22 @@ function JobChip({
   isDragging?: boolean;
 }) {
   const isCancelled = (job.system_status ?? "").toLowerCase() === "cancelled";
+  const spanStart = job.span_start_day ?? job.day_index;
+  const spanEnd = job.span_end_day ?? job.day_index;
+  const isMultiDay = spanEnd > spanStart;
+  const isStartChip = !isMultiDay || job.day_index <= spanStart;
+  const dayPos = job.day_index - spanStart + 1;
+  const dayTotal = spanEnd - spanStart + 1;
   const chip = (
     <button
       type="button"
-      draggable
+      draggable={isStartChip}
       onClick={onOpen}
       onDragStart={(e) => {
+        if (!isStartChip) {
+          e.preventDefault();
+          return;
+        }
         onDragStart?.();
         if (e.dataTransfer) {
           e.dataTransfer.effectAllowed = "move";
@@ -266,20 +300,22 @@ function JobChip({
         }
       }}
       onDragEnd={() => onDragEnd?.()}
-      className={`w-full text-left text-[11px] leading-tight rounded border ${compact ? "px-1 py-0.5" : "px-1.5 py-1"} cursor-grab active:cursor-grabbing transition-colors ${isCancelled ? cancelledChipColor() : colorClass} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""} ${isDragging ? "opacity-40" : ""}`}
+      className={`w-full text-left text-[11px] leading-tight rounded border ${compact ? "px-1 py-0.5" : "px-1.5 py-1"} ${isStartChip ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} transition-colors ${isCancelled ? cancelledChipColor() : colorClass} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""} ${isDragging ? "opacity-40" : ""}`}
       data-testid={`chip-job-${job.booking_id}`}
     >
       <div className="flex items-center gap-1">
         <span className="font-semibold truncate">{job.work_order_number ?? "WO"}</span>
+        {isMultiDay && (
+          <span className="shrink-0 rounded bg-black/10 px-1 text-[9px] font-semibold tabular-nums">
+            D{dayPos}/{dayTotal}
+          </span>
+        )}
         {isConflict && (
           <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" aria-label="Double-booked" />
         )}
       </div>
       {!compact && (job.crmstarttime || job.crmendtime) && (
-        <div className="opacity-80 truncate">
-          {fmtTime(job.crmstarttime)}
-          {job.crmendtime ? `–${fmtTime(job.crmendtime)}` : ""}
-        </div>
+        <div className="opacity-80 truncate">{chipTimeLabel(job)}</div>
       )}
       {!compact && <div className="opacity-90 truncate">{job.customer_name ?? "—"}</div>}
     </button>
@@ -868,7 +904,7 @@ export default function ScheduleBoard() {
   );
 
   const totalJobs = regions.reduce(
-    (s, r) => s + r.technicians.reduce((ts, t) => ts + t.jobs.length, 0),
+    (s, r) => s + r.technicians.reduce((ts, t) => ts + distinctJobCount(t.jobs), 0),
     0,
   );
 
@@ -1366,7 +1402,7 @@ export default function ScheduleBoard() {
               (t) => selectedTechIds === null || selectedTechIds.has(t.technician_id),
             );
             if (techsInRegion.length === 0) return null;
-            const regionJobCount = techsInRegion.reduce((s, t) => s + t.jobs.length, 0);
+            const regionJobCount = techsInRegion.reduce((s, t) => s + distinctJobCount(t.jobs), 0);
             const regionUtilMinutes = techsInRegion.reduce(
               (s, t) => s + techUtilMinutes(t.technician_id),
               0,
@@ -1457,7 +1493,7 @@ export default function ScheduleBoard() {
                                 {tech.resource_name ?? "Unassigned"}
                               </div>
                               <div className="text-[10px] text-foreground/50">
-                                {tech.jobs.length} job{tech.jobs.length !== 1 ? "s" : ""}
+                                {distinctJobCount(tech.jobs)} job{distinctJobCount(tech.jobs) !== 1 ? "s" : ""}
                               </div>
                               {tech.jobs.length === 0
                                 ? showIdleTechs && (
@@ -1516,13 +1552,21 @@ export default function ScheduleBoard() {
                                     (j.system_status ?? "").toLowerCase() === "cancelled";
                                   const isConflict = conflictedBookingIds.has(j.booking_id);
                                   const isDragging = draggingId === j.booking_id;
+                                  const jSpanStart = j.span_start_day ?? j.day_index;
+                                  const jSpanEnd = j.span_end_day ?? j.day_index;
+                                  const jMultiDay = jSpanEnd > jSpanStart;
+                                  const jStartChip = !jMultiDay || j.day_index <= jSpanStart;
                                   return (
                                     <button
                                       type="button"
                                       key={j.booking_id}
-                                      draggable
+                                      draggable={jStartChip}
                                       onClick={() => setEditing(buildEditRow(j, tech.technician_id))}
                                       onDragStart={(e) => {
+                                        if (!jStartChip) {
+                                          e.preventDefault();
+                                          return;
+                                        }
                                         startDrag(j, tech.technician_id);
                                         if (e.dataTransfer) {
                                           e.dataTransfer.effectAllowed = "move";
@@ -1530,7 +1574,7 @@ export default function ScheduleBoard() {
                                         }
                                       }}
                                       onDragEnd={endDrag}
-                                      className={`block w-full text-left text-[11px] leading-tight rounded border-l-4 pl-1.5 py-1 pr-1 cursor-grab active:cursor-grabbing ${palette.chip.replace(/hover:bg-\S+/g, "").trim()} ${isCancelled ? "opacity-50 line-through" : ""} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""} ${isDragging ? "opacity-40" : ""}`}
+                                      className={`block w-full text-left text-[11px] leading-tight rounded border-l-4 pl-1.5 py-1 pr-1 ${jStartChip ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${palette.chip.replace(/hover:bg-\S+/g, "").trim()} ${isCancelled ? "opacity-50 line-through" : ""} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""} ${isDragging ? "opacity-40" : ""}`}
                                       style={{ borderLeftColor: "currentColor" }}
                                       data-testid={`tech-job-${j.booking_id}`}
                                     >
@@ -1548,17 +1592,21 @@ export default function ScheduleBoard() {
                                       )}
                                       {(j.crmstarttime || j.crmendtime) && (
                                         <div className="opacity-70 tabular-nums">
-                                          {fmtTime(j.crmstarttime)}
-                                          {j.crmendtime ? `–${fmtTime(j.crmendtime)}` : ""}
-                                          {fmtDuration(j.crmstarttime, j.crmendtime) && (
+                                          {chipTimeLabel(j)}
+                                          {!jMultiDay && fmtDuration(j.crmstarttime, j.crmendtime) && (
                                             <span className="ml-1 opacity-80">
                                               · {fmtDuration(j.crmstarttime, j.crmendtime)}
                                             </span>
                                           )}
                                         </div>
                                       )}
-                                      <div className="font-mono font-semibold tabular-nums">
-                                        {j.work_order_number ?? "—"}
+                                      <div className="font-mono font-semibold tabular-nums flex items-center gap-1">
+                                        <span>{j.work_order_number ?? "—"}</span>
+                                        {jMultiDay && (
+                                          <span className="rounded bg-black/10 px-1 text-[9px] font-semibold">
+                                            D{j.day_index - jSpanStart + 1}/{jSpanEnd - jSpanStart + 1}
+                                          </span>
+                                        )}
                                       </div>
                                       <div className="opacity-60 font-semibold">
                                         ({statusCode(j.system_status)})
@@ -1595,7 +1643,7 @@ export default function ScheduleBoard() {
       {view !== "tech" && !isLoading && !error && regions.length > 0 && (
         <div className="space-y-6">
           {regions.map((rg) => {
-            const regionJobCount = rg.technicians.reduce((s, t) => s + t.jobs.length, 0);
+            const regionJobCount = rg.technicians.reduce((s, t) => s + distinctJobCount(t.jobs), 0);
             const regionUtilMinutes = rg.technicians.reduce(
               (s, t) => s + techUtilMinutes(t.technician_id),
               0,
@@ -1694,7 +1742,7 @@ export default function ScheduleBoard() {
                                 {tech.resource_name ?? "Unassigned"}
                               </div>
                               <div className="text-[10px] text-muted-foreground">
-                                {tech.jobs.length} job{tech.jobs.length !== 1 ? "s" : ""}
+                                {distinctJobCount(tech.jobs)} job{distinctJobCount(tech.jobs) !== 1 ? "s" : ""}
                               </div>
                               {tech.jobs.length === 0
                                 ? showIdleTechs && (

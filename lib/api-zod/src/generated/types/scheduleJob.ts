@@ -50,4 +50,14 @@ export interface ScheduleJob {
   state?: string | null;
   /** 0-based offset from `range_start` (0 = first day in range) */
   day_index: number;
+  /**
+     * First visible day index this booking spans. Multi-day bookings emit one chip per day from `span_start_day` to `span_end_day`.
+     * @nullable
+     */
+  span_start_day?: number | null;
+  /**
+     * Last visible day index this booking spans (equals `span_start_day` for single-day bookings).
+     * @nullable
+     */
+  span_end_day?: number | null;
 }

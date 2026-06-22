@@ -1077,6 +1077,12 @@ components:
         day_index:
           type: integer
           description: 0-based offset from `range_start` (0 = first day in range)
+        span_start_day:
+          type: ["integer", "null"]
+          description: First visible day index this booking spans. Multi-day bookings emit one chip per day from `span_start_day` to `span_end_day`.
+        span_end_day:
+          type: ["integer", "null"]
+          description: Last visible day index this booking spans (equals `span_start_day` for single-day bookings).
       required:
         - booking_id
         - day_index

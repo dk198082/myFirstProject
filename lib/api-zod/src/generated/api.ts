@@ -618,7 +618,9 @@ export const GetScheduleBoardResponse = zod.object({
   "end_time": zod.string().nullish().describe('Full ISO 8601 booking end timestamp (used to seed the booking edit dialog).'),
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
-  "day_index": zod.number().describe('0-based offset from `range_start` (0 = first day in range)')
+  "day_index": zod.number().describe('0-based offset from `range_start` (0 = first day in range)'),
+  "span_start_day": zod.number().nullish().describe('First visible day index this booking spans. Multi-day bookings emit one chip per day from `span_start_day` to `span_end_day`.'),
+  "span_end_day": zod.number().nullish().describe('Last visible day index this booking spans (equals `span_start_day` for single-day bookings).')
 }))
 }))
 }))
@@ -667,7 +669,9 @@ export const GetWbScheduleBoardResponse = zod.object({
   "end_time": zod.string().nullish().describe('Full ISO 8601 booking end timestamp (used to seed the booking edit dialog).'),
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
-  "day_index": zod.number().describe('0-based offset from `range_start` (0 = first day in range)')
+  "day_index": zod.number().describe('0-based offset from `range_start` (0 = first day in range)'),
+  "span_start_day": zod.number().nullish().describe('First visible day index this booking spans. Multi-day bookings emit one chip per day from `span_start_day` to `span_end_day`.'),
+  "span_end_day": zod.number().nullish().describe('Last visible day index this booking spans (equals `span_start_day` for single-day bookings).')
 }))
 }))
 }))

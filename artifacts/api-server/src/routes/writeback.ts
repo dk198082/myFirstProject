@@ -840,33 +840,62 @@ router.get("/wb/schedule-board", async (req, res) => {
       const startParts = tsParts(effStart);
       const endParts = tsParts(effEnd);
       const startDate = effStart instanceof Date ? effStart : new Date(effStart);
-      const dayIndex = Math.floor(
+      const startDayIndex = Math.floor(
         (Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()) -
           rangeStartMs) /
           86_400_000,
       );
 
-      techRow.jobs.push({
-        booking_id: row.booking_id,
-        work_order_id: row.work_order_id,
-        work_order_number: row.work_order_number,
-        title: row.title,
-        system_status: row.system_status,
-        booking_status: row.booking_status,
-        customer_name: row.customer_name,
-        technician_name: targetTechName,
-        contact_name: null,
-        contact_businessphone: null,
-        crmstart_time: startParts.date,
-        crmstarttime: startParts.time,
-        crmend_time: endParts.date,
-        crmendtime: endParts.time,
-        start_time: startParts.iso,
-        end_time: endParts.iso,
-        city: row.city ?? null,
-        state: row.state ?? null,
-        day_index: Math.max(0, Math.min(maxDayIndex, dayIndex)),
-      });
+      // A booking that spans multiple days must appear on EVERY day it covers,
+      // not just its start day. Derive the end day index from the (effective)
+      // end timestamp. A booking ending exactly at midnight occupies up to the
+      // previous day, so it does not leak an empty trailing chip.
+      let endDayIndex = startDayIndex;
+      if (effEnd != null) {
+        const endDate = effEnd instanceof Date ? effEnd : new Date(effEnd);
+        let ei = Math.floor(
+          (Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()) -
+            rangeStartMs) /
+            86_400_000,
+        );
+        const endsAtMidnight =
+          endDate.getUTCHours() === 0 &&
+          endDate.getUTCMinutes() === 0 &&
+          endDate.getUTCSeconds() === 0;
+        if (endsAtMidnight && ei > startDayIndex) ei -= 1;
+        if (ei > endDayIndex) endDayIndex = ei;
+      }
+
+      // The SQL filter guarantees the start lands inside the visible range; clamp
+      // the span to the visible window so out-of-range continuation days drop off.
+      const spanStartDay = Math.max(0, Math.min(maxDayIndex, startDayIndex));
+      const spanEndDay = Math.max(spanStartDay, Math.min(maxDayIndex, endDayIndex));
+
+      for (let d = spanStartDay; d <= spanEndDay; d++) {
+        techRow.jobs.push({
+          booking_id: row.booking_id,
+          work_order_id: row.work_order_id,
+          work_order_number: row.work_order_number,
+          title: row.title,
+          system_status: row.system_status,
+          booking_status: row.booking_status,
+          customer_name: row.customer_name,
+          technician_name: targetTechName,
+          contact_name: null,
+          contact_businessphone: null,
+          crmstart_time: startParts.date,
+          crmstarttime: startParts.time,
+          crmend_time: endParts.date,
+          crmendtime: endParts.time,
+          start_time: startParts.iso,
+          end_time: endParts.iso,
+          city: row.city ?? null,
+          state: row.state ?? null,
+          day_index: d,
+          span_start_day: spanStartDay,
+          span_end_day: spanEndDay,
+        });
+      }
     }
 
     const regions = Array.from(regionMap.values()).map((rg) => ({
