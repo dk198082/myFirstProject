@@ -111,6 +111,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /wb/work-orders/{workOrderId}/detail:
+    get:
+      operationId: getWbWorkOrderDetail
+      tags: [writeback]
+      summary: Get detailed info about a d365crm work order (view-only)
+      parameters:
+        - name: workOrderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Work order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkOrderDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /wb/writebacks:
     get:
       operationId: listWbWritebacks

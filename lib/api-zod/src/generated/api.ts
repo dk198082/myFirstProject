@@ -106,6 +106,101 @@ export const CreateWbBookingResponse = zod.object({
 
 
 /**
+ * @summary Get detailed info about a d365crm work order (view-only)
+ */
+export const GetWbWorkOrderDetailParams = zod.object({
+  "workOrderId": zod.coerce.string()
+})
+
+export const GetWbWorkOrderDetailResponse = zod.object({
+  "work_order_id": zod.string(),
+  "work_order_number": zod.string().nullish(),
+  "title": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "service_address": zod.string().nullish(),
+  "serviceaddress": zod.string().nullish(),
+  "priority": zod.string().nullish(),
+  "system_status": zod.string().nullish(),
+  "sub_status": zod.string().nullish(),
+  "incident_type": zod.string().nullish(),
+  "servicelocation": zod.string().nullish(),
+  "pricelistname": zod.string().nullish(),
+  "cf_projectname": zod.string().nullish(),
+  "cf_ponumber": zod.string().nullish(),
+  "cf_axserviceorderid": zod.string().nullish(),
+  "servicetype": zod.string().nullish(),
+  "created_on": zod.string().nullish(),
+  "modified_on": zod.string().nullish(),
+  "customer": zod.object({
+  "customer_id": zod.string(),
+  "customer_name": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "country": zod.string().nullish(),
+  "postal_code": zod.string().nullish()
+}).nullish(),
+  "contact": zod.object({
+  "contact_id": zod.string(),
+  "fullname": zod.string().nullish(),
+  "firstname": zod.string().nullish(),
+  "lastname": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "businessphone": zod.string().nullish(),
+  "homephone": zod.string().nullish(),
+  "mobilephone": zod.string().nullish(),
+  "street1": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "country": zod.string().nullish()
+}).nullish(),
+  "booking": zod.object({
+  "booking_id": zod.string(),
+  "booking_status": zod.string().nullish(),
+  "start_time": zod.string().nullish(),
+  "end_time": zod.string().nullish(),
+  "estimated_arrival_time": zod.string().nullish(),
+  "actual_arrival_time": zod.string().nullish(),
+  "actual_start_time": zod.string().nullish(),
+  "actual_end_time": zod.string().nullish(),
+  "duration_minutes": zod.number().nullish(),
+  "technician_id": zod.string().nullish(),
+  "crmstart_time": zod.string().nullish(),
+  "crmstarttime": zod.string().nullish(),
+  "crmend_time": zod.string().nullish(),
+  "crmendtime": zod.string().nullish(),
+  "modifiedon": zod.string().nullish(),
+  "modifiedtime": zod.string().nullish()
+}).nullish(),
+  "products": zod.array(zod.object({
+  "id": zod.string(),
+  "product_name": zod.string().nullish(),
+  "quantity": zod.number().nullish(),
+  "unit": zod.string().nullish(),
+  "line_status": zod.string().nullish()
+})),
+  "services": zod.array(zod.object({
+  "id": zod.string(),
+  "service_name": zod.string().nullish(),
+  "duration_minutes": zod.number().nullish(),
+  "line_status": zod.string().nullish()
+})),
+  "equipment": zod.array(zod.object({
+  "equipmentid": zod.string(),
+  "name": zod.string().nullish(),
+  "serialnumber": zod.string().nullish(),
+  "lastcalibrationdate": zod.string().nullish(),
+  "nextcalibrationdate": zod.string().nullish(),
+  "calinterval": zod.number().nullish(),
+  "machinecapacity": zod.string().nullish(),
+  "calibrationdate": zod.string().nullish()
+}))
+})
+
+
+/**
  * @summary List all staged write-back entries (queued and synced), most recent first
  */
 export const ListWbWritebacksResponseItem = zod.object({

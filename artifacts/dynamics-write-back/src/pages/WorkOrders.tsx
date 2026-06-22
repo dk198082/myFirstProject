@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { Link } from "wouter";
 import {
   useListWbWorkOrders,
   type WbWorkOrder,
@@ -142,7 +143,17 @@ export default function WorkOrders() {
                 return (
                   <TableRow key={wo.work_order_id}>
                     <TableCell className="font-mono text-xs">
-                      {wo.work_order_number ?? "—"}
+                      {wo.work_order_id ? (
+                        <Link
+                          href={`/work-order/${wo.work_order_id}`}
+                          className="text-primary hover:underline"
+                          data-testid={`link-wo-${wo.work_order_id}`}
+                        >
+                          {wo.work_order_number ?? "—"}
+                        </Link>
+                      ) : (
+                        wo.work_order_number ?? "—"
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="font-medium leading-tight">{wo.title ?? "Untitled"}</div>

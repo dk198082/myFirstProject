@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useGetWbJobsByRegion } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -81,9 +82,19 @@ function JobRow({ job }: { job: RegionJob }) {
       data-testid={`row-job-${job.booking_id}`}
     >
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-bold text-muted-foreground tracking-wide">
-          {job.work_order_number ?? "—"}
-        </span>
+        {job.work_order_id ? (
+          <Link
+            href={`/work-order/${job.work_order_id}`}
+            className="text-xs font-bold text-primary tracking-wide hover:underline"
+            data-testid={`link-wo-${job.work_order_id}`}
+          >
+            {job.work_order_number ?? "—"}
+          </Link>
+        ) : (
+          <span className="text-xs font-bold text-muted-foreground tracking-wide">
+            {job.work_order_number ?? "—"}
+          </span>
+        )}
         {job.system_status && (
           <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${statusColor(job.system_status)}`}>
             {job.system_status}

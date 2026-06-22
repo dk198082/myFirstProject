@@ -294,6 +294,83 @@ export const useCreateWbBooking = <TError = ErrorType<ErrorResponse>,
       return useMutation(getCreateWbBookingMutationOptions(options));
     }
 
+export const getGetWbWorkOrderDetailUrl = (workOrderId: string,) => {
+
+
+
+
+  return `/api/wb/work-orders/${workOrderId}/detail`
+}
+
+/**
+ * @summary Get detailed info about a d365crm work order (view-only)
+ */
+export const getWbWorkOrderDetail = async (workOrderId: string, options?: RequestInit): Promise<WorkOrderDetail> => {
+
+  return customFetch<WorkOrderDetail>(getGetWbWorkOrderDetailUrl(workOrderId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWbWorkOrderDetailQueryKey = (workOrderId: string,) => {
+    return [
+    `/api/wb/work-orders/${workOrderId}/detail`
+    ] as const;
+    }
+
+
+export const getGetWbWorkOrderDetailQueryOptions = <TData = Awaited<ReturnType<typeof getWbWorkOrderDetail>>, TError = ErrorType<ErrorResponse>>(workOrderId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbWorkOrderDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWbWorkOrderDetailQueryKey(workOrderId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWbWorkOrderDetail>>> = ({ signal }) => getWbWorkOrderDetail(workOrderId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(workOrderId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWbWorkOrderDetail>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWbWorkOrderDetailQueryResult = NonNullable<Awaited<ReturnType<typeof getWbWorkOrderDetail>>>
+export type GetWbWorkOrderDetailQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get detailed info about a d365crm work order (view-only)
+ */
+
+export function useGetWbWorkOrderDetail<TData = Awaited<ReturnType<typeof getWbWorkOrderDetail>>, TError = ErrorType<ErrorResponse>>(
+ workOrderId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbWorkOrderDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWbWorkOrderDetailQueryOptions(workOrderId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
 export const getListWbWritebacksUrl = () => {
 
 

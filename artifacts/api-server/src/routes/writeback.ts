@@ -311,6 +311,174 @@ router.post("/wb/work-orders/:workOrderId/booking", async (req, res) => {
   }
 });
 
+// View-only detail for a single d365crm work order. Mirrors the FS-backed
+// GET /work-orders/:id response (WorkOrderDetail schema) but sourced from the
+// crm.* mirror so the dynamics-write-back app can show details for its own jobs.
+// Note: the crm mirror has no work-order product/service line tables, so those
+// arrays are always empty (the page renders them conditionally).
+router.get("/wb/work-orders/:workOrderId/detail", async (req, res) => {
+  const { workOrderId } = req.params;
+
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+
+  const FV = "@OData.Community.Display.V1.FormattedValue";
+
+  try {
+    const woRes = await getCrmPool().query(
+      `SELECT
+         wo.msdyn_workorderid::text AS work_order_id,
+         wo.msdyn_name              AS work_order_number,
+         wo.raw_json->>'_msdyn_workordertype_value${FV}' AS work_order_type,
+         wo.raw_json->>'msdyn_systemstatus${FV}'         AS system_status,
+         wo.raw_json->>'_msdyn_substatus_value${FV}' AS sub_status_raw,
+         wo.raw_json->>'_cf_servicelocation_value${FV}'  AS servicelocation,
+         wo.raw_json->>'_msdyn_pricelist_value${FV}'     AS pricelistname,
+         wo.raw_json->>'_cf_project_value${FV}'          AS cf_projectname,
+         wo.cf_ponumber             AS cf_ponumber,
+         wo.cf_axserviceorderid     AS cf_axserviceorderid,
+         wo.msdyn_address1          AS msdyn_address1,
+         wo.msdyn_addressname       AS msdyn_addressname,
+         wo.msdyn_city              AS city,
+         wo.msdyn_stateorprovince   AS state,
+         wo.msdyn_country           AS country,
+         wo.msdyn_postalcode        AS postalcode,
+         wo.createdon               AS created_on,
+         wo.modifiedon              AS modified_on,
+         wo.msdyn_serviceaccount    AS account_id,
+         wo.cf_contactperson        AS contact_id
+       FROM crm.workorder wo
+       WHERE wo.msdyn_workorderid = $1 AND COALESCE(wo.is_deleted, false) = false
+       LIMIT 1`,
+      [workOrderId],
+    );
+    const wo = woRes.rows[0];
+    if (!wo) {
+      res.status(404).json({ error: "Work order not found" });
+      return;
+    }
+
+    const [accountRes, contactRes, bookingRes, equipmentRes] = await Promise.all([
+      wo.account_id
+        ? getCrmPool().query(
+            `SELECT accountid::text AS customer_id, name AS customer_name,
+                    emailaddress1 AS email, telephone1 AS phone,
+                    address1_line1 AS address, address1_city AS city,
+                    address1_stateorprovince AS state, address1_country AS country,
+                    address1_postalcode AS postal_code
+             FROM crm.account WHERE accountid = $1 LIMIT 1`,
+            [wo.account_id],
+          )
+        : Promise.resolve({ rows: [] as Record<string, unknown>[] }),
+      wo.contact_id
+        ? getCrmPool().query(
+            `SELECT contactid::text AS contact_id, fullname, firstname, lastname,
+                    emailaddress1 AS email, telephone1 AS businessphone,
+                    mobilephone, NULL::text AS homephone, NULL::text AS street1,
+                    NULL::text AS city, NULL::text AS state, NULL::text AS country
+             FROM crm.contact WHERE contactid = $1 LIMIT 1`,
+            [wo.contact_id],
+          )
+        : Promise.resolve({ rows: [] as Record<string, unknown>[] }),
+      getCrmPool().query(
+        `SELECT
+           bookableresourcebookingid::text AS booking_id,
+           raw_json->>'_bookingstatus_value${FV}' AS booking_status,
+           starttime AS start_time,
+           endtime AS end_time,
+           msdyn_actualarrivaltime AS actual_arrival_time,
+           raw_json->>'msdyn_estimatedarrivaltime' AS estimated_arrival_time,
+           NULL::timestamptz AS actual_start_time,
+           NULL::timestamptz AS actual_end_time,
+           CASE WHEN starttime IS NOT NULL AND endtime IS NOT NULL
+                THEN ROUND(EXTRACT(EPOCH FROM (endtime - starttime)) / 60)::int
+                ELSE NULLIF(duration, 0)::int END AS duration_minutes,
+           resource::text AS technician_id,
+           modifiedon AS modifiedon
+         FROM crm.booking
+         WHERE msdyn_workorder = $1 AND COALESCE(is_deleted, false) = false
+         ORDER BY starttime ASC NULLS LAST
+         LIMIT 1`,
+        [workOrderId],
+      ),
+      getCrmPool().query(
+        `SELECT
+           cf_workordercustomerequipmentid::text AS equipmentid,
+           cf_name AS name,
+           cf_serialnumber AS serialnumber,
+           cf_lastcalibrationdate AS lastcalibrationdate,
+           cf_nextcalibrationdate AS nextcalibrationdate,
+           cf_calibrationdate AS calibrationdate,
+           NULL::int AS calinterval,
+           NULL::text AS machinecapacity
+         FROM crm.cf_workordercustomerequipment
+         WHERE workorderid = $1 AND COALESCE(is_deleted, false) = false
+         ORDER BY cf_nextcalibrationdate ASC NULLS LAST`,
+        [workOrderId],
+      ),
+    ]);
+
+    const toDateOnly = (v: unknown) =>
+      v instanceof Date ? v.toISOString().slice(0, 10) : (v ?? null);
+    const toIso = (v: unknown) =>
+      v instanceof Date ? v.toISOString() : (v ?? null);
+
+    const equipment = equipmentRes.rows.map((e) => ({
+      ...e,
+      lastcalibrationdate: toDateOnly(e.lastcalibrationdate),
+      nextcalibrationdate: toDateOnly(e.nextcalibrationdate),
+      calibrationdate: toDateOnly(e.calibrationdate),
+    }));
+
+    const serviceaddress =
+      [wo.msdyn_addressname, wo.msdyn_address1, wo.city, wo.state, wo.postalcode, wo.country]
+        .filter((s) => s != null && String(s).trim() !== "")
+        .join(", ") || null;
+
+    const booking = bookingRes.rows[0] ?? null;
+    if (booking) {
+      booking.start_time = toIso(booking.start_time);
+      booking.end_time = toIso(booking.end_time);
+      booking.actual_arrival_time = toIso(booking.actual_arrival_time);
+      booking.actual_start_time = toIso(booking.actual_start_time);
+      booking.actual_end_time = toIso(booking.actual_end_time);
+      booking.modifiedon = toIso(booking.modifiedon);
+    }
+
+    res.json({
+      work_order_id: wo.work_order_id,
+      work_order_number: wo.work_order_number,
+      title: wo.work_order_type,
+      description: null,
+      service_address: wo.msdyn_address1 ?? null,
+      serviceaddress,
+      priority: null,
+      system_status: wo.system_status,
+      sub_status: wo.sub_status_raw,
+      incident_type: null,
+      servicelocation: wo.servicelocation,
+      pricelistname: wo.pricelistname,
+      cf_projectname: wo.cf_projectname,
+      cf_ponumber: wo.cf_ponumber,
+      cf_axserviceorderid: wo.cf_axserviceorderid,
+      servicetype: wo.work_order_type,
+      created_on: toIso(wo.created_on),
+      modified_on: toIso(wo.modified_on),
+      customer: accountRes.rows[0] ?? null,
+      contact: contactRes.rows[0] ?? null,
+      booking,
+      products: [],
+      services: [],
+      equipment,
+    });
+  } catch (err) {
+    req.log.error({ err, workOrderId }, "Failed to get d365crm work order detail");
+    res.status(500).json({ error: "Failed to get work order detail" });
+  }
+});
+
 router.get("/wb/writebacks", async (req, res) => {
   try {
     const r = await localPool.query<WritebackRow>(

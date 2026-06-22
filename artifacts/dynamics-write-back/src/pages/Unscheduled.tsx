@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { useGetWbUnscheduledJobs, type UnscheduledJob } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,17 @@ function JobCard({ job, bucketIdx }: { job: Job; bucketIdx: number }) {
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <span className="font-mono font-bold text-sm">WO# {job.work_order_number ?? "—"}</span>
+          {job.work_order_id ? (
+            <Link
+              href={`/work-order/${job.work_order_id}`}
+              className="font-mono font-bold text-sm text-primary hover:underline"
+              data-testid={`link-wo-${job.work_order_id}`}
+            >
+              WO# {job.work_order_number ?? "—"}
+            </Link>
+          ) : (
+            <span className="font-mono font-bold text-sm">WO# {job.work_order_number ?? "—"}</span>
+          )}
           {job.work_order_type && (
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <Badge

@@ -39,6 +39,24 @@ Postgres mirror (`crm.*` tables) via `getCrmPool()`. Several fields do NOT map t
   **Why:** without this overlay, drag-to-reschedule stages a row but the board (and client-side conflict
   highlighting, which is derived from job start/end+tech) keeps showing the old position until sync.
 
+## Work-order detail must be sourced from d365crm, not FS
+
+The FS database (technician-dashboard data source, behind `GET /work-orders/:id`)
+and the d365crm mirror are DISJOINT — different work-order GUIDs and numbers, and
+FS holds only ~1331 seed/test rows (WO-10001, TEST-*). A dynamics work order will
+never resolve through the FS detail endpoint. To show detail for dynamics jobs,
+read from `crm.*` (e.g. `GET /wb/work-orders/:workOrderId/detail`).
+
+**Why:** the two stores are separate Postgres DBs with no shared identifiers.
+**How to apply:** any dynamics-write-back feature that needs per-record data must
+go through a `/wb/*` (crm-backed) endpoint, never the FS `/api/*` routes.
+
+- crm mirror has NO work-order product/service line tables (only a `product`
+  master), so `products`/`services` arrays are always empty in a crm-backed detail.
+- Status display names (`system_status`, `sub_status`) come from raw_json
+  `..._value@...FormattedValue` keys — the raw lookup columns hold GUIDs, so map the
+  FormattedValue (null when absent) to avoid GUID-like UI text.
+
 ## Resource utilization must clamp spans and exclude cancelled bookings
 
 `/wb/resource-utilization` sums booking start→end as utilized time. The CRM mirror contains
