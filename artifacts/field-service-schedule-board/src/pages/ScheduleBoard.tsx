@@ -1145,20 +1145,6 @@ export default function ScheduleBoard() {
             <button
               type="button"
               role="tab"
-              aria-selected={view === "month"}
-              onClick={() => onChangeView("month")}
-              data-testid="btn-view-month"
-              className={`px-3 py-1.5 text-sm font-medium border-l border-border transition-colors ${
-                view === "month"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-foreground hover:bg-accent"
-              }`}
-            >
-              Month
-            </button>
-            <button
-              type="button"
-              role="tab"
               aria-selected={view === "tech"}
               onClick={() => onChangeView("tech")}
               data-testid="btn-view-tech"
