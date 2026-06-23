@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import authRouter from "./auth.js";
 import healthRouter from "./health.js";
 import technicianRouter from "./technicians.js";
 import workOrderRouter from "./workOrders.js";
@@ -12,6 +13,7 @@ import writebackRouter from "./writeback.js";
 
 const router: IRouter = Router();
 
+router.use(authRouter);
 router.use(healthRouter);
 router.use(technicianRouter);
 router.use(workOrderRouter);
