@@ -5,7 +5,6 @@ import {
   getMsalClient,
   isAuthConfigured,
   requireLogin,
-  safeReturnTo,
   REDIRECT_URI,
   LOGIN_SCOPES,
   LOGOUT_URL,
@@ -23,14 +22,6 @@ router.get("/login", async (req, res) => {
   // login CSRF / authorization-response injection.
   const state = crypto.randomBytes(16).toString("hex");
   req.session.authState = state;
-
-  // Remember where to send the user back to after a successful login. Clear any
-  // stale value when this login attempt did not specify one.
-  if (typeof req.query.returnTo === "string") {
-    req.session.returnTo = safeReturnTo(req.query.returnTo);
-  } else {
-    delete req.session.returnTo;
-  }
 
   const authUrl = await getMsalClient().getAuthCodeUrl({
     scopes: LOGIN_SCOPES,
@@ -111,9 +102,7 @@ router.get("/auth/callback", async (req, res) => {
       role: result.rows[0].role,
     };
 
-    const returnTo = safeReturnTo(req.session.returnTo);
-    delete req.session.returnTo;
-    res.redirect(returnTo);
+    res.redirect("/");
   } catch (err) {
     req.log.error({ err }, "Azure login failed");
     res.status(500).send("Login failed");

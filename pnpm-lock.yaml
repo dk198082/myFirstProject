@@ -365,9 +365,6 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
-      '@workspace/auth-react':
-        specifier: workspace:*
-        version: link:../../lib/auth-react
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -566,9 +563,6 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
-      '@workspace/auth-react':
-        specifier: workspace:*
-        version: link:../../lib/auth-react
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -944,9 +938,6 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
-      '@workspace/auth-react':
-        specifier: workspace:*
-        version: link:../../lib/auth-react
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -1037,15 +1028,6 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 3.25.76
-
-  lib/auth-react:
-    devDependencies:
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.2.14
-      react:
-        specifier: 'catalog:'
-        version: 19.1.0
 
   lib/db:
     dependencies:

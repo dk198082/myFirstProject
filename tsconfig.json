@@ -10,9 +10,6 @@
       "path": "./lib/api-client-react"
     },
     {
-      "path": "./lib/auth-react"
-    },
-    {
       "path": "./lib/api-zod"
     }
   ]
