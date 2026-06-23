@@ -28,7 +28,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
 const UNASSIGNED = "__unassigned__";
@@ -220,14 +221,30 @@ export function EditBookingDialog({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={isPending}>
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={isPending}>
-            {isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
-            {isNew ? "Queue booking" : "Queue write-back"}
-          </Button>
+        <DialogFooter className="sm:justify-between">
+          {row.work_order_id ? (
+            <Button variant="outline" asChild>
+              <Link
+                href={`/work-order/${row.work_order_id}`}
+                onClick={onClose}
+                className="inline-flex items-center gap-1.5"
+              >
+                <ExternalLink className="h-4 w-4" />
+                View work order details
+              </Link>
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={onClose} disabled={isPending}>
+              Cancel
+            </Button>
+            <Button onClick={submit} disabled={isPending}>
+              {isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+              {isNew ? "Queue booking" : "Queue write-back"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

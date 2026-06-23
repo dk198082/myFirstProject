@@ -12,6 +12,7 @@ import {
   type UnscheduledJob,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,7 @@ import {
   MapPin,
   Clock,
   Download,
+  ExternalLink,
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 import {
@@ -358,6 +360,18 @@ function JobChip({
             </div>
           )}
           <div className="pt-1 text-[10px] text-muted-foreground italic">Click tile to edit booking</div>
+          {job.work_order_id && (
+            <div className="pt-1">
+              <Link
+                href={`/work-order/${job.work_order_id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" />
+                View work order details
+              </Link>
+            </div>
+          )}
         </div>
       </TooltipContent>
     </Tooltip>
