@@ -196,6 +196,7 @@ type ScheduleJob = {
   day_index: number;
   span_start_day?: number | null;
   span_end_day?: number | null;
+  equipment_names?: string[] | null;
 };
 
 // Build the shape EditBookingDialog expects (WbWorkOrder) from a board tile.
@@ -268,6 +269,7 @@ function JobChip({
   onDragStart,
   onDragEnd,
   isDragging,
+  showEquipment,
 }: {
   job: ScheduleJob;
   compact: boolean;
@@ -277,6 +279,7 @@ function JobChip({
   onDragStart?: () => void;
   onDragEnd?: () => void;
   isDragging?: boolean;
+  showEquipment?: boolean;
 }) {
   const isCancelled = (job.system_status ?? "").toLowerCase() === "cancelled";
   const spanStart = job.span_start_day ?? job.day_index;
@@ -351,6 +354,18 @@ function JobChip({
               <Badge variant="outline" className="text-[10px]">
                 {job.system_status}
               </Badge>
+            </div>
+          )}
+          {showEquipment && (job.equipment_names?.length ?? 0) > 0 && (
+            <div className="border-t border-border pt-1.5">
+              <span className="font-medium text-muted-foreground">Equipment:</span>
+              <ul className="mt-0.5 list-disc pl-4 space-y-0.5">
+                {job.equipment_names!.slice(0, 5).map((name, i) => (
+                  <li key={`${name}-${i}`} className="truncate">
+                    {name}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
           {isConflict && (
@@ -1801,6 +1816,7 @@ export default function ScheduleBoard() {
                                     onDragStart={() => startDrag(j, tech.technician_id)}
                                     onDragEnd={endDrag}
                                     isDragging={draggingId === j.booking_id}
+                                    showEquipment={view === "week"}
                                   />
                                 ))}
                               </div>

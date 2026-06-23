@@ -620,7 +620,8 @@ export const GetScheduleBoardResponse = zod.object({
   "state": zod.string().nullish(),
   "day_index": zod.number().describe('0-based offset from `range_start` (0 = first day in range)'),
   "span_start_day": zod.number().nullish().describe('First visible day index this booking spans. Multi-day bookings emit one chip per day from `span_start_day` to `span_end_day`.'),
-  "span_end_day": zod.number().nullish().describe('Last visible day index this booking spans (equals `span_start_day` for single-day bookings).')
+  "span_end_day": zod.number().nullish().describe('Last visible day index this booking spans (equals `span_start_day` for single-day bookings).'),
+  "equipment_names": zod.array(zod.string()).optional().describe('Up to 5 equipment names associated with the work order, sorted alphabetically.')
 }))
 }))
 }))
@@ -671,7 +672,8 @@ export const GetWbScheduleBoardResponse = zod.object({
   "state": zod.string().nullish(),
   "day_index": zod.number().describe('0-based offset from `range_start` (0 = first day in range)'),
   "span_start_day": zod.number().nullish().describe('First visible day index this booking spans. Multi-day bookings emit one chip per day from `span_start_day` to `span_end_day`.'),
-  "span_end_day": zod.number().nullish().describe('Last visible day index this booking spans (equals `span_start_day` for single-day bookings).')
+  "span_end_day": zod.number().nullish().describe('Last visible day index this booking spans (equals `span_start_day` for single-day bookings).'),
+  "equipment_names": zod.array(zod.string()).optional().describe('Up to 5 equipment names associated with the work order, sorted alphabetically.')
 }))
 }))
 }))

@@ -650,12 +650,25 @@ router.get("/wb/schedule-board", async (req, res) => {
         bk.system_status                             AS system_status,
         bk.city                                      AS city,
         bk.state                                     AS state,
-        bk.customer_name                             AS customer_name
+        bk.customer_name                             AS customer_name,
+        eq.equipment_names                           AS equipment_names
       FROM bk
       JOIN crm.territory ter ON ter.territoryid = bk.territory_id
       LEFT JOIN crm.bookableresource br
         ON br.bookableresourceid = bk.resource_id
        AND COALESCE(br.is_deleted, false) = false
+      LEFT JOIN LATERAL (
+        SELECT array_agg(woce.cf_name ORDER BY woce.cf_name ASC) AS equipment_names
+        FROM (
+          SELECT cf_name
+          FROM crm.cf_workordercustomerequipment
+          WHERE workorderid = bk.wo_id
+            AND COALESCE(is_deleted, false) = false
+            AND cf_name IS NOT NULL
+          ORDER BY cf_name ASC
+          LIMIT 5
+        ) woce
+      ) eq ON true
 
       UNION ALL
 
@@ -675,7 +688,8 @@ router.get("/wb/schedule-board", async (req, res) => {
         NULL::text                                   AS system_status,
         NULL::text                                   AS city,
         NULL::text                                   AS state,
-        NULL::text                                   AS customer_name
+        NULL::text                                   AS customer_name,
+        NULL::text[]                                 AS equipment_names
       FROM res_terr rterr
       JOIN crm.territory ter ON ter.territoryid = rterr.territory_id
       JOIN crm.bookableresource br
@@ -894,6 +908,7 @@ router.get("/wb/schedule-board", async (req, res) => {
           day_index: d,
           span_start_day: spanStartDay,
           span_end_day: spanEndDay,
+          equipment_names: (row.equipment_names as string[] | null) ?? [],
         });
       }
     }

@@ -377,6 +377,8 @@ export interface ScheduleJob {
      * @nullable
      */
   span_end_day?: number | null;
+  /** Up to 5 equipment names associated with the work order, sorted alphabetically. */
+  equipment_names?: string[];
 }
 
 export interface ScheduleTechnician {

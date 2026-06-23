@@ -74,7 +74,8 @@ router.get("/schedule-board", async (req, res) => {
         wo.state,
         c.customer_name,
         ct.fullname     AS contact_name,
-        ct.businessphone AS contact_businessphone
+        ct.businessphone AS contact_businessphone,
+        eq.equipment_names
       FROM regions r
       LEFT JOIN technicians t
         ON t.regionid_id = r.regionid_id AND t.is_active = true
@@ -85,6 +86,17 @@ router.get("/schedule-board", async (req, res) => {
       LEFT JOIN work_orders wo ON wo.work_order_id = b.work_order_id
       LEFT JOIN customers   c  ON c.customer_id   = wo.customer_id
       LEFT JOIN contact     ct ON ct.contact_id   = wo.contact_id
+      LEFT JOIN LATERAL (
+        SELECT array_agg(e.name ORDER BY e.name ASC) AS equipment_names
+        FROM (
+          SELECT name
+          FROM equipment
+          WHERE work_order_id = wo.work_order_id
+            AND name IS NOT NULL
+          ORDER BY name ASC
+          LIMIT 5
+        ) e
+      ) eq ON true
       WHERE r.is_active = true
       ORDER BY r.region ASC, t.resource_name ASC, b.crmstart_time ASC NULLS LAST, b.crmstarttime ASC NULLS LAST
       `,
@@ -160,6 +172,7 @@ router.get("/schedule-board", async (req, res) => {
         city: row.city ?? null,
         state: row.state ?? null,
         day_index: Math.max(0, Math.min(maxDayIndex, dayIndex)),
+        equipment_names: (row.equipment_names as string[] | null) ?? [],
       });
     }
 
