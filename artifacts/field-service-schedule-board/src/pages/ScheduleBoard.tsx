@@ -323,42 +323,56 @@ function JobChip({
         <div className="opacity-80 truncate">{chipTimeLabel(job)}</div>
       )}
       {!compact && <div className="opacity-90 truncate">{job.customer_name ?? "—"}</div>}
+      {!compact && (job.city || job.state) && (
+        <div className="opacity-75 truncate">
+          {[job.city, job.state].filter(Boolean).join(", ")}
+        </div>
+      )}
     </button>
   );
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>{chip}</TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs p-3 space-y-1.5 text-xs">
+      <TooltipContent
+        side="top"
+        className={`max-w-xs p-3 space-y-1.5 text-xs border ${isCancelled ? cancelledChipColor() : colorClass}`}
+      >
         <div className="font-bold text-sm">{job.work_order_number ?? "Work Order"}</div>
-        {job.title && <div className="text-muted-foreground -mt-1">{job.title}</div>}
-        <div className="border-t border-border pt-1.5 space-y-1">
+        {job.title && <div className="opacity-80 -mt-1">{job.title}</div>}
+        <div className="border-t border-current/20 pt-1.5 space-y-1">
           <div>
-            <span className="font-medium text-muted-foreground">Customer:</span>{" "}
+            <span className="font-medium opacity-70">Customer:</span>{" "}
             {job.customer_name ?? "—"}
           </div>
           <div>
-            <span className="font-medium text-muted-foreground">Technician:</span>{" "}
+            <span className="font-medium opacity-70">Technician:</span>{" "}
             {job.technician_name ?? "—"}
           </div>
           <div>
-            <span className="font-medium text-muted-foreground">CRM Start:</span>{" "}
+            <span className="font-medium opacity-70">CRM Start:</span>{" "}
             {job.crmstart_time ?? "—"} {fmtTime(job.crmstarttime)}
           </div>
           <div>
-            <span className="font-medium text-muted-foreground">CRM End:</span>{" "}
+            <span className="font-medium opacity-70">CRM End:</span>{" "}
             {job.crmend_time ?? "—"} {fmtTime(job.crmendtime)}
           </div>
+          {(job.city || job.state) && (
+            <div>
+              <span className="font-medium opacity-70">Location:</span>{" "}
+              {[job.city, job.state].filter(Boolean).join(", ") || "—"}
+            </div>
+          )}
           {job.system_status && (
             <div className="pt-0.5">
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-[10px] border-current/40">
                 {job.system_status}
               </Badge>
             </div>
           )}
           {showEquipment && (job.equipment_names?.length ?? 0) > 0 && (
-            <div className="border-t border-border pt-1.5">
-              <span className="font-medium text-muted-foreground">Equipment:</span>
+            <div className="border-t border-current/20 pt-1.5">
+              <span className="font-medium opacity-70">Equipment:</span>
               <ul className="mt-0.5 list-disc pl-4 space-y-0.5">
                 {job.equipment_names!.slice(0, 5).map((name, i) => (
                   <li key={`${name}-${i}`} className="truncate">
@@ -374,13 +388,12 @@ function JobChip({
               Double-booked — time conflict
             </div>
           )}
-          <div className="pt-1 text-[10px] text-muted-foreground italic">Click tile to edit booking</div>
           {job.work_order_id && (
             <div className="pt-1">
               <Link
                 href={`/work-order/${job.work_order_id}`}
                 onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-[11px] font-medium underline hover:opacity-80"
               >
                 <ExternalLink className="h-3 w-3" />
                 View work order details

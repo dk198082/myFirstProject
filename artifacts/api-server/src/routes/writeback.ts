@@ -658,9 +658,16 @@ router.get("/wb/schedule-board", async (req, res) => {
         ON br.bookableresourceid = bk.resource_id
        AND COALESCE(br.is_deleted, false) = false
       LEFT JOIN LATERAL (
-        SELECT array_agg(woce.cf_name ORDER BY woce.cf_name ASC) AS equipment_names
+        SELECT array_agg(woce.label ORDER BY woce.cf_name ASC) AS equipment_names
         FROM (
-          SELECT cf_name
+          SELECT
+            cf_name,
+            cf_name
+              || CASE
+                   WHEN NULLIF(BTRIM(cf_serialnumber), '') IS NOT NULL
+                   THEN ' / ' || BTRIM(cf_serialnumber)
+                   ELSE ''
+                 END AS label
           FROM crm.cf_workordercustomerequipment
           WHERE workorderid = bk.wo_id
             AND COALESCE(is_deleted, false) = false

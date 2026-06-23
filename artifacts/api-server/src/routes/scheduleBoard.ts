@@ -87,9 +87,16 @@ router.get("/schedule-board", async (req, res) => {
       LEFT JOIN customers   c  ON c.customer_id   = wo.customer_id
       LEFT JOIN contact     ct ON ct.contact_id   = wo.contact_id
       LEFT JOIN LATERAL (
-        SELECT array_agg(e.name ORDER BY e.name ASC) AS equipment_names
+        SELECT array_agg(e.label ORDER BY e.name ASC) AS equipment_names
         FROM (
-          SELECT name
+          SELECT
+            name,
+            name
+              || CASE
+                   WHEN NULLIF(BTRIM(serialnumber), '') IS NOT NULL
+                   THEN ' / ' || BTRIM(serialnumber)
+                   ELSE ''
+                 END AS label
           FROM equipment
           WHERE work_order_id = wo.work_order_id
             AND name IS NOT NULL
