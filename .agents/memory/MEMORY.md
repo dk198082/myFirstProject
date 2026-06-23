@@ -1,2 +1,3 @@
 - [Schedule board parity (FS vs d365crm)](schedule-board-parity.md) — CRM board must fall back resource→territory to the work order's service territory, and resolve names from raw_json FormattedValue keys.
 - [d365crm write-back endpoint schema quirks](d365crm-writeback-endpoints.md) — WO due date comes from cf_workordercustomerequipment; no msdyn_displayaddress; booking duration computed from end-start.
+- [Installing deps for a workspace-root file](pnpm-root-deps.md) — package tool can't add to pnpm workspace root; edit root package.json then `pnpm install`.
