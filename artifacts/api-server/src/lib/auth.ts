@@ -92,5 +92,15 @@ declare module "express-session" {
   interface SessionData {
     user?: SessionUser;
     authState?: string;
+    returnTo?: string;
   }
+}
+
+// Only allow same-origin relative paths as post-login redirect targets, to
+// avoid open-redirect via the returnTo parameter.
+export function safeReturnTo(value: unknown): string {
+  if (typeof value === "string" && value.startsWith("/") && !value.startsWith("//")) {
+    return value;
+  }
+  return "/";
 }
