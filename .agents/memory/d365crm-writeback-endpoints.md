@@ -64,8 +64,14 @@ outlier bookings spanning thousands of wall-clock hours, so summing raw spans yi
 percentages (e.g. 23462% from one booking). Two safeguards:
 - Exclude cancelled / no-show bookings via `NOT ILIKE 'cancel%'` / `NOT ILIKE '%no show%'` on the
   `_bookingstatus_value@...FormattedValue` (live statuses seen: Completed, Scheduled, Canceled, In Progress).
-- Clamp each booking to the query window AND to 8 working hours per calendar day it spans
-  (40h/week ÷ 5). Per-day clamp = `LEAST(rangeMinutes, (days_spanned+1) * workingMinPerDay)`.
+- Cap each booking to 8 working hours PER JOB PER DAY (40h/week ÷ 5). Do NOT use a flat
+  per-job cap (`LEAST(rangeMinutes, workingMinPerDay)`) or a lumped span cap
+  (`LEAST(rangeMinutes, (days_spanned+1) * workingMinPerDay)`) — both were tried and rejected.
+  The correct rule: split the booking across every calendar day it spans with
+  `generate_series(day0, dayN, interval '1 day')`, compute each day's overlap minutes, cap
+  EACH day at `workingMinPerDay`, then SUM. This caps one job to 8h/day while still letting two
+  separate jobs on the same day combine past 8h (intended — surfaces overbooking).
+  **Why:** the user explicitly wants per-job-per-day capping, not a per-job total or per-day-total cap.
 
 **GOTCHA — Postgres `LEAST`/`GREATEST` ignore NULLs.** When clamping a LEFT JOIN's columns against
 range bounds (`LEAST(b.endtime, $rangeEnd)`), an *unmatched* row (b.* all NULL) does NOT yield NULL —

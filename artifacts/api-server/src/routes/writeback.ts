@@ -1216,11 +1216,13 @@ router.get("/wb/resource-utilization", async (req, res) => {
     // Two safeguards keep the percentages realistic:
     //   1. Cancelled / no-show bookings are excluded (their booked time was never
     //      actually worked), filtered on the booking status formatted value.
-    //   2. Each booking's duration is the difference between its start and end
-    //      time (clamped to the query window) and is capped at
-    //      WB_WORKING_MINUTES_PER_DAY (8h) for any single job. Without this, an
-    //      outlier booking that spans many days of wall-clock time (present in the
-    //      CRM mirror) could push a single technician well past 100% from one row.
+    //   2. A job's booked duration is the difference between its start and end
+    //      time, but it is capped at WB_WORKING_MINUTES_PER_DAY (8h) PER JOB PER
+    //      DAY: each booking is split across every calendar day it spans, each
+    //      day's portion is clamped to the query window and capped at 8h, then
+    //      summed. This caps a single job to 8h/day (so an outlier multi-day CRM
+    //      booking can't blow past 100% from one row) while still letting two
+    //      separate jobs on the same day combine past 8h to surface overbooking.
     const result = await getCrmPool().query(
       `
       WITH res_terr AS (
@@ -1239,12 +1241,22 @@ router.get("/wb/resource-utilization", async (req, res) => {
         br.bookableresourceid::text   AS technician_id,
         br.name                       AS resource_name,
         COALESCE(SUM(
-          CASE WHEN b.bookableresourcebookingid IS NULL THEN 0 ELSE
-            GREATEST(0, LEAST(
-              EXTRACT(EPOCH FROM (LEAST(b.endtime, $2::date) - GREATEST(b.starttime, $1::date))) / 60,
-              $3::numeric
-            ))
-          END
+          CASE WHEN b.bookableresourcebookingid IS NULL THEN 0 ELSE (
+            SELECT COALESCE(SUM(
+              LEAST(
+                GREATEST(0, EXTRACT(EPOCH FROM (
+                  LEAST(b.endtime, gs.day + interval '1 day', $2::timestamp)
+                  - GREATEST(b.starttime, gs.day, $1::timestamp)
+                )) / 60),
+                $3::numeric
+              )
+            ), 0)
+            FROM generate_series(
+              GREATEST(b.starttime, $1::timestamp)::date::timestamp,
+              (LEAST(b.endtime, $2::timestamp) - interval '1 second')::date::timestamp,
+              interval '1 day'
+            ) AS gs(day)
+          ) END
         ), 0)::int AS utilized_minutes,
         COUNT(b.bookableresourcebookingid)::int AS job_count
       FROM res_terr rterr
