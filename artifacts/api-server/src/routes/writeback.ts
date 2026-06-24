@@ -1216,8 +1216,9 @@ router.get("/wb/resource-utilization", async (req, res) => {
     // Two safeguards keep the percentages realistic:
     //   1. Cancelled / no-show bookings are excluded (their booked time was never
     //      actually worked), filtered on the booking status formatted value.
-    //   2. Each booking's contribution is clamped to the query window and to
-    //      WB_WORKING_MINUTES_PER_DAY per calendar day it spans. Without this, an
+    //   2. Each booking's duration is the difference between its start and end
+    //      time (clamped to the query window) and is capped at
+    //      WB_WORKING_MINUTES_PER_DAY (8h) for any single job. Without this, an
     //      outlier booking that spans many days of wall-clock time (present in the
     //      CRM mirror) could push a single technician well past 100% from one row.
     const result = await getCrmPool().query(
@@ -1241,7 +1242,7 @@ router.get("/wb/resource-utilization", async (req, res) => {
           CASE WHEN b.bookableresourcebookingid IS NULL THEN 0 ELSE
             GREATEST(0, LEAST(
               EXTRACT(EPOCH FROM (LEAST(b.endtime, $2::date) - GREATEST(b.starttime, $1::date))) / 60,
-              ((LEAST(b.endtime, $2::date)::date - GREATEST(b.starttime, $1::date)::date) + 1) * $3::numeric
+              $3::numeric
             ))
           END
         ), 0)::int AS utilized_minutes,
