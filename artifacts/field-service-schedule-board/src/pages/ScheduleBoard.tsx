@@ -170,6 +170,13 @@ function techColor(technicianId: string | null | undefined) {
   return TECH_PALETTE[hashStr(technicianId) % TECH_PALETTE.length];
 }
 
+// Region colors reuse the technician palette, hashed on the region id, so each
+// region gets a stable, distinct tint used on its capacity hover readout.
+function regionColor(regionId: string | null | undefined) {
+  if (!regionId) return TECH_PALETTE[0];
+  return TECH_PALETTE[hashStr(regionId) % TECH_PALETTE.length];
+}
+
 function cancelledChipColor() {
   return "bg-gray-100 text-gray-500 border-gray-300 line-through hover:bg-gray-200";
 }
@@ -320,7 +327,11 @@ function JobChip({
         )}
       </div>
       {!compact && (job.crmstarttime || job.crmendtime) && (
-        <div className="opacity-80 truncate">{chipTimeLabel(job)}</div>
+        <div className="opacity-80 truncate">
+          {isMultiDay
+            ? chipTimeLabel(job)
+            : fmtDuration(job.crmstarttime, job.crmendtime) || chipTimeLabel(job)}
+        </div>
       )}
       {!compact && <div className="opacity-90 truncate">{job.customer_name ?? "—"}</div>}
       {!compact && (job.city || job.state) && (
@@ -449,27 +460,33 @@ function downloadCsv(filename: string, csv: string): void {
 function CapacityTooltipContent({
   utilizedMinutes,
   capacityMinutes,
+  colorClass,
 }: {
   utilizedMinutes: number;
   capacityMinutes: number;
+  colorClass?: string;
 }) {
   const pct = capacityMinutes > 0 ? Math.round((utilizedMinutes / capacityMinutes) * 100) : 0;
   const remainingMinutes = capacityMinutes - utilizedMinutes;
   const colors = utilColors(pct);
+  const labelCls = colorClass ? "font-medium opacity-70" : "font-medium text-muted-foreground";
   return (
-    <TooltipContent side="top" className="max-w-xs p-3 space-y-1 text-xs">
+    <TooltipContent
+      side="top"
+      className={`max-w-xs p-3 space-y-1 text-xs ${colorClass ? `border ${colorClass}` : ""}`}
+    >
       <div className="font-bold text-sm">Capacity</div>
-      <div className="border-t border-border pt-1.5 space-y-1">
+      <div className={`pt-1.5 space-y-1 border-t ${colorClass ? "border-current/20" : "border-border"}`}>
         <div className="flex justify-between gap-4">
-          <span className="font-medium text-muted-foreground">Booked:</span>
+          <span className={labelCls}>Booked:</span>
           <span>{fmtUtilHours(utilizedMinutes)}</span>
         </div>
         <div className="flex justify-between gap-4">
-          <span className="font-medium text-muted-foreground">Capacity:</span>
+          <span className={labelCls}>Capacity:</span>
           <span>{capacityMinutes > 0 ? fmtUtilHours(capacityMinutes) : "—"}</span>
         </div>
         <div className="flex justify-between gap-4">
-          <span className="font-medium text-muted-foreground">Remaining:</span>
+          <span className={labelCls}>Remaining:</span>
           <span>
             {capacityMinutes > 0
               ? remainingMinutes >= 0
@@ -479,7 +496,7 @@ function CapacityTooltipContent({
           </span>
         </div>
         <div className="flex justify-between gap-4 pt-0.5">
-          <span className="font-medium text-muted-foreground">Utilization:</span>
+          <span className={labelCls}>Utilization:</span>
           <span className={`font-semibold ${capacityMinutes > 0 ? colors.text : ""}`}>
             {capacityMinutes > 0 ? `${pct}%` : "—"}
           </span>
@@ -492,7 +509,13 @@ function CapacityTooltipContent({
 // At-a-glance availability readout shown on idle technician rows (capacity
 // planning). An idle tech has booked nothing in the range, so we surface how
 // much capacity is free, e.g. "Idle · 0 of 40h booked".
-function IdleCapacityBadge({ capacityMinutes }: { capacityMinutes: number }) {
+function IdleCapacityBadge({
+  capacityMinutes,
+  colorClass,
+}: {
+  capacityMinutes: number;
+  colorClass?: string;
+}) {
   const capH = Math.round(capacityMinutes / 60);
   return (
     <Tooltip>
@@ -505,7 +528,7 @@ function IdleCapacityBadge({ capacityMinutes }: { capacityMinutes: number }) {
           {capH > 0 ? `Idle · 0 of ${capH}h booked` : "Idle · available"}
         </div>
       </TooltipTrigger>
-      <CapacityTooltipContent utilizedMinutes={0} capacityMinutes={capacityMinutes} />
+      <CapacityTooltipContent utilizedMinutes={0} capacityMinutes={capacityMinutes} colorClass={colorClass} />
     </Tooltip>
   );
 }
@@ -518,9 +541,11 @@ function IdleCapacityBadge({ capacityMinutes }: { capacityMinutes: number }) {
 function CapacityBadge({
   utilizedMinutes,
   capacityMinutes,
+  colorClass,
 }: {
   utilizedMinutes: number;
   capacityMinutes: number;
+  colorClass?: string;
 }) {
   const utilH = Math.round(utilizedMinutes / 60);
   const capH = Math.round(capacityMinutes / 60);
@@ -539,7 +564,7 @@ function CapacityBadge({
           </span>
         </div>
       </TooltipTrigger>
-      <CapacityTooltipContent utilizedMinutes={utilizedMinutes} capacityMinutes={capacityMinutes} />
+      <CapacityTooltipContent utilizedMinutes={utilizedMinutes} capacityMinutes={capacityMinutes} colorClass={colorClass} />
     </Tooltip>
   );
 }
@@ -552,10 +577,12 @@ function RegionCapacityBadge({
   utilizedMinutes,
   capacityMinutes,
   techCount,
+  colorClass,
 }: {
   utilizedMinutes: number;
   capacityMinutes: number;
   techCount: number;
+  colorClass?: string;
 }) {
   const utilH = Math.round(utilizedMinutes / 60);
   const capH = Math.round(capacityMinutes / 60);
@@ -580,7 +607,7 @@ function RegionCapacityBadge({
           </span>
         </div>
       </TooltipTrigger>
-      <CapacityTooltipContent utilizedMinutes={utilizedMinutes} capacityMinutes={capacityMinutes} />
+      <CapacityTooltipContent utilizedMinutes={utilizedMinutes} capacityMinutes={capacityMinutes} colorClass={colorClass} />
     </Tooltip>
   );
 }
@@ -1463,6 +1490,7 @@ export default function ScheduleBoard() {
                       utilizedMinutes={regionUtilMinutes}
                       capacityMinutes={regionCapMinutes}
                       techCount={techsInRegion.length}
+                      colorClass={regionColor(rg.regionid_id).chip}
                     />
                   </div>
                 </div>
@@ -1527,12 +1555,14 @@ export default function ScheduleBoard() {
                                 ? showIdleTechs && (
                                     <IdleCapacityBadge
                                       capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                      colorClass={palette.chip}
                                     />
                                   )
                                 : (
                                     <CapacityBadge
                                       utilizedMinutes={techUtilMinutes(tech.technician_id)}
                                       capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                      colorClass={palette.chip}
                                     />
                                   )}
                             </div>
@@ -1706,6 +1736,7 @@ export default function ScheduleBoard() {
                       utilizedMinutes={regionUtilMinutes}
                       capacityMinutes={regionCapMinutes}
                       techCount={rg.technicians.length}
+                      colorClass={regionColor(rg.regionid_id).chip}
                     />
                   </div>
                 </div>
@@ -1776,12 +1807,14 @@ export default function ScheduleBoard() {
                                 ? showIdleTechs && (
                                     <IdleCapacityBadge
                                       capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                      colorClass={palette.chip}
                                     />
                                   )
                                 : (
                                     <CapacityBadge
                                       utilizedMinutes={techUtilMinutes(tech.technician_id)}
                                       capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                      colorClass={palette.chip}
                                     />
                                   )}
                             </div>
@@ -2061,6 +2094,7 @@ export default function ScheduleBoard() {
                           utilizedMinutes={totalUtil}
                           capacityMinutes={totalCap}
                           techCount={techs.length}
+                          colorClass={regionColor(rg.regionid_id).chip}
                         />
                         <span className={`text-sm font-bold tabular-nums ${rc.text}`}>{regionPct}% avg</span>
                       </div>
