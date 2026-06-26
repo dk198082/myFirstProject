@@ -352,9 +352,11 @@ function JobChip({ job, compact, colorClass, isConflict }: { job: ScheduleJob; c
           <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" aria-label="Double-booked" />
         )}
       </div>
-      {!compact && (job.crmstarttime || job.crmendtime) && (
+      {!compact && (
         <div className="opacity-80 truncate">
-          {fmtTime(job.crmstarttime)}{job.crmendtime ? `–${fmtTime(job.crmendtime)}` : ""}
+          {!job.crmstarttime || !job.crmendtime
+            ? "8 hrs"
+            : `${fmtTime(job.crmstarttime)}–${fmtTime(job.crmendtime)}`}
         </div>
       )}
       {!compact && (
@@ -989,14 +991,14 @@ export default function ScheduleBoard() {
                                           {(j.city || j.state) && (
                                             <div className="opacity-70 truncate">{[j.city, j.state].filter(Boolean).join(", ")}</div>
                                           )}
-                                          {(j.crmstarttime || j.crmendtime) && (
-                                            <div className="opacity-70 tabular-nums">
-                                              {fmtTime(j.crmstarttime)}{j.crmendtime ? `–${fmtTime(j.crmendtime)}` : ""}
-                                              {fmtDuration(j.crmstarttime, j.crmendtime) && (
-                                                <span className="ml-1 opacity-80">· {fmtDuration(j.crmstarttime, j.crmendtime)}</span>
-                                              )}
-                                            </div>
-                                          )}
+                                          <div className="opacity-70 tabular-nums">
+                                            {!j.crmstarttime || !j.crmendtime
+                                              ? "8 hrs"
+                                              : `${fmtTime(j.crmstarttime)}–${fmtTime(j.crmendtime)}`}
+                                            {j.crmstarttime && j.crmendtime && fmtDuration(j.crmstarttime, j.crmendtime) && (
+                                              <span className="ml-1 opacity-80">· {fmtDuration(j.crmstarttime, j.crmendtime)}</span>
+                                            )}
+                                          </div>
                                           <div className="font-mono font-semibold tabular-nums">{j.work_order_number ?? "—"}</div>
                                           <div className="opacity-60 font-semibold">({statusCode(j.system_status)})</div>
                                         </Link>

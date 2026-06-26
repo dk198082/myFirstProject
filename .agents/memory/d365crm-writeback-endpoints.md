@@ -57,28 +57,31 @@ go through a `/wb/*` (crm-backed) endpoint, never the FS `/api/*` routes.
   `..._value@...FormattedValue` keys — the raw lookup columns hold GUIDs, so map the
   FormattedValue (null when absent) to avoid GUID-like UI text.
 
-## Resource utilization must clamp spans and exclude cancelled bookings
+## Resource utilization: open-ended = flat 8h, timed = real duration (no cap)
 
-`/wb/resource-utilization` sums booking start→end as utilized time. The CRM mirror contains
-outlier bookings spanning thousands of wall-clock hours, so summing raw spans yielded absurd
-percentages (e.g. 23462% from one booking). Two safeguards:
-- Exclude cancelled / no-show bookings via `NOT ILIKE 'cancel%'` / `NOT ILIKE '%no show%'` on the
-  `_bookingstatus_value@...FormattedValue` (live statuses seen: Completed, Scheduled, Canceled, In Progress).
-- Cap each booking to 8 working hours PER JOB PER DAY (40h/week ÷ 5). Do NOT use a flat
-  per-job cap (`LEAST(rangeMinutes, workingMinPerDay)`) or a lumped span cap
-  (`LEAST(rangeMinutes, (days_spanned+1) * workingMinPerDay)`) — both were tried and rejected.
-  The correct rule: split the booking across every calendar day it spans with
-  `generate_series(day0, dayN, interval '1 day')`, compute each day's overlap minutes, cap
-  EACH day at `workingMinPerDay`, then SUM. This caps one job to 8h/day while still letting two
-  separate jobs on the same day combine past 8h (intended — surfaces overbooking).
-  **Why:** the user explicitly wants per-job-per-day capping, not a per-job total or per-day-total cap.
+`/wb/resource-utilization` (CRM) and `/resource-utilization` (FS legacy) must produce matching
+numbers and obey the SAME per-booking rule:
+- **Open-ended booking** (missing a start time OR an end time) → flat 8h (480 min), one working day.
+  On CRM: `b.starttime IS NULL OR b.endtime IS NULL`. On FS legacy: `crmstarttime IS NULL OR crmendtime IS NULL`.
+- **Timed booking** (both times) → its ACTUAL duration with NO cap (may exceed 8h, so long jobs and
+  overbooking surface), rounded to the nearest 30 min. CRM computes `end-start`; FS legacy rounds the
+  precomputed `duration_minutes`. Round via `ROUND(minutes/30)*30`.
+- Still exclude cancelled / no-show via `NOT ILIKE 'cancel%'` / `'%no show%'` on
+  `_bookingstatus_value@...FormattedValue`.
+- **Range placement:** CRM filter changed from `starttime >= … AND endtime IS NOT NULL` to
+  `COALESCE(starttime, endtime)` bounds so time-less bookings are still counted. FS legacy already
+  places by `crmstart_time` (date) so no filter change needed.
+- **Calendar labels mirror this:** a chip with a missing start/end time shows the literal `"8 hrs"`
+  (FS board via `chipTimeLabel` early-return; technician dashboard inline) instead of a range/All-day.
+- **History:** an earlier version capped each booking to 8h PER JOB PER DAY via `generate_series` +
+  `LEAST(…, workingMinPerDay)`. That cap was REMOVED — do NOT reintroduce it; timed jobs are now
+  uncapped on purpose.
+  **Why:** the CRM mirror still has outlier multi-thousand-hour spans, but those are open-ended (no
+  real end) and now collapse to the flat 8h rule, so the cap is no longer the safeguard.
 
-**GOTCHA — Postgres `LEAST`/`GREATEST` ignore NULLs.** When clamping a LEFT JOIN's columns against
-range bounds (`LEAST(b.endtime, $rangeEnd)`), an *unmatched* row (b.* all NULL) does NOT yield NULL —
-it returns the non-null bound, so a technician with zero bookings gets a bogus positive contribution.
-Guard the whole per-booking expression with `CASE WHEN b.<pk> IS NULL THEN 0 ELSE ... END`.
-**Why:** `SUM(EXTRACT(... endtime-starttime))` is naturally NULL-safe; switching to LEAST/GREATEST
-clamps silently broke that NULL-safety until guarded.
+**GOTCHA — guard the LEFT JOIN per-booking expression with `CASE WHEN b.<pk> IS NULL THEN 0`.**
+A technician with zero bookings is an unmatched LEFT JOIN row (all b.* NULL); without the guard the
+`CASE` could mis-fire (e.g. the `starttime IS NULL OR endtime IS NULL` branch would award a bogus 480).
 
 **Why:** these were discovered by probing the live CRM DB; guessing FS-equivalent column names fails at runtime
 (e.g. `column wo.msdyn_displayaddress does not exist`).

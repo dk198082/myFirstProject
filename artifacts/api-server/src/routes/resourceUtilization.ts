@@ -51,6 +51,10 @@ router.get("/resource-utilization", async (req, res) => {
   const { rangeStart, rangeEnd, periodWeeks, capacityMinutes } = computeRange(startRaw, view);
 
   try {
+    // Open-ended bookings (missing a start time OR an end time) count as a flat
+    // 8h (480 min) — one working day. Timed bookings (both times) count their
+    // real duration with NO cap, rounded to the nearest 30 minutes, so long jobs
+    // and overbooking still surface. Bookings are placed in range by crmstart_time.
     const result = await pool.query(
       `
       SELECT
@@ -58,7 +62,13 @@ router.get("/resource-utilization", async (req, res) => {
         r.region,
         t.technician_id,
         t.resource_name,
-        COALESCE(SUM(b.duration_minutes), 0)::int AS utilized_minutes,
+        COALESCE(SUM(
+          CASE
+            WHEN b.booking_id IS NULL THEN 0
+            WHEN b.crmstarttime IS NULL OR b.crmendtime IS NULL THEN 480
+            ELSE ROUND(COALESCE(b.duration_minutes, 0) / 30.0) * 30
+          END
+        ), 0)::int AS utilized_minutes,
         COUNT(b.booking_id)::int AS job_count
       FROM regions r
       LEFT JOIN technicians t
