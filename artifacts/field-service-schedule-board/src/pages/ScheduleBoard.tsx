@@ -1378,8 +1378,8 @@ export default function ScheduleBoard() {
         </div>
       )}
 
-      {/* Tech filter (multi-select) — only in Calendar view */}
-      {view === "tech" && !isLoading && allTechs.length > 0 && (
+      {/* Tech filter (multi-select) — available in both Week and Calendar views */}
+      {!isLoading && allTechs.length > 0 && (
         <div className="flex items-start gap-2 flex-wrap print:hidden" data-testid="tech-filter">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mr-1 pt-1.5">
             Technicians:
@@ -1701,12 +1701,16 @@ export default function ScheduleBoard() {
       {view !== "tech" && !isLoading && !error && regions.length > 0 && (
         <div className="space-y-6">
           {regions.map((rg) => {
-            const regionJobCount = rg.technicians.reduce((s, t) => s + distinctJobCount(t.jobs), 0);
-            const regionUtilMinutes = rg.technicians.reduce(
+            const techsInRegion = rg.technicians.filter(
+              (t) => selectedTechIds === null || selectedTechIds.has(t.technician_id),
+            );
+            if (techsInRegion.length === 0) return null;
+            const regionJobCount = techsInRegion.reduce((s, t) => s + distinctJobCount(t.jobs), 0);
+            const regionUtilMinutes = techsInRegion.reduce(
               (s, t) => s + techUtilMinutes(t.technician_id),
               0,
             );
-            const regionCapMinutes = rg.technicians.reduce(
+            const regionCapMinutes = techsInRegion.reduce(
               (s, t) => s + idleCapMinutes(t.technician_id),
               0,
             );
@@ -1726,7 +1730,7 @@ export default function ScheduleBoard() {
                     </span>
                   )}
                   <Badge className="bg-sidebar-primary/20 text-sidebar-primary-foreground hover:bg-sidebar-primary/20 text-xs border-0">
-                    {rg.technicians.length} techs
+                    {techsInRegion.length} techs
                   </Badge>
                   <Badge className="bg-sidebar-primary/20 text-sidebar-primary-foreground hover:bg-sidebar-primary/20 text-xs border-0">
                     {regionJobCount} jobs
@@ -1735,7 +1739,7 @@ export default function ScheduleBoard() {
                     <RegionCapacityBadge
                       utilizedMinutes={regionUtilMinutes}
                       capacityMinutes={regionCapMinutes}
-                      techCount={rg.technicians.length}
+                      techCount={techsInRegion.length}
                       colorClass={regionColor(rg.regionid_id).chip}
                     />
                   </div>
@@ -1762,12 +1766,12 @@ export default function ScheduleBoard() {
                       ))}
                     </div>
 
-                    {rg.technicians.length === 0 && (
+                    {techsInRegion.length === 0 && (
                       <div className="px-4 py-6 text-sm text-muted-foreground italic">
                         No technicians in this region.
                       </div>
                     )}
-                    {rg.technicians.map((tech) => {
+                    {techsInRegion.map((tech) => {
                       const palette = techColor(tech.technician_id);
                       const jobsByDay: ScheduleJob[][] = Array.from({ length: dayCount }, () => []);
                       for (const j of tech.jobs as ScheduleJob[]) {
@@ -1878,6 +1882,20 @@ export default function ScheduleBoard() {
           })}
         </div>
       )}
+
+      {view !== "tech" &&
+        !isLoading &&
+        !error &&
+        regions.length > 0 &&
+        selectedTechIds !== null &&
+        regions.every(
+          (rg) => rg.technicians.filter((t) => selectedTechIds.has(t.technician_id)).length === 0,
+        ) && (
+          <div className="text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+            <Briefcase className="h-4 w-4" />
+            No technicians match the current filter.
+          </div>
+        )}
 
       {view !== "tech" && !isLoading && totalJobs === 0 && regions.length > 0 && (
         <div className="text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
