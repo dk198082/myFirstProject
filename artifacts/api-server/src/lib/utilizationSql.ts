@@ -49,18 +49,24 @@ export const FS_BOOKING_NOT_CANCELLED_SQL = `
 // `starttime` / `endtime` timestamptz columns. The booking-status name lives in
 // the OData "FormattedValue" key inside `raw_json`.
 //
-// The duration quotient is cast to `numeric` before ROUND so it uses Postgres'
-// round-half-up behaviour (ROUND on `double precision` uses round-half-to-even).
-// This keeps it in lockstep with FS_UTILIZED_MINUTES_SQL, whose `/ 30.0` divisor
-// already produces a numeric — without the cast the two endpoints disagree at
-// exact half-boundaries (e.g. a 75-min job: 90 in FS vs 60 in d365crm).
+// Rounding parity with FS_UTILIZED_MINUTES_SQL is guaranteed by computing the
+// quotient entirely in `numeric`: `EXTRACT(EPOCH ...)` is cast to `numeric`
+// BEFORE any division, so every step (÷60 to minutes, ÷30 to half-hour units) is
+// exact rational arithmetic and the final ROUND uses Postgres' round-half-AWAY
+// behaviour — identical to FS, whose `duration_minutes / 30.0` divisor is already
+// numeric. This collapses to `ROUND(minutes / 30) * 30` on both sides, so for any
+// duration (including every exact half-boundary like 15/45/75/105/135 min) the
+// two endpoints return identical minutes. Two earlier states both diverged: the
+// original `ROUND(double)` used round-half-to-EVEN, and a `((double)/30)::numeric`
+// cast still rounded a value built by double division (floating-point drift risk).
+// Casting the epoch to numeric up front removes both failure modes.
 const CRM_BOOKING_STATUS_FV = `b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue'`;
 
 export const WB_UTILIZED_MINUTES_SQL = `
   CASE
     WHEN b.bookableresourcebookingid IS NULL THEN 0
     WHEN b.starttime IS NULL OR b.endtime IS NULL THEN ${OPEN_ENDED_BOOKING_MINUTES}
-    ELSE ROUND(((EXTRACT(EPOCH FROM (b.endtime - b.starttime)) / 60) / 30)::numeric) * 30
+    ELSE ROUND(EXTRACT(EPOCH FROM (b.endtime - b.starttime))::numeric / 60 / 30) * 30
   END`;
 
 export const WB_BOOKING_NOT_CANCELLED_SQL = `

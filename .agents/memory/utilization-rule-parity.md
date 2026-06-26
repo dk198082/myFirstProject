@@ -1,6 +1,6 @@
 ---
 name: Resource utilization open-ended vs. timed rule parity
-description: How the two resource-utilization endpoints must stay in lock-step, and a known rounding divergence between them.
+description: How the two resource-utilization endpoints must stay in lock-step, including the now-closed half-hour rounding parity.
 ---
 
 # Resource utilization: open-ended vs. timed job rule
@@ -15,9 +15,11 @@ The rule: open-ended booking (missing start OR end) = flat 480 min (8h); timed b
 
 **Why:** the rule is easy to regress silently in one endpoint but not the other.
 
-## Known divergence — numeric vs double ROUND at exact half-boundaries
-FS rounds a stored integer: `ROUND(duration_minutes / 30.0) * 30` → `ROUND(numeric)` = round-half-AWAY-from-zero.
-CRM rounds a computed double: `ROUND(EXTRACT(EPOCH ...)/60/30) * 30` → `ROUND(double precision)` = round-half-to-EVEN.
-So a 75-min job → FS=90, CRM=60 (and any "x.5 thirty-units" landing on an odd unit). The tests deliberately avoid exact half-boundaries so they assert agreement; this edge is a real (small) parity gap, not yet aligned.
+## Half-hour rounding parity — CLOSED
+Both endpoints now round in `numeric` (round-half-AWAY-from-zero), collapsing to `ROUND(minutes / 30) * 30`:
+- FS: `ROUND(duration_minutes / 30.0) * 30` (stored integer ÷ numeric divisor).
+- CRM: `ROUND(EXTRACT(EPOCH FROM (endtime - starttime))::numeric / 60 / 30) * 30` — the epoch is cast to `numeric` BEFORE any division, so every step is exact rational arithmetic.
 
-**How to apply:** when touching the timed-duration rounding, decide whether to unify rounding mode (e.g. cast CRM duration to numeric) if exact-boundary parity matters.
+**Why the cast must be on the epoch, up front:** `ROUND(double)` rounds half-to-EVEN, and even a late `((double)/30)::numeric` cast still rounds a value built by floating-point division (drift risk). Casting the raw epoch to numeric first removes both. Result: identical minutes for ALL durations, including every exact half-boundary (15/45/75/105/135 min → 30/60/90/120/150). The parity test cases assert these boundaries directly.
+
+**How to apply:** keep all CRM timed-duration arithmetic in `numeric` (cast epoch first). Never round a `double precision` quotient — it reintroduces half-to-even divergence.
