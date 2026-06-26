@@ -48,23 +48,6 @@ import { planDrop } from "@/lib/dropPlan";
 
 type ViewMode = "week" | "month" | "tech";
 
-function statusCode(s: string | null | undefined): string {
-  switch ((s ?? "").toLowerCase()) {
-    case "scheduled":
-      return "SCH";
-    case "completed":
-      return "CMP";
-    case "in progress":
-      return "IP";
-    case "cancelled":
-      return "CAN";
-    case "invoiced":
-      return "INV";
-    default:
-      return (s ?? "").slice(0, 3).toUpperCase() || "—";
-  }
-}
-
 function startOfWeekISO(d: Date): string {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const day = date.getUTCDay();
@@ -1648,14 +1631,9 @@ export default function ScheduleBoard() {
                                           {[j.city, j.state].filter(Boolean).join(", ")}
                                         </div>
                                       )}
-                                      {(j.crmstarttime || j.crmendtime) && (
+                                      {!jMultiDay && fmtDuration(j.crmstarttime, j.crmendtime) && (
                                         <div className="opacity-70 tabular-nums">
-                                          {chipTimeLabel(j)}
-                                          {!jMultiDay && fmtDuration(j.crmstarttime, j.crmendtime) && (
-                                            <span className="ml-1 opacity-80">
-                                              · {fmtDuration(j.crmstarttime, j.crmendtime)}
-                                            </span>
-                                          )}
+                                          {fmtDuration(j.crmstarttime, j.crmendtime)}
                                         </div>
                                       )}
                                       <div className="font-mono font-semibold tabular-nums flex items-center gap-1">
@@ -1665,9 +1643,6 @@ export default function ScheduleBoard() {
                                             D{j.day_index - jSpanStart + 1}/{jSpanEnd - jSpanStart + 1}
                                           </span>
                                         )}
-                                      </div>
-                                      <div className="opacity-60 font-semibold">
-                                        ({statusCode(j.system_status)})
                                       </div>
                                     </button>
                                   );
