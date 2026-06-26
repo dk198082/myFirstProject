@@ -727,6 +727,10 @@ weekStart?: string;
  * Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.
  */
 view?: GetScheduleBoardView;
+/**
+ * Grouping mode: `tech-region` (default) groups by the technician's home region; `service-location` groups by the work order's state/city.
+ */
+groupBy?: GetScheduleBoardGroupBy;
 };
 
 export type GetScheduleBoardView = typeof GetScheduleBoardView[keyof typeof GetScheduleBoardView];
@@ -735,6 +739,14 @@ export type GetScheduleBoardView = typeof GetScheduleBoardView[keyof typeof GetS
 export const GetScheduleBoardView = {
   week: 'week',
   month: 'month',
+} as const;
+
+export type GetScheduleBoardGroupBy = typeof GetScheduleBoardGroupBy[keyof typeof GetScheduleBoardGroupBy];
+
+
+export const GetScheduleBoardGroupBy = {
+  'tech-region': 'tech-region',
+  'service-location': 'service-location',
 } as const;
 
 export type GetWbScheduleBoardParams = {
@@ -746,6 +758,10 @@ start?: string;
  * Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.
  */
 view?: GetWbScheduleBoardView;
+/**
+ * Grouping mode: `tech-region` (default) groups by the technician's CRM territory; `service-location` groups by the work order's state/city.
+ */
+groupBy?: GetWbScheduleBoardGroupBy;
 };
 
 export type GetWbScheduleBoardView = typeof GetWbScheduleBoardView[keyof typeof GetWbScheduleBoardView];
@@ -754,6 +770,14 @@ export type GetWbScheduleBoardView = typeof GetWbScheduleBoardView[keyof typeof 
 export const GetWbScheduleBoardView = {
   week: 'week',
   month: 'month',
+} as const;
+
+export type GetWbScheduleBoardGroupBy = typeof GetWbScheduleBoardGroupBy[keyof typeof GetWbScheduleBoardGroupBy];
+
+
+export const GetWbScheduleBoardGroupBy = {
+  'tech-region': 'tech-region',
+  'service-location': 'service-location',
 } as const;
 
 export type GetWbJobsByRegionParams = {

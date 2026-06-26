@@ -543,9 +543,17 @@ function tsParts(v: Date | string | null | undefined): {
   return { date: iso.slice(0, 10), time: iso.slice(11, 19), iso };
 }
 
+function slugifyLocation(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
 router.get("/wb/schedule-board", async (req, res) => {
   const viewRaw = (req.query.view as string | undefined) ?? "week";
   const view: "week" | "month" = viewRaw === "month" ? "month" : "week";
+
+  const groupByRaw = (req.query.groupBy as string | undefined) ?? "tech-region";
+  const groupBy: "tech-region" | "service-location" =
+    groupByRaw === "service-location" ? "service-location" : "tech-region";
 
   const startRaw = ((req.query.start as string | undefined) ?? "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startRaw)) {
@@ -574,6 +582,205 @@ router.get("/wb/schedule-board", async (req, res) => {
   }
 
   try {
+    // ── Service-location mode ─────────────────────────────────────────────────
+    // Group by work order state/city rather than territory. Each technician can
+    // appear in multiple location groups (one per distinct location of their jobs).
+    // Idle-tech rows are omitted — location groups are derived from actual bookings.
+    if (groupBy === "service-location") {
+      const locResult = await getCrmPool().query(
+        `
+        SELECT
+          b.bookableresourcebookingid AS booking_id,
+          b.resource                  AS resource_id,
+          b.starttime                 AS start_time,
+          b.endtime                   AS end_time,
+          b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue' AS booking_status,
+          wo.msdyn_workorderid::text  AS work_order_id,
+          wo.msdyn_name               AS work_order_number,
+          COALESCE(
+            wo.new_customerrequirement,
+            wo.raw_json->>'_msdyn_workordertype_value@OData.Community.Display.V1.FormattedValue'
+          )                           AS title,
+          wo.raw_json->>'msdyn_systemstatus@OData.Community.Display.V1.FormattedValue' AS system_status,
+          wo.msdyn_city               AS city,
+          wo.msdyn_stateorprovince    AS state,
+          COALESCE(
+            acc.name,
+            wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue'
+          )                           AS customer_name,
+          COALESCE(br.name, b.raw_json->>'_resource_value@OData.Community.Display.V1.FormattedValue') AS resource_name,
+          br.msdyn_primaryemail       AS user_email,
+          eq.equipment_names
+        FROM crm.booking b
+        LEFT JOIN crm.workorder wo ON wo.msdyn_workorderid = b.msdyn_workorder
+        LEFT JOIN crm.account acc ON acc.accountid = wo.msdyn_serviceaccount
+        LEFT JOIN crm.bookableresource br
+          ON br.bookableresourceid = b.resource
+         AND COALESCE(br.is_deleted, false) = false
+        LEFT JOIN LATERAL (
+          SELECT array_agg(woce.label ORDER BY woce.cf_name ASC) AS equipment_names
+          FROM (
+            SELECT
+              cf_name,
+              cf_name
+                || CASE
+                     WHEN NULLIF(BTRIM(cf_serialnumber), '') IS NOT NULL
+                     THEN ' / ' || BTRIM(cf_serialnumber)
+                     ELSE ''
+                   END AS label
+            FROM crm.cf_workordercustomerequipment
+            WHERE workorderid = wo.msdyn_workorderid::text
+              AND COALESCE(is_deleted, false) = false
+              AND cf_name IS NOT NULL
+            ORDER BY cf_name ASC
+            LIMIT 5
+          ) woce
+        ) eq ON true
+        WHERE b.starttime >= $1::date
+          AND b.starttime <  $2::date
+          AND COALESCE(b.is_deleted, false) = false
+        ORDER BY
+          COALESCE(NULLIF(BTRIM(wo.msdyn_stateorprovince), ''), NULLIF(BTRIM(wo.msdyn_city), ''), 'Unknown Location') ASC,
+          resource_name ASC,
+          b.starttime ASC NULLS LAST
+        `,
+        [rangeStart, rangeEnd],
+      );
+
+      // Collect queued write-back overlays for the returned booking ids
+      const locBookingIds = locResult.rows
+        .map((r) => r.booking_id as string | null)
+        .filter((v): v is string => !!v);
+      const locOverlayByBooking = new Map<
+        string,
+        { start_time: Date | string | null; end_time: Date | string | null; technician_id: string | null }
+      >();
+      if (locBookingIds.length > 0) {
+        const queued = await localPool.query<{
+          booking_id: string;
+          start_time: Date | string | null;
+          end_time: Date | string | null;
+          technician_id: string | null;
+        }>(
+          `
+          SELECT DISTINCT ON (booking_id)
+                 booking_id, start_time, end_time, technician_id
+          FROM booking_writebacks
+          WHERE booking_id = ANY($1::text[]) AND status = 'queued'
+          ORDER BY booking_id, created_at DESC
+          `,
+          [locBookingIds],
+        );
+        for (const q of queued.rows) {
+          locOverlayByBooking.set(q.booking_id, {
+            start_time: q.start_time,
+            end_time: q.end_time,
+            technician_id: q.technician_id,
+          });
+        }
+      }
+
+      type LocTechRow = { technician_id: string; resource_name: string | null; user_email: string | null; jobs: unknown[] };
+      type LocRegionRow = { regionid_id: string; region: string; company: null; technicians: Map<string, LocTechRow> };
+
+      // Key: locationId + "|" + technicianId so same tech in two locations gets two entries
+      const locMap = new Map<string, LocRegionRow>();
+      const rangeStartMs = start.getTime();
+      const maxDayIndex = dayCount - 1;
+
+      for (const row of locResult.rows) {
+        if (!row.booking_id || !row.start_time) continue;
+
+        const overlay = locOverlayByBooking.get(row.booking_id as string);
+        const effStart = overlay?.start_time ?? row.start_time;
+        const effEnd = overlay?.end_time ?? row.end_time;
+
+        const stateVal = row.state != null && String(row.state).trim() !== "" ? String(row.state).trim() : null;
+        const cityVal = row.city != null && String(row.city).trim() !== "" ? String(row.city).trim() : null;
+        const locationLabel = stateVal ?? cityVal ?? "Unknown Location";
+        const locationId = slugifyLocation(locationLabel);
+
+        const techId = (overlay?.technician_id ?? row.resource_id) as string | null;
+        if (!techId) continue;
+
+        const techName = row.resource_name as string | null;
+        const userEmail = row.user_email as string | null;
+
+        if (!locMap.has(locationId)) {
+          locMap.set(locationId, { regionid_id: locationId, region: locationLabel, company: null, technicians: new Map() });
+        }
+        const loc = locMap.get(locationId)!;
+        if (!loc.technicians.has(techId)) {
+          loc.technicians.set(techId, { technician_id: techId, resource_name: techName, user_email: userEmail, jobs: [] });
+        }
+
+        const startParts = tsParts(effStart);
+        const endParts = tsParts(effEnd);
+        const startDate = effStart instanceof Date ? effStart : new Date(effStart as string);
+        const startDayIndex = Math.floor(
+          (Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()) - rangeStartMs) / 86_400_000,
+        );
+        let endDayIndex = startDayIndex;
+        if (effEnd != null) {
+          const endDate = effEnd instanceof Date ? effEnd : new Date(effEnd as string);
+          let ei = Math.floor(
+            (Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()) - rangeStartMs) / 86_400_000,
+          );
+          if (endDate.getUTCHours() === 0 && endDate.getUTCMinutes() === 0 && endDate.getUTCSeconds() === 0 && ei > startDayIndex) ei -= 1;
+          if (ei > endDayIndex) endDayIndex = ei;
+        }
+        const spanStartDay = Math.max(0, Math.min(maxDayIndex, startDayIndex));
+        const spanEndDay = Math.max(spanStartDay, Math.min(maxDayIndex, endDayIndex));
+
+        for (let d = spanStartDay; d <= spanEndDay; d++) {
+          loc.technicians.get(techId)!.jobs.push({
+            booking_id: row.booking_id,
+            work_order_id: row.work_order_id,
+            work_order_number: row.work_order_number,
+            title: row.title,
+            system_status: row.system_status,
+            booking_status: row.booking_status,
+            customer_name: row.customer_name,
+            technician_name: techName,
+            contact_name: null,
+            contact_businessphone: null,
+            crmstart_time: startParts.date,
+            crmstarttime: startParts.time,
+            crmend_time: endParts.date,
+            crmendtime: endParts.time,
+            start_time: startParts.iso,
+            end_time: endParts.iso,
+            city: row.city ?? null,
+            state: row.state ?? null,
+            day_index: d,
+            span_start_day: spanStartDay,
+            span_end_day: spanEndDay,
+            equipment_names: (row.equipment_names as string[] | null) ?? [],
+          });
+        }
+      }
+
+      const locRegions = Array.from(locMap.values()).map((loc) => ({
+        regionid_id: loc.regionid_id,
+        region: loc.region,
+        company: loc.company,
+        technicians: Array.from(loc.technicians.values()),
+      }));
+
+      res.json({
+        view,
+        group_by: "service-location",
+        range_start: rangeStart,
+        range_end: rangeEnd,
+        day_count: dayCount,
+        week_start: rangeStart,
+        week_end: rangeEnd,
+        regions: locRegions,
+      });
+      return;
+    }
+
+    // ── Tech-region mode (original) ───────────────────────────────────────────
     // Group by territory (region) -> resource (technician) -> bookings.
     //
     // A resource is normally mapped to a territory via crm.msdyn_resourceterritory

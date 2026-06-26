@@ -5,6 +5,7 @@
  * Technician Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+import type { GetScheduleBoardGroupBy } from './getScheduleBoardGroupBy';
 import type { GetScheduleBoardView } from './getScheduleBoardView';
 
 export type GetScheduleBoardParams = {
@@ -20,4 +21,8 @@ weekStart?: string;
  * Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.
  */
 view?: GetScheduleBoardView;
+/**
+ * Grouping mode: `tech-region` (default) groups by the technician's home region; `service-location` groups by the work order's state/city.
+ */
+groupBy?: GetScheduleBoardGroupBy;
 };

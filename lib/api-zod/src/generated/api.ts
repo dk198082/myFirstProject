@@ -581,7 +581,8 @@ export const GetResourceUtilizationResponse = zod.object({
 export const GetScheduleBoardQueryParams = zod.object({
   "start": zod.coerce.string().optional().describe('ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month. Falls back to legacy `weekStart` when absent.'),
   "weekStart": zod.coerce.string().optional().describe('Legacy alias for `start` (week view only).'),
-  "view": zod.enum(['week', 'month']).optional().describe('Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.')
+  "view": zod.enum(['week', 'month']).optional().describe('Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.'),
+  "groupBy": zod.enum(['tech-region', 'service-location']).optional().describe('Grouping mode: `tech-region` (default) groups by the technician\'s home region; `service-location` groups by the work order\'s state\/city.')
 })
 
 export const GetScheduleBoardResponse = zod.object({
@@ -633,7 +634,8 @@ export const GetScheduleBoardResponse = zod.object({
  */
 export const GetWbScheduleBoardQueryParams = zod.object({
   "start": zod.coerce.string().optional().describe('ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month.'),
-  "view": zod.enum(['week', 'month']).optional().describe('Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.')
+  "view": zod.enum(['week', 'month']).optional().describe('Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.'),
+  "groupBy": zod.enum(['tech-region', 'service-location']).optional().describe('Grouping mode: `tech-region` (default) groups by the technician\'s CRM territory; `service-location` groups by the work order\'s state\/city.')
 })
 
 export const GetWbScheduleBoardResponse = zod.object({

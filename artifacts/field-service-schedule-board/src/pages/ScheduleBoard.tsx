@@ -47,6 +47,7 @@ import {
 import { planDrop } from "@/lib/dropPlan";
 
 type ViewMode = "week" | "month" | "tech";
+type GroupByMode = "tech-region" | "service-location";
 
 function startOfWeekISO(d: Date): string {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -813,6 +814,9 @@ export default function ScheduleBoard() {
   // Calendar (tech) view weekend visibility. Default off — the calendar shows
   // Mon–Fri only; when true, Saturday and Sunday columns are included.
   const [showWeekends, setShowWeekends] = useState(false);
+  // Grouping mode toggle. Default "tech-region" matches the original view;
+  // "service-location" re-groups by work order state/city. Resets on page reload.
+  const [groupBy, setGroupBy] = useState<GroupByMode>("tech-region");
 
   // Open the booking dialog in "new booking" mode for an unscheduled work order,
   // pre-filled with the work order and an optional suggested technician.
@@ -911,7 +915,11 @@ export default function ScheduleBoard() {
 
   // Tech view reuses month data from the API.
   const apiView: "week" | "month" = view === "week" ? "week" : "month";
-  const { data, isLoading, error } = useGetWbScheduleBoard({ start, view: apiView });
+  const { data, isLoading, error } = useGetWbScheduleBoard({
+    start,
+    view: apiView,
+    ...(groupBy === "service-location" ? { groupBy: "service-location" } : {}),
+  });
 
   const { data: unscheduledData } = useGetWbUnscheduledJobs();
   const unscheduledJobs = unscheduledData?.jobs ?? [];
@@ -1216,7 +1224,7 @@ export default function ScheduleBoard() {
           </Button>
         </div>
 
-        {/* View toggle */}
+        {/* View toggle + grouping toggle */}
         <div className="flex items-center gap-3 flex-wrap">
           <div
             className="inline-flex rounded-md border border-border bg-card overflow-hidden"
@@ -1249,6 +1257,43 @@ export default function ScheduleBoard() {
               }`}
             >
               Calendar
+            </button>
+          </div>
+
+          {/* Grouping mode toggle */}
+          <div
+            className="inline-flex rounded-md border border-border bg-card overflow-hidden"
+            role="group"
+            aria-label="Group by"
+            data-testid="group-by-toggle"
+          >
+            <button
+              type="button"
+              aria-pressed={groupBy === "tech-region"}
+              onClick={() => setGroupBy("tech-region")}
+              data-testid="btn-group-tech-region"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${
+                groupBy === "tech-region"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground hover:bg-accent"
+              }`}
+            >
+              <Globe className="h-3.5 w-3.5" />
+              By Tech Region
+            </button>
+            <button
+              type="button"
+              aria-pressed={groupBy === "service-location"}
+              onClick={() => setGroupBy("service-location")}
+              data-testid="btn-group-service-location"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border-l border-border transition-colors ${
+                groupBy === "service-location"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground hover:bg-accent"
+              }`}
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              By Service Location
             </button>
           </div>
           {view === "tech" && allTechs.length > 0 && (
@@ -1492,8 +1537,15 @@ export default function ScheduleBoard() {
               >
                 {/* Region header */}
                 <div className="px-4 py-3 border-b-2 border-foreground/80 flex items-center gap-3 bg-white flex-wrap">
-                  <Globe className="h-4 w-4 text-foreground/70" />
+                  {groupBy === "service-location"
+                    ? <MapPin className="h-4 w-4 text-foreground/70" />
+                    : <Globe className="h-4 w-4 text-foreground/70" />}
                   <span className="text-base font-bold text-foreground">{rg.region}</span>
+                  {groupBy === "service-location" && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 font-semibold uppercase tracking-wide">
+                      Service Location
+                    </span>
+                  )}
                   {rg.company && (
                     <span className="text-xs px-2 py-0.5 rounded border border-foreground/30 font-mono font-semibold text-foreground/70">
                       {rg.company}
@@ -1503,14 +1555,16 @@ export default function ScheduleBoard() {
                     {techsInRegion.length} tech{techsInRegion.length !== 1 ? "s" : ""} · {regionJobCount} job
                     {regionJobCount !== 1 ? "s" : ""}
                   </Badge>
-                  <div className="ml-auto">
-                    <RegionCapacityBadge
-                      utilizedMinutes={regionUtilMinutes}
-                      capacityMinutes={regionCapMinutes}
-                      techCount={techsInRegion.length}
-                      colorClass={regionColor(rg.regionid_id).chip}
-                    />
-                  </div>
+                  {groupBy !== "service-location" && (
+                    <div className="ml-auto">
+                      <RegionCapacityBadge
+                        utilizedMinutes={regionUtilMinutes}
+                        capacityMinutes={regionCapMinutes}
+                        techCount={techsInRegion.length}
+                        colorClass={regionColor(rg.regionid_id).chip}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <CardContent className="p-0 overflow-x-auto">
@@ -1688,8 +1742,15 @@ export default function ScheduleBoard() {
                 data-testid={`region-${rg.region}`}
               >
                 <div className="bg-sidebar text-sidebar-foreground px-4 py-3 flex items-center gap-3 flex-wrap">
-                  <Globe className="h-5 w-5 text-sidebar-primary" />
+                  {groupBy === "service-location"
+                    ? <MapPin className="h-5 w-5 text-sidebar-primary" />
+                    : <Globe className="h-5 w-5 text-sidebar-primary" />}
                   <span className="text-lg font-bold">{rg.region}</span>
+                  {groupBy === "service-location" && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 border border-blue-300 text-blue-800 font-semibold uppercase tracking-wide">
+                      Service Location
+                    </span>
+                  )}
                   {rg.company && (
                     <span className="text-xs px-2 py-0.5 rounded bg-sidebar-accent text-sidebar-accent-foreground font-mono font-semibold">
                       {rg.company}
@@ -1701,14 +1762,16 @@ export default function ScheduleBoard() {
                   <Badge className="bg-sidebar-primary/20 text-sidebar-primary-foreground hover:bg-sidebar-primary/20 text-xs border-0">
                     {regionJobCount} jobs
                   </Badge>
-                  <div className="ml-auto">
-                    <RegionCapacityBadge
-                      utilizedMinutes={regionUtilMinutes}
-                      capacityMinutes={regionCapMinutes}
-                      techCount={techsInRegion.length}
-                      colorClass={regionColor(rg.regionid_id).chip}
-                    />
-                  </div>
+                  {groupBy !== "service-location" && (
+                    <div className="ml-auto">
+                      <RegionCapacityBadge
+                        utilizedMinutes={regionUtilMinutes}
+                        capacityMinutes={regionCapMinutes}
+                        techCount={techsInRegion.length}
+                        colorClass={regionColor(rg.regionid_id).chip}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <CardContent className="p-0 overflow-x-auto">

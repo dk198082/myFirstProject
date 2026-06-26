@@ -407,6 +407,13 @@ paths:
             type: string
             enum: [week, month]
           description: "Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`."
+        - name: groupBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [tech-region, service-location]
+          description: "Grouping mode: `tech-region` (default) groups by the technician's home region; `service-location` groups by the work order's state/city."
       responses:
         "200":
           description: Schedule board grouped by region then technician for the given range
@@ -434,6 +441,13 @@ paths:
             type: string
             enum: [week, month]
           description: "Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`."
+        - name: groupBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [tech-region, service-location]
+          description: "Grouping mode: `tech-region` (default) groups by the technician's CRM territory; `service-location` groups by the work order's state/city."
       responses:
         "200":
           description: Schedule board (sourced from d365crm crm.* tables) grouped by region then technician for the given range
