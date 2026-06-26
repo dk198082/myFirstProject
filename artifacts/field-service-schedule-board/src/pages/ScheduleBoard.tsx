@@ -255,9 +255,6 @@ function distinctJobCount(jobs: { booking_id: string }[]): number {
 // the first day runs from its start time onward (→), interior days are full
 // days, and the last day runs until its end time.
 function chipTimeLabel(job: ScheduleJob): string {
-  // Open-ended job (missing a start time OR an end time) is treated as a flat
-  // 8-hour day, matching the utilization rule.
-  if (!job.crmstarttime || !job.crmendtime) return "8 hrs";
   const start = fmtTime(job.crmstarttime);
   const end = fmtTime(job.crmendtime);
   const spanStart = job.span_start_day ?? job.day_index;
@@ -329,7 +326,7 @@ function JobChip({
           <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" aria-label="Double-booked" />
         )}
       </div>
-      {!compact && (
+      {!compact && (job.crmstarttime || job.crmendtime) && (
         <div className="opacity-80 truncate">
           {isMultiDay
             ? chipTimeLabel(job)
@@ -1651,14 +1648,16 @@ export default function ScheduleBoard() {
                                           {[j.city, j.state].filter(Boolean).join(", ")}
                                         </div>
                                       )}
-                                      <div className="opacity-70 tabular-nums">
-                                        {chipTimeLabel(j)}
-                                        {j.crmstarttime && j.crmendtime && !jMultiDay && fmtDuration(j.crmstarttime, j.crmendtime) && (
-                                          <span className="ml-1 opacity-80">
-                                            · {fmtDuration(j.crmstarttime, j.crmendtime)}
-                                          </span>
-                                        )}
-                                      </div>
+                                      {(j.crmstarttime || j.crmendtime) && (
+                                        <div className="opacity-70 tabular-nums">
+                                          {chipTimeLabel(j)}
+                                          {!jMultiDay && fmtDuration(j.crmstarttime, j.crmendtime) && (
+                                            <span className="ml-1 opacity-80">
+                                              · {fmtDuration(j.crmstarttime, j.crmendtime)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
                                       <div className="font-mono font-semibold tabular-nums flex items-center gap-1">
                                         <span>{j.work_order_number ?? "—"}</span>
                                         {jMultiDay && (

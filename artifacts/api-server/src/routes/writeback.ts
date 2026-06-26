@@ -3,7 +3,6 @@ import { z } from "zod";
 import { getCrmPool, isCrmConfigured } from "../lib/crmDb.js";
 import { localPool } from "../lib/localDb.js";
 import { isDataverseConfigured, patchBooking, createBooking } from "../lib/dataverse.js";
-import { WB_UTILIZED_MINUTES_SQL, WB_BOOKING_NOT_CANCELLED_SQL } from "../lib/utilizationSql.js";
 
 // Synthetic booking_id prefix for write-backs that schedule a brand-new booking
 // for an unscheduled work order. There is no crm.booking row yet, but
@@ -1153,6 +1152,11 @@ router.get("/wb/unscheduled-jobs", async (req, res) => {
 
 // ── Resource utilization (d365crm parity with the FS endpoint) ───────────────
 const WB_DEFAULT_WEEKLY_CAPACITY_HOURS = 40;
+// A working day is the weekly capacity spread over a 5-day week (40h / 5 = 8h).
+// Used to clamp a single booking's contribution to utilization so that outlier
+// multi-day spans (some bookings span thousands of wall-clock hours in the CRM
+// mirror) cannot inflate a technician past a realistic per-day workload.
+const WB_WORKING_MINUTES_PER_DAY = (WB_DEFAULT_WEEKLY_CAPACITY_HOURS / 5) * 60;
 type WbUtilView = "week" | "month" | "quarter";
 
 function wbComputeRange(startRaw: string, view: WbUtilView) {
@@ -1209,14 +1213,16 @@ router.get("/wb/resource-utilization", async (req, res) => {
     // (the CRM booking has no stored duration column). Resources are mapped to
     // territories via crm.msdyn_resourceterritory (DISTINCT ON keeps one mapping).
     //
-    // Two rules keep the percentages meaningful:
+    // Two safeguards keep the percentages realistic:
     //   1. Cancelled / no-show bookings are excluded (their booked time was never
     //      actually worked), filtered on the booking status formatted value.
-    //   2. An open-ended booking (missing a start time OR an end time) counts as a
-    //      flat WB_WORKING_MINUTES_PER_DAY (8h). A timed booking (both start and
-    //      end) counts its actual end-start duration with NO cap, rounded to the
-    //      nearest 30 minutes, so genuinely long jobs and overbooking still
-    //      surface. Bookings are placed in range by COALESCE(starttime, endtime).
+    //   2. A job's booked duration is the difference between its start and end
+    //      time, but it is capped at WB_WORKING_MINUTES_PER_DAY (8h) PER JOB PER
+    //      DAY: each booking is split across every calendar day it spans, each
+    //      day's portion is clamped to the query window and capped at 8h, then
+    //      summed. This caps a single job to 8h/day (so an outlier multi-day CRM
+    //      booking can't blow past 100% from one row) while still letting two
+    //      separate jobs on the same day combine past 8h to surface overbooking.
     const result = await getCrmPool().query(
       `
       WITH res_terr AS (
@@ -1234,7 +1240,24 @@ router.get("/wb/resource-utilization", async (req, res) => {
         ter.name                      AS region,
         br.bookableresourceid::text   AS technician_id,
         br.name                       AS resource_name,
-        COALESCE(SUM(${WB_UTILIZED_MINUTES_SQL}), 0)::int AS utilized_minutes,
+        COALESCE(SUM(
+          CASE WHEN b.bookableresourcebookingid IS NULL THEN 0 ELSE (
+            SELECT COALESCE(SUM(
+              LEAST(
+                GREATEST(0, EXTRACT(EPOCH FROM (
+                  LEAST(b.endtime, gs.day + interval '1 day', $2::timestamp)
+                  - GREATEST(b.starttime, gs.day, $1::timestamp)
+                )) / 60),
+                $3::numeric
+              )
+            ), 0)
+            FROM generate_series(
+              GREATEST(b.starttime, $1::timestamp)::date::timestamp,
+              (LEAST(b.endtime, $2::timestamp) - interval '1 second')::date::timestamp,
+              interval '1 day'
+            ) AS gs(day)
+          ) END
+        ), 0)::int AS utilized_minutes,
         COUNT(b.bookableresourcebookingid)::int AS job_count
       FROM res_terr rterr
       JOIN crm.territory ter ON ter.territoryid = rterr.territory_id
@@ -1242,14 +1265,17 @@ router.get("/wb/resource-utilization", async (req, res) => {
         ON br.bookableresourceid = rterr.resource_id AND COALESCE(br.is_deleted, false) = false
       LEFT JOIN crm.booking b
         ON b.resource = br.bookableresourceid
-       AND COALESCE(b.starttime, b.endtime) >= $1::date
-       AND COALESCE(b.starttime, b.endtime) <  $2::date
+       AND b.starttime >= $1::date
+       AND b.starttime <  $2::date
+       AND b.endtime IS NOT NULL
        AND COALESCE(b.is_deleted, false) = false
-       AND ${WB_BOOKING_NOT_CANCELLED_SQL}
+       AND COALESCE(b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue', '') NOT ILIKE 'cancel%'
+       AND COALESCE(b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue', '') NOT ILIKE '%no show%'
+       AND COALESCE(b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue', '') NOT ILIKE '%no-show%'
       GROUP BY ter.territoryid, ter.name, br.bookableresourceid, br.name
       ORDER BY ter.name ASC, br.name ASC NULLS LAST
       `,
-      [rangeStart, rangeEnd],
+      [rangeStart, rangeEnd, WB_WORKING_MINUTES_PER_DAY],
     );
 
     type RegionRow = {

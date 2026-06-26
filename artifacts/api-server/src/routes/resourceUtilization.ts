@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { pool } from "../lib/db.js";
-import { FS_UTILIZED_MINUTES_SQL, FS_BOOKING_NOT_CANCELLED_SQL } from "../lib/utilizationSql.js";
 
 const router = Router();
 
@@ -52,13 +51,6 @@ router.get("/resource-utilization", async (req, res) => {
   const { rangeStart, rangeEnd, periodWeeks, capacityMinutes } = computeRange(startRaw, view);
 
   try {
-    // Open-ended bookings (missing a start time OR an end time) count as a flat
-    // 8h (480 min) — one working day. Timed bookings (both times) count their
-    // real duration with NO cap, rounded to the nearest 30 minutes, so long jobs
-    // and overbooking still surface. Cancelled / no-show bookings are excluded
-    // (parity with /wb/resource-utilization). The open-ended vs. timed rule and
-    // the cancelled filter live in ../lib/utilizationSql so both endpoints stay
-    // in lock-step. Bookings are placed in range by crmstart_time.
     const result = await pool.query(
       `
       SELECT
@@ -66,7 +58,7 @@ router.get("/resource-utilization", async (req, res) => {
         r.region,
         t.technician_id,
         t.resource_name,
-        COALESCE(SUM(${FS_UTILIZED_MINUTES_SQL}), 0)::int AS utilized_minutes,
+        COALESCE(SUM(b.duration_minutes), 0)::int AS utilized_minutes,
         COUNT(b.booking_id)::int AS job_count
       FROM regions r
       LEFT JOIN technicians t
@@ -75,7 +67,6 @@ router.get("/resource-utilization", async (req, res) => {
         ON b.technician_id = t.technician_id
        AND b.crmstart_time >= $1::date
        AND b.crmstart_time <  $2::date
-       AND ${FS_BOOKING_NOT_CANCELLED_SQL}
       WHERE r.is_active = true
       GROUP BY r.regionid_id, r.region, t.technician_id, t.resource_name
       ORDER BY r.region ASC, t.resource_name ASC NULLS LAST
