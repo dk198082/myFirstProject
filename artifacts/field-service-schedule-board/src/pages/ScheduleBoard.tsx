@@ -810,6 +810,9 @@ export default function ScheduleBoard() {
   // with no jobs in the current range to keep the view focused on scheduled
   // work. When true, idle technicians are shown across all views and counts.
   const [showIdleTechs, setShowIdleTechs] = useState(false);
+  // Calendar (tech) view weekend visibility. Default off — the calendar shows
+  // Mon–Fri only; when true, Saturday and Sunday columns are included.
+  const [showWeekends, setShowWeekends] = useState(false);
 
   // Open the booking dialog in "new booking" mode for an unscheduled work order,
   // pre-filled with the work order and an optional suggested technician.
@@ -1146,12 +1149,13 @@ export default function ScheduleBoard() {
     }
   }, [allTechs, selectedTechIds]);
 
-  // Weekday-only headers (Mon–Fri) for the Calendar view
+  // Headers for the Calendar view — Mon–Fri by default, all 7 days when showWeekends is on
   const weekdayHeaders = useMemo(
     () =>
       dayHeaders
         .map((dh, i) => ({ ...dh, dayIdx: i }))
         .filter(({ iso }) => {
+          if (showWeekends) return true;
           const dow = new Date(iso + "T00:00:00Z").getUTCDay();
           return dow >= 1 && dow <= 5;
         })
@@ -1159,7 +1163,7 @@ export default function ScheduleBoard() {
           ...dh,
           isMonday: new Date(dh.iso + "T00:00:00Z").getUTCDay() === 1,
         })),
-    [dayHeaders],
+    [dayHeaders, showWeekends],
   );
 
   const dayColTemplate =
@@ -1360,6 +1364,35 @@ export default function ScheduleBoard() {
             </span>
             Show idle techs
           </button>
+          {view === "tech" && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showWeekends}
+              onClick={() => setShowWeekends((v) => !v)}
+              data-testid="toggle-show-weekends"
+              title="Show Saturday and Sunday columns in the calendar"
+              className={`inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                showWeekends
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:bg-accent"
+              }`}
+            >
+              <span
+                className={`relative inline-flex h-3.5 w-6 items-center rounded-full transition-colors ${
+                  showWeekends ? "bg-primary-foreground/40" : "bg-muted-foreground/30"
+                }`}
+                aria-hidden
+              >
+                <span
+                  className={`inline-block h-2.5 w-2.5 rounded-full bg-white shadow transition-transform ${
+                    showWeekends ? "translate-x-3" : "translate-x-0.5"
+                  }`}
+                />
+              </span>
+              Show weekends
+            </button>
+          )}
         </div>
       )}
 
@@ -1434,7 +1467,7 @@ export default function ScheduleBoard() {
         </div>
       )}
 
-      {/* Calendar view — one row per technician, weekday columns (Mon–Fri), grouped by region */}
+      {/* Calendar view — one row per technician, weekday columns (weekends optional), grouped by region */}
       {view === "tech" && !isLoading && !error && techsToPrint.length > 0 && (
         <div data-testid="tech-view" className="space-y-6">
           {regions.map((rg) => {
