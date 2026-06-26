@@ -292,5 +292,51 @@ describe("open-ended vs. timed job utilization rule", () => {
         expect(wb).toBe(c.expected);
       });
     }
+
+    it("agree for an open-ended booking (missing end time) → flat 480 min", async () => {
+      // duration_minutes is intentionally large on the FS side to prove the
+      // open-ended branch (flat 480) wins over the stored duration, mirroring
+      // the CRM side where no duration is stored at all.
+      const fs = await fsUtilizedMinutes([
+        { booking_id: "1", crmstarttime: "09:00", crmendtime: null, duration_minutes: 600, booking_status: "Scheduled" },
+      ]);
+      const wb = await wbUtilizedMinutes([
+        { bookableresourcebookingid: "1", starttime: "2026-06-01T09:00:00Z", endtime: null, status: "Scheduled" },
+      ]);
+      expect(fs).toBe(480);
+      expect(wb).toBe(480);
+    });
+
+    it("agree for an open-ended booking (missing start time) → flat 480 min", async () => {
+      const fs = await fsUtilizedMinutes([
+        { booking_id: "1", crmstarttime: null, crmendtime: "17:00", duration_minutes: 600, booking_status: "Scheduled" },
+      ]);
+      const wb = await wbUtilizedMinutes([
+        { bookableresourcebookingid: "1", starttime: null, endtime: "2026-06-01T17:00:00Z", status: "Scheduled" },
+      ]);
+      expect(fs).toBe(480);
+      expect(wb).toBe(480);
+    });
+
+    it("agree for a mixed-status day (timed + open-ended + cancelled + no-show)", async () => {
+      // One technician's day: a 240-min timed job, an open-ended job (flat 480),
+      // plus a cancelled timed job and a no-show open-ended job that must both be
+      // excluded. Total = 240 + 480 = 720; the dropped bookings (a 240-min timed
+      // cancel and a would-be 480 open-ended no-show) must not leak into either.
+      const fs = await fsUtilizedMinutes([
+        { booking_id: "1", crmstarttime: "08:00", crmendtime: "12:00", duration_minutes: 240, booking_status: "Completed" },
+        { booking_id: "2", crmstarttime: "13:00", crmendtime: null, duration_minutes: 600, booking_status: "Scheduled" },
+        { booking_id: "3", crmstarttime: "13:00", crmendtime: "17:00", duration_minutes: 240, booking_status: "Canceled" },
+        { booking_id: "4", crmstarttime: null, crmendtime: null, duration_minutes: null, booking_status: "No Show" },
+      ]);
+      const wb = await wbUtilizedMinutes([
+        wbTimed("1", "2026-06-01T08:00:00Z", 240, "Completed"),
+        { bookableresourcebookingid: "2", starttime: "2026-06-01T13:00:00Z", endtime: null, status: "Scheduled" },
+        wbTimed("3", "2026-06-01T13:00:00Z", 240, "Cancelled"),
+        { bookableresourcebookingid: "4", starttime: null, endtime: "2026-06-01T17:00:00Z", status: "No Show" },
+      ]);
+      expect(fs).toBe(720);
+      expect(wb).toBe(720);
+    });
   });
 });
