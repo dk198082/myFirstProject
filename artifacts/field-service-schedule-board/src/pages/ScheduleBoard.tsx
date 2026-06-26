@@ -260,6 +260,7 @@ function JobChip({
   onDragEnd,
   isDragging,
   showEquipment,
+  showDuration = true,
 }: {
   job: ScheduleJob;
   compact: boolean;
@@ -270,6 +271,7 @@ function JobChip({
   onDragEnd?: () => void;
   isDragging?: boolean;
   showEquipment?: boolean;
+  showDuration?: boolean;
 }) {
   const isCancelled = (job.system_status ?? "").toLowerCase() === "cancelled";
   const spanStart = job.span_start_day ?? job.day_index;
@@ -309,7 +311,7 @@ function JobChip({
           <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" aria-label="Double-booked" />
         )}
       </div>
-      {!compact && (job.crmstarttime || job.crmendtime) && (
+      {!compact && (job.crmstarttime || job.crmendtime) && (isMultiDay || showDuration) && (
         <div className="opacity-80 truncate">
           {isMultiDay
             ? chipTimeLabel(job)
@@ -1588,65 +1590,21 @@ export default function ScheduleBoard() {
                                   );
                                 }}
                               >
-                                {jobs.map((j) => {
-                                  const isCancelled =
-                                    (j.system_status ?? "").toLowerCase() === "cancelled";
-                                  const isConflict = conflictedBookingIds.has(j.booking_id);
-                                  const isDragging = draggingId === j.booking_id;
-                                  const jSpanStart = j.span_start_day ?? j.day_index;
-                                  const jSpanEnd = j.span_end_day ?? j.day_index;
-                                  const jMultiDay = jSpanEnd > jSpanStart;
-                                  const jStartChip = !jMultiDay || j.day_index <= jSpanStart;
-                                  return (
-                                    <button
-                                      type="button"
-                                      key={j.booking_id}
-                                      draggable={jStartChip}
-                                      onClick={() => setEditing(buildEditRow(j, tech.technician_id))}
-                                      onDragStart={(e) => {
-                                        if (!jStartChip) {
-                                          e.preventDefault();
-                                          return;
-                                        }
-                                        startDrag(j, tech.technician_id);
-                                        if (e.dataTransfer) {
-                                          e.dataTransfer.effectAllowed = "move";
-                                          e.dataTransfer.setData("text/plain", j.booking_id);
-                                        }
-                                      }}
-                                      onDragEnd={endDrag}
-                                      className={`block w-full text-left text-[11px] leading-tight rounded border-l-4 pl-1.5 py-1 pr-1 ${jStartChip ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} ${palette.chip.replace(/hover:bg-\S+/g, "").trim()} ${isCancelled ? "opacity-50 line-through" : ""} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""} ${isDragging ? "opacity-40" : ""}`}
-                                      style={{ borderLeftColor: "currentColor" }}
-                                      data-testid={`tech-job-${j.booking_id}`}
-                                    >
-                                      {isConflict && (
-                                        <div className="flex items-center gap-0.5 text-amber-600 font-semibold mb-0.5">
-                                          <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
-                                          <span>Conflict</span>
-                                        </div>
-                                      )}
-                                      <div className="font-bold truncate">{j.customer_name ?? "—"}</div>
-                                      {(j.city || j.state) && (
-                                        <div className="opacity-70 truncate">
-                                          {[j.city, j.state].filter(Boolean).join(", ")}
-                                        </div>
-                                      )}
-                                      {!jMultiDay && fmtDuration(j.crmstarttime, j.crmendtime) && (
-                                        <div className="opacity-70 tabular-nums">
-                                          {fmtDuration(j.crmstarttime, j.crmendtime)}
-                                        </div>
-                                      )}
-                                      <div className="font-mono font-semibold tabular-nums flex items-center gap-1">
-                                        <span>{j.work_order_number ?? "—"}</span>
-                                        {jMultiDay && (
-                                          <span className="rounded bg-black/10 px-1 text-[9px] font-semibold">
-                                            D{j.day_index - jSpanStart + 1}/{jSpanEnd - jSpanStart + 1}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </button>
-                                  );
-                                })}
+                                {jobs.map((j) => (
+                                  <JobChip
+                                    key={j.booking_id}
+                                    job={j}
+                                    compact={false}
+                                    colorClass={palette.chip}
+                                    isConflict={conflictedBookingIds.has(j.booking_id)}
+                                    onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
+                                    onDragStart={() => startDrag(j, tech.technician_id)}
+                                    onDragEnd={endDrag}
+                                    isDragging={draggingId === j.booking_id}
+                                    showEquipment
+                                    showDuration={false}
+                                  />
+                                ))}
                               </div>
                             );
                           })}
