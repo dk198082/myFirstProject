@@ -311,7 +311,7 @@ function JobChip({
           <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" aria-label="Double-booked" />
         )}
       </div>
-      {!compact && (job.crmstarttime || job.crmendtime) && (isMultiDay || showDuration) && (
+      {!compact && (job.crmstarttime || job.crmendtime) && showDuration && (
         <div className="opacity-80 truncate">
           {isMultiDay
             ? chipTimeLabel(job)
