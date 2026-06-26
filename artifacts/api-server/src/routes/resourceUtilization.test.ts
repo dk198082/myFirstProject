@@ -272,6 +272,14 @@ describe("open-ended vs. timed job utilization rule", () => {
       { name: "rounds down", duration: 95, expected: 90 },
       { name: "tiny rounds to zero", duration: 14, expected: 0 },
       { name: "long uncapped", duration: 600, expected: 600 },
+      // Exact half-boundaries (odd multiples of 15 min). These are where a
+      // double round-half-to-even and a numeric round-half-up diverge, so both
+      // endpoints must use round-half-up here: 0.5 -> 1, 2.5 -> 3, 4.5 -> 5.
+      { name: "half-boundary rounds up", duration: 15, expected: 30 },
+      { name: "half-boundary rounds up", duration: 45, expected: 60 },
+      { name: "half-boundary rounds up", duration: 75, expected: 90 },
+      { name: "half-boundary rounds up", duration: 105, expected: 120 },
+      { name: "half-boundary rounds up", duration: 135, expected: 150 },
     ];
 
     for (const c of cases) {

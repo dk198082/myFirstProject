@@ -48,13 +48,19 @@ export const FS_BOOKING_NOT_CANCELLED_SQL = `
 // The CRM booking has no stored duration; the timed duration is derived from the
 // `starttime` / `endtime` timestamptz columns. The booking-status name lives in
 // the OData "FormattedValue" key inside `raw_json`.
+//
+// The duration quotient is cast to `numeric` before ROUND so it uses Postgres'
+// round-half-up behaviour (ROUND on `double precision` uses round-half-to-even).
+// This keeps it in lockstep with FS_UTILIZED_MINUTES_SQL, whose `/ 30.0` divisor
+// already produces a numeric — without the cast the two endpoints disagree at
+// exact half-boundaries (e.g. a 75-min job: 90 in FS vs 60 in d365crm).
 const CRM_BOOKING_STATUS_FV = `b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue'`;
 
 export const WB_UTILIZED_MINUTES_SQL = `
   CASE
     WHEN b.bookableresourcebookingid IS NULL THEN 0
     WHEN b.starttime IS NULL OR b.endtime IS NULL THEN ${OPEN_ENDED_BOOKING_MINUTES}
-    ELSE ROUND((EXTRACT(EPOCH FROM (b.endtime - b.starttime)) / 60) / 30) * 30
+    ELSE ROUND(((EXTRACT(EPOCH FROM (b.endtime - b.starttime)) / 60) / 30)::numeric) * 30
   END`;
 
 export const WB_BOOKING_NOT_CANCELLED_SQL = `
