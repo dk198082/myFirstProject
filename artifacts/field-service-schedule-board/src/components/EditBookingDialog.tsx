@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  useUpdateWbBooking,
-  useCreateWbBooking,
   useSaveWbBooking,
   useSaveNewWbBooking,
   useListWbTechnicians,
@@ -84,48 +82,6 @@ export function EditBookingDialog({
     [5_000, 12_000, 20_000].forEach((ms) => setTimeout(invalidateAll, ms));
   };
 
-  // ── Queue write-back (staged locally) ────────────────────────────────────
-  const updateMutation = useUpdateWbBooking({
-    mutation: {
-      onSuccess: () => {
-        toast({
-          title: "Write-back queued",
-          description: `Edit staged locally for ${row.work_order_number ?? "booking"}.`,
-        });
-        invalidateAll();
-        onClose();
-      },
-      onError: (err) => {
-        toast({
-          title: "Failed to queue write-back",
-          description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
-        });
-      },
-    },
-  });
-
-  const createMutation = useCreateWbBooking({
-    mutation: {
-      onSuccess: () => {
-        toast({
-          title: "Booking queued",
-          description: `New booking staged locally for ${row.work_order_number ?? "work order"}.`,
-        });
-        invalidateAll();
-        onClose();
-      },
-      onError: (err) => {
-        toast({
-          title: "Failed to queue booking",
-          description: err instanceof Error ? err.message : "Unknown error",
-          variant: "destructive",
-        });
-      },
-    },
-  });
-
-  // ── Save directly to CRM ─────────────────────────────────────────────────
   const saveMutation = useSaveWbBooking({
     mutation: {
       onSuccess: () => {
@@ -168,9 +124,7 @@ export function EditBookingDialog({
     },
   });
 
-  const isQueuePending = updateMutation.isPending || createMutation.isPending;
-  const isSavePending = saveMutation.isPending || saveNewMutation.isPending;
-  const isPending = isQueuePending || isSavePending;
+  const isPending = saveMutation.isPending || saveNewMutation.isPending;
 
   const seed = row.pending_writeback ?? row;
   const [start, setStart] = useState(toLocalInput(seed.start_time));
@@ -196,25 +150,12 @@ export function EditBookingDialog({
     [technicians],
   );
 
-  const buildData = () => ({
-    start_time: fromLocalInput(start),
-    end_time: fromLocalInput(end),
-    technician_id: techId === UNASSIGNED ? null : techId,
-  });
-
-  const submitQueue = () => {
-    const data = buildData();
-    if (isNew) {
-      if (!row.work_order_id) return;
-      createMutation.mutate({ workOrderId: row.work_order_id, data });
-    } else {
-      if (!row.booking_id) return;
-      updateMutation.mutate({ bookingId: row.booking_id, data });
-    }
-  };
-
-  const submitSave = () => {
-    const data = buildData();
+  const submit = () => {
+    const data = {
+      start_time: fromLocalInput(start),
+      end_time: fromLocalInput(end),
+      technician_id: techId === UNASSIGNED ? null : techId,
+    };
     if (isNew) {
       if (!row.work_order_id) return;
       saveNewMutation.mutate({ workOrderId: row.work_order_id, data });
@@ -288,15 +229,11 @@ export function EditBookingDialog({
           <Button variant="ghost" onClick={onClose} disabled={isPending}>
             Cancel
           </Button>
-          <Button variant="outline" onClick={submitQueue} disabled={isPending}>
-            {isQueuePending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
-            {isNew ? "Queue booking" : "Queue write-back"}
-          </Button>
-          <Button onClick={submitSave} disabled={isPending}>
-            {isSavePending
+          <Button onClick={submit} disabled={isPending}>
+            {isPending
               ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
               : <CloudUpload className="h-4 w-4 mr-1.5" />}
-            Save
+            {isNew ? "Create booking" : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
