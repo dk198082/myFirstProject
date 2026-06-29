@@ -160,7 +160,7 @@ export function EditBookingDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg">
         <DialogHeader>
           <DialogTitle>{isNew ? "Schedule booking" : "Edit booking"}</DialogTitle>
           <DialogDescription>
@@ -168,23 +168,25 @@ export function EditBookingDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
+        <div className="space-y-4 py-2 min-w-0">
+          <div className="space-y-1.5 min-w-0">
             <Label htmlFor="start">Start time</Label>
             <Input
               id="start"
               type="datetime-local"
               value={start}
               onChange={(e) => onStartChange(e.target.value)}
+              className="w-full min-w-0 block"
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 min-w-0">
             <Label htmlFor="end">End time</Label>
             <Input
               id="end"
               type="datetime-local"
               value={end}
               onChange={(e) => setEnd(e.target.value)}
+              className="w-full min-w-0 block"
             />
           </div>
           <div className="space-y-1.5">
