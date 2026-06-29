@@ -1,371 +1,601 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Data Model — Field Service Application</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f1f5f9; color: #1e293b; }
-  .page-header { background: #0f172a; color: white; padding: 20px 32px 16px; display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-  .page-header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
-  .page-header p { font-size: 12px; color: #94a3b8; margin-top: 4px; }
-  .legend { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; }
-  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #cbd5e1; white-space: nowrap; }
-  .swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
-  .diagram-wrap { overflow: auto; padding: 24px; cursor: grab; user-select: none; min-height: calc(100vh - 88px); }
-  .diagram-wrap:active { cursor: grabbing; }
-  .zoom-controls { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 4px; z-index: 10; }
-  .zoom-btn { width: 36px; height: 36px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
-  .zoom-btn:hover { background: #f8fafc; }
-</style>
-</head>
-<body>
-<div class="page-header">
-  <div>
-    <h1>Field Service Application — Conceptual Data Model</h1>
-    <p>Two databases: <strong>CRM Mirror</strong> (Dynamics 365 replica, schema <code>crm</code>) · <strong>App DB</strong> (local, schemas <code>public</code> / <code>app</code>)</p>
-  </div>
-  <div class="legend">
-    <div class="legend-item"><div class="swatch" style="background:#2563eb"></div>CRM Mirror entity</div>
-    <div class="legend-item"><div class="swatch" style="background:#059669"></div>App DB entity</div>
-    <div class="legend-item">
-      <svg width="28" height="10" style="flex-shrink:0"><line x1="1" y1="5" x2="23" y2="5" stroke="#64748b" stroke-width="1.5" marker-end="url(#leg-a)"/><defs><marker id="leg-a" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3z" fill="#64748b"/></marker></defs></svg>
-      FK relationship
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data Model — Field Service Application</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #f1f5f9;
+        color: #1e293b;
+      }
+      .page-header {
+        background: #0f172a;
+        color: white;
+        padding: 20px 32px 16px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .page-header h1 {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+      }
+      .page-header p {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-top: 4px;
+      }
+      .legend {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: #cbd5e1;
+        white-space: nowrap;
+      }
+      .swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
+      .diagram-wrap {
+        overflow: auto;
+        padding: 24px;
+        cursor: grab;
+        user-select: none;
+        min-height: calc(100vh - 88px);
+      }
+      .diagram-wrap:active {
+        cursor: grabbing;
+      }
+      .zoom-controls {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        z-index: 10;
+      }
+      .zoom-btn {
+        width: 36px;
+        height: 36px;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 18px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      }
+      .zoom-btn:hover {
+        background: #f8fafc;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-header">
+      <div>
+        <h1>Field Service Application — Conceptual Data Model</h1>
+        <p>
+          Two databases: <strong>CRM Mirror</strong> (Dynamics 365 replica,
+          schema <code>crm</code>) · <strong>App DB</strong> (local, schemas
+          <code>public</code> / <code>app</code>)
+        </p>
+      </div>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="swatch" style="background: #2563eb"></div>
+          CRM Mirror entity
+        </div>
+        <div class="legend-item">
+          <div class="swatch" style="background: #059669"></div>
+          App DB entity
+        </div>
+        <div class="legend-item">
+          <svg width="28" height="10" style="flex-shrink: 0">
+            <line
+              x1="1"
+              y1="5"
+              x2="23"
+              y2="5"
+              stroke="#64748b"
+              stroke-width="1.5"
+              marker-end="url(#leg-a)"
+            />
+            <defs>
+              <marker
+                id="leg-a"
+                markerWidth="6"
+                markerHeight="6"
+                refX="5"
+                refY="3"
+                orient="auto"
+              >
+                <path d="M0,0 L0,6 L6,3z" fill="#64748b" />
+              </marker>
+            </defs>
+          </svg>
+          FK relationship
+        </div>
+        <div class="legend-item">
+          <svg width="28" height="10" style="flex-shrink: 0">
+            <line
+              x1="1"
+              y1="5"
+              x2="23"
+              y2="5"
+              stroke="#d97706"
+              stroke-width="1.5"
+              stroke-dasharray="5,3"
+              marker-end="url(#leg-b)"
+            />
+            <defs>
+              <marker
+                id="leg-b"
+                markerWidth="6"
+                markerHeight="6"
+                refX="5"
+                refY="3"
+                orient="auto"
+              >
+                <path d="M0,0 L0,6 L6,3z" fill="#d97706" />
+              </marker>
+            </defs>
+          </svg>
+          Cross-DB ref (logical)
+        </div>
+        <div class="legend-item">
+          <span style="font-weight: 700; color: #93c5fd; font-size: 11px"
+            >PK</span
+          >
+          Primary key
+        </div>
+        <div class="legend-item">
+          <span style="font-style: italic; color: #c4b5fd; font-size: 11px"
+            >FK</span
+          >
+          Foreign key
+        </div>
+        <div class="legend-item">
+          <span style="color: #6ee7b7; font-size: 11px">~</span> Derived /
+          optionset
+        </div>
+      </div>
     </div>
-    <div class="legend-item">
-      <svg width="28" height="10" style="flex-shrink:0"><line x1="1" y1="5" x2="23" y2="5" stroke="#d97706" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#leg-b)"/><defs><marker id="leg-b" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3z" fill="#d97706"/></marker></defs></svg>
-      Cross-DB ref (logical)
+
+    <div class="diagram-wrap" id="diagramWrap">
+      <div id="diagramInner" style="transform-origin: 0 0"></div>
     </div>
-    <div class="legend-item"><span style="font-weight:700;color:#93c5fd;font-size:11px">PK</span> Primary key</div>
-    <div class="legend-item"><span style="font-style:italic;color:#c4b5fd;font-size:11px">FK</span> Foreign key</div>
-    <div class="legend-item"><span style="color:#6ee7b7;font-size:11px">~</span> Derived / optionset</div>
-  </div>
-</div>
 
-<div class="diagram-wrap" id="diagramWrap">
-  <div id="diagramInner" style="transform-origin: 0 0;"></div>
-</div>
+    <div class="zoom-controls">
+      <button class="zoom-btn" id="zoomIn" title="Zoom in">+</button>
+      <button class="zoom-btn" id="zoomOut" title="Zoom out">−</button>
+      <button
+        class="zoom-btn"
+        id="zoomReset"
+        title="Reset zoom"
+        style="font-size: 12px"
+      >
+        1:1
+      </button>
+    </div>
 
-<div class="zoom-controls">
-  <button class="zoom-btn" id="zoomIn" title="Zoom in">+</button>
-  <button class="zoom-btn" id="zoomOut" title="Zoom out">−</button>
-  <button class="zoom-btn" id="zoomReset" title="Reset zoom" style="font-size:12px">1:1</button>
-</div>
+    <script>
+      // ── Constants ─────────────────────────────────────────────────────────────────
+      const BW = 248,
+        HEADER_H = 34,
+        ROW_H = 21,
+        PAD = 9;
 
-<script>
-// ── Constants ─────────────────────────────────────────────────────────────────
-const BW = 248, HEADER_H = 34, ROW_H = 21, PAD = 9;
+      // ── Entity definitions ────────────────────────────────────────────────────────
+      // role: pk | fk | calc | sys | ''
+      const entities = [
+        // ── CRM Mirror ──────────────────────────────────────────────────────────────
+        {
+          id: "systemuser",
+          label: "systemuser",
+          schema: "crm",
+          desc: "D365 user account (Active Directory / Entra ID identity)",
+          x: 30,
+          y: 80,
+          attrs: [
+            { n: "systemuserid", t: "uuid", r: "pk" },
+            { n: "fullname", t: "text", r: "" },
+            { n: "internalemailaddress", t: "text", r: "" },
+            { n: "domainname", t: "text", r: "" },
+            { n: "isdisabled", t: "boolean", r: "calc" },
+            { n: "azureactivedirectoryobjectid", t: "uuid", r: "" },
+            { n: "is_deleted", t: "boolean", r: "sys" },
+            { n: "raw_json", t: "jsonb", r: "sys" },
+          ],
+        },
+        {
+          id: "bookableresource",
+          label: "bookableresource",
+          schema: "crm",
+          desc: "Schedulable field technician or resource (links user → territory)",
+          x: 306,
+          y: 80,
+          attrs: [
+            { n: "bookableresourceid", t: "uuid", r: "pk" },
+            { n: "name", t: "text", r: "" },
+            { n: "userid", t: "uuid", r: "fk" },
+            { n: "useridname", t: "text", r: "" },
+            { n: "msdyn_primaryemail", t: "text", r: "" },
+            { n: "resourcetype", t: "integer", r: "calc" },
+            { n: "statecode", t: "integer", r: "calc" },
+            { n: "is_deleted", t: "boolean", r: "sys" },
+            { n: "raw_json", t: "jsonb", r: "sys" },
+          ],
+        },
+        {
+          id: "msdyn_resourceterritory",
+          label: "msdyn_resourceterritory",
+          schema: "crm",
+          desc: "Junction: maps a bookable resource to a service territory",
+          x: 582,
+          y: 80,
+          attrs: [
+            { n: "msdyn_resourceterritoryid", t: "uuid", r: "pk" },
+            { n: "msdyn_resource", t: "uuid", r: "fk" },
+            { n: "msdyn_territory", t: "uuid", r: "fk" },
+            { n: "is_deleted", t: "boolean", r: "sys" },
+          ],
+        },
+        {
+          id: "territory",
+          label: "territory",
+          schema: "crm",
+          desc: "Geographic service territory / region used to group technicians",
+          x: 858,
+          y: 80,
+          attrs: [
+            { n: "territoryid", t: "uuid", r: "pk" },
+            { n: "name", t: "text", r: "" },
+            { n: "country", t: "text", r: "" },
+            { n: "state_province", t: "text", r: "" },
+            { n: "parent_territory_id", t: "uuid", r: "fk" },
+            { n: "is_deleted", t: "boolean", r: "sys" },
+          ],
+        },
+        {
+          id: "booking",
+          label: "booking",
+          schema: "crm",
+          desc: "Bookable resource booking — one technician assigned to a work order slot",
+          x: 30,
+          y: 400,
+          attrs: [
+            { n: "bookableresourcebookingid", t: "uuid", r: "pk" },
+            { n: "resource", t: "uuid", r: "fk" },
+            { n: "msdyn_workorder", t: "uuid", r: "fk" },
+            { n: "bookingstatus", t: "uuid", r: "fk" },
+            { n: "starttime", t: "timestamp", r: "" },
+            { n: "endtime", t: "timestamp", r: "" },
+            { n: "duration", t: "numeric", r: "calc" },
+            { n: "cf_fieldnotes", t: "text", r: "" },
+            { n: "is_deleted", t: "boolean", r: "sys" },
+            { n: "raw_json", t: "jsonb", r: "sys" },
+          ],
+        },
+        {
+          id: "workorder",
+          label: "workorder",
+          schema: "crm",
+          desc: "Field service work order — the primary unit of scheduled service work",
+          x: 306,
+          y: 400,
+          attrs: [
+            { n: "msdyn_workorderid", t: "uuid", r: "pk" },
+            { n: "msdyn_name", t: "text", r: "" },
+            { n: "msdyn_systemstatus", t: "integer", r: "calc" },
+            { n: "msdyn_serviceaccount", t: "uuid", r: "fk" },
+            { n: "msdyn_serviceterritory", t: "uuid", r: "fk" },
+            { n: "cf_servicelocation", t: "uuid", r: "fk" },
+            { n: "msdyn_city", t: "text", r: "" },
+            { n: "msdyn_stateorprovince", t: "text", r: "" },
+            { n: "new_customerrequirement", t: "text", r: "" },
+            { n: "cf_approveworkorder", t: "boolean", r: "calc" },
+            { n: "is_deleted", t: "boolean", r: "sys" },
+            { n: "raw_json", t: "jsonb", r: "sys" },
+          ],
+        },
+        {
+          id: "account",
+          label: "account",
+          schema: "crm",
+          desc: "Customer / service account (company being serviced)",
+          x: 582,
+          y: 400,
+          attrs: [
+            { n: "accountid", t: "uuid", r: "pk" },
+            { n: "name", t: "text", r: "" },
+            { n: "accountnumber", t: "text", r: "" },
+            { n: "telephone1", t: "text", r: "" },
+            { n: "emailaddress1", t: "text", r: "" },
+            { n: "address1_city", t: "text", r: "" },
+            { n: "primarycontactid", t: "uuid", r: "fk" },
+            { n: "is_deleted", t: "boolean", r: "sys" },
+          ],
+        },
+        {
+          id: "contact",
+          label: "contact",
+          schema: "crm",
+          desc: "Contact person at the customer account",
+          x: 858,
+          y: 400,
+          attrs: [
+            { n: "contactid", t: "uuid", r: "pk" },
+            { n: "fullname", t: "text", r: "" },
+            { n: "emailaddress1", t: "text", r: "" },
+            { n: "mobilephone", t: "text", r: "" },
+            { n: "parentcustomerid", t: "uuid", r: "fk" },
+            { n: "is_deleted", t: "boolean", r: "sys" },
+          ],
+        },
+        {
+          id: "cf_servicelocation",
+          label: "cf_servicelocation",
+          schema: "crm",
+          desc: "Custom: physical site where field service work is performed",
+          x: 1134,
+          y: 400,
+          attrs: [
+            { n: "cf_servicelocationid", t: "uuid", r: "pk" },
+            { n: "cf_name", t: "text", r: "" },
+            { n: "cf_account", t: "uuid", r: "fk" },
+            { n: "cf_serviceterritory", t: "uuid", r: "fk" },
+            { n: "cf_city", t: "text", r: "" },
+            { n: "cf_state", t: "text", r: "" },
+            { n: "cf_zippostalcode", t: "text", r: "" },
+            { n: "is_deleted", t: "boolean", r: "sys" },
+          ],
+        },
+        {
+          id: "bookingstatus",
+          label: "bookingstatus",
+          schema: "crm",
+          desc: "Lookup: booking status codes with field-service semantics & color",
+          x: 30,
+          y: 740,
+          attrs: [
+            { n: "bookingstatusid", t: "uuid", r: "pk" },
+            { n: "name", t: "text", r: "" },
+            { n: "msdyn_fieldservicestatus", t: "integer", r: "calc" },
+            { n: "msdyn_statuscolor", t: "varchar", r: "" },
+            { n: "msdyn_statuscompletesworkorder", t: "boolean", r: "calc" },
+            { n: "is_deleted", t: "boolean", r: "sys" },
+          ],
+        },
+        {
+          id: "cf_workordercustomerequipment",
+          label: "cf_workordercustomerequipment",
+          schema: "crm",
+          desc: "Custom: equipment / instrument serviced or calibrated on a work order",
+          x: 306,
+          y: 740,
+          attrs: [
+            { n: "cf_workordercustomerequipmentid", t: "uuid", r: "pk" },
+            { n: "cf_name", t: "text", r: "" },
+            { n: "workorderid", t: "uuid", r: "fk" },
+            { n: "accountid", t: "uuid", r: "fk" },
+            { n: "cf_serialnumber", t: "text", r: "" },
+            { n: "cf_calibrationdate", t: "timestamp", r: "" },
+            { n: "cf_calibrationstatus", t: "integer", r: "calc" },
+            { n: "cf_nextcalibrationdate", t: "timestamp", r: "" },
+            { n: "is_deleted", t: "boolean", r: "sys" },
+          ],
+        },
+        {
+          id: "cf_company",
+          label: "cf_company",
+          schema: "crm",
+          desc: "Custom: hierarchical company / org-structure node (business unit grouping)",
+          x: 858,
+          y: 740,
+          attrs: [
+            { n: "cf_companyid", t: "uuid", r: "pk" },
+            { n: "cf_name", t: "text", r: "" },
+            { n: "cf_areaid", t: "text", r: "" },
+            { n: "cf_parentcompanystructure", t: "uuid", r: "fk" },
+            { n: "is_deleted", t: "boolean", r: "sys" },
+          ],
+        },
+        {
+          id: "bookingstatus2",
+          label: "bookingstatus (ref)",
+          schema: "crm-ref",
+          hidden: true,
+          x: 0,
+          y: 0,
+          attrs: [],
+        },
 
-// ── Entity definitions ────────────────────────────────────────────────────────
-// role: pk | fk | calc | sys | ''
-const entities = [
-  // ── CRM Mirror ──────────────────────────────────────────────────────────────
-  {
-    id: 'systemuser', label: 'systemuser', schema: 'crm',
-    desc: 'D365 user account (Active Directory / Entra ID identity)',
-    x: 30, y: 80,
-    attrs: [
-      { n: 'systemuserid', t: 'uuid', r: 'pk' },
-      { n: 'fullname', t: 'text', r: '' },
-      { n: 'internalemailaddress', t: 'text', r: '' },
-      { n: 'domainname', t: 'text', r: '' },
-      { n: 'isdisabled', t: 'boolean', r: 'calc' },
-      { n: 'azureactivedirectoryobjectid', t: 'uuid', r: '' },
-      { n: 'is_deleted', t: 'boolean', r: 'sys' },
-      { n: 'raw_json', t: 'jsonb', r: 'sys' },
-    ]
-  },
-  {
-    id: 'bookableresource', label: 'bookableresource', schema: 'crm',
-    desc: 'Schedulable field technician or resource (links user → territory)',
-    x: 306, y: 80,
-    attrs: [
-      { n: 'bookableresourceid', t: 'uuid', r: 'pk' },
-      { n: 'name', t: 'text', r: '' },
-      { n: 'userid', t: 'uuid', r: 'fk' },
-      { n: 'useridname', t: 'text', r: '' },
-      { n: 'msdyn_primaryemail', t: 'text', r: '' },
-      { n: 'resourcetype', t: 'integer', r: 'calc' },
-      { n: 'statecode', t: 'integer', r: 'calc' },
-      { n: 'is_deleted', t: 'boolean', r: 'sys' },
-      { n: 'raw_json', t: 'jsonb', r: 'sys' },
-    ]
-  },
-  {
-    id: 'msdyn_resourceterritory', label: 'msdyn_resourceterritory', schema: 'crm',
-    desc: 'Junction: maps a bookable resource to a service territory',
-    x: 582, y: 80,
-    attrs: [
-      { n: 'msdyn_resourceterritoryid', t: 'uuid', r: 'pk' },
-      { n: 'msdyn_resource', t: 'uuid', r: 'fk' },
-      { n: 'msdyn_territory', t: 'uuid', r: 'fk' },
-      { n: 'is_deleted', t: 'boolean', r: 'sys' },
-    ]
-  },
-  {
-    id: 'territory', label: 'territory', schema: 'crm',
-    desc: 'Geographic service territory / region used to group technicians',
-    x: 858, y: 80,
-    attrs: [
-      { n: 'territoryid', t: 'uuid', r: 'pk' },
-      { n: 'name', t: 'text', r: '' },
-      { n: 'country', t: 'text', r: '' },
-      { n: 'state_province', t: 'text', r: '' },
-      { n: 'parent_territory_id', t: 'uuid', r: 'fk' },
-      { n: 'is_deleted', t: 'boolean', r: 'sys' },
-    ]
-  },
-  {
-    id: 'booking', label: 'booking', schema: 'crm',
-    desc: 'Bookable resource booking — one technician assigned to a work order slot',
-    x: 30, y: 400,
-    attrs: [
-      { n: 'bookableresourcebookingid', t: 'uuid', r: 'pk' },
-      { n: 'resource', t: 'uuid', r: 'fk' },
-      { n: 'msdyn_workorder', t: 'uuid', r: 'fk' },
-      { n: 'bookingstatus', t: 'uuid', r: 'fk' },
-      { n: 'starttime', t: 'timestamp', r: '' },
-      { n: 'endtime', t: 'timestamp', r: '' },
-      { n: 'duration', t: 'numeric', r: 'calc' },
-      { n: 'cf_fieldnotes', t: 'text', r: '' },
-      { n: 'is_deleted', t: 'boolean', r: 'sys' },
-      { n: 'raw_json', t: 'jsonb', r: 'sys' },
-    ]
-  },
-  {
-    id: 'workorder', label: 'workorder', schema: 'crm',
-    desc: 'Field service work order — the primary unit of scheduled service work',
-    x: 306, y: 400,
-    attrs: [
-      { n: 'msdyn_workorderid', t: 'uuid', r: 'pk' },
-      { n: 'msdyn_name', t: 'text', r: '' },
-      { n: 'msdyn_systemstatus', t: 'integer', r: 'calc' },
-      { n: 'msdyn_serviceaccount', t: 'uuid', r: 'fk' },
-      { n: 'msdyn_serviceterritory', t: 'uuid', r: 'fk' },
-      { n: 'cf_servicelocation', t: 'uuid', r: 'fk' },
-      { n: 'msdyn_city', t: 'text', r: '' },
-      { n: 'msdyn_stateorprovince', t: 'text', r: '' },
-      { n: 'new_customerrequirement', t: 'text', r: '' },
-      { n: 'cf_approveworkorder', t: 'boolean', r: 'calc' },
-      { n: 'is_deleted', t: 'boolean', r: 'sys' },
-      { n: 'raw_json', t: 'jsonb', r: 'sys' },
-    ]
-  },
-  {
-    id: 'account', label: 'account', schema: 'crm',
-    desc: 'Customer / service account (company being serviced)',
-    x: 582, y: 400,
-    attrs: [
-      { n: 'accountid', t: 'uuid', r: 'pk' },
-      { n: 'name', t: 'text', r: '' },
-      { n: 'accountnumber', t: 'text', r: '' },
-      { n: 'telephone1', t: 'text', r: '' },
-      { n: 'emailaddress1', t: 'text', r: '' },
-      { n: 'address1_city', t: 'text', r: '' },
-      { n: 'primarycontactid', t: 'uuid', r: 'fk' },
-      { n: 'is_deleted', t: 'boolean', r: 'sys' },
-    ]
-  },
-  {
-    id: 'contact', label: 'contact', schema: 'crm',
-    desc: 'Contact person at the customer account',
-    x: 858, y: 400,
-    attrs: [
-      { n: 'contactid', t: 'uuid', r: 'pk' },
-      { n: 'fullname', t: 'text', r: '' },
-      { n: 'emailaddress1', t: 'text', r: '' },
-      { n: 'mobilephone', t: 'text', r: '' },
-      { n: 'parentcustomerid', t: 'uuid', r: 'fk' },
-      { n: 'is_deleted', t: 'boolean', r: 'sys' },
-    ]
-  },
-  {
-    id: 'cf_servicelocation', label: 'cf_servicelocation', schema: 'crm',
-    desc: 'Custom: physical site where field service work is performed',
-    x: 1134, y: 400,
-    attrs: [
-      { n: 'cf_servicelocationid', t: 'uuid', r: 'pk' },
-      { n: 'cf_name', t: 'text', r: '' },
-      { n: 'cf_account', t: 'uuid', r: 'fk' },
-      { n: 'cf_serviceterritory', t: 'uuid', r: 'fk' },
-      { n: 'cf_city', t: 'text', r: '' },
-      { n: 'cf_state', t: 'text', r: '' },
-      { n: 'cf_zippostalcode', t: 'text', r: '' },
-      { n: 'is_deleted', t: 'boolean', r: 'sys' },
-    ]
-  },
-  {
-    id: 'bookingstatus', label: 'bookingstatus', schema: 'crm',
-    desc: 'Lookup: booking status codes with field-service semantics & color',
-    x: 30, y: 740,
-    attrs: [
-      { n: 'bookingstatusid', t: 'uuid', r: 'pk' },
-      { n: 'name', t: 'text', r: '' },
-      { n: 'msdyn_fieldservicestatus', t: 'integer', r: 'calc' },
-      { n: 'msdyn_statuscolor', t: 'varchar', r: '' },
-      { n: 'msdyn_statuscompletesworkorder', t: 'boolean', r: 'calc' },
-      { n: 'is_deleted', t: 'boolean', r: 'sys' },
-    ]
-  },
-  {
-    id: 'cf_workordercustomerequipment', label: 'cf_workordercustomerequipment', schema: 'crm',
-    desc: 'Custom: equipment / instrument serviced or calibrated on a work order',
-    x: 306, y: 740,
-    attrs: [
-      { n: 'cf_workordercustomerequipmentid', t: 'uuid', r: 'pk' },
-      { n: 'cf_name', t: 'text', r: '' },
-      { n: 'workorderid', t: 'uuid', r: 'fk' },
-      { n: 'accountid', t: 'uuid', r: 'fk' },
-      { n: 'cf_serialnumber', t: 'text', r: '' },
-      { n: 'cf_calibrationdate', t: 'timestamp', r: '' },
-      { n: 'cf_calibrationstatus', t: 'integer', r: 'calc' },
-      { n: 'cf_nextcalibrationdate', t: 'timestamp', r: '' },
-      { n: 'is_deleted', t: 'boolean', r: 'sys' },
-    ]
-  },
-  {
-    id: 'cf_company', label: 'cf_company', schema: 'crm',
-    desc: 'Custom: hierarchical company / org-structure node (business unit grouping)',
-    x: 858, y: 740,
-    attrs: [
-      { n: 'cf_companyid', t: 'uuid', r: 'pk' },
-      { n: 'cf_name', t: 'text', r: '' },
-      { n: 'cf_areaid', t: 'text', r: '' },
-      { n: 'cf_parentcompanystructure', t: 'uuid', r: 'fk' },
-      { n: 'is_deleted', t: 'boolean', r: 'sys' },
-    ]
-  },
-  {
-    id: 'bookingstatus2', label: 'bookingstatus (ref)', schema: 'crm-ref',
-    hidden: true, x: 0, y: 0, attrs: []
-  },
+        // ── App DB ──────────────────────────────────────────────────────────────────
+        {
+          id: "booking_writebacks",
+          label: "booking_writebacks",
+          schema: "public",
+          desc: "Staging queue: reschedule / reassignment write-backs to Dataverse (optimistic overlay)",
+          x: 30,
+          y: 1040,
+          attrs: [
+            { n: "id", t: "integer", r: "pk" },
+            { n: "booking_id", t: "varchar", r: "fk" },
+            { n: "work_order_id", t: "varchar", r: "" },
+            { n: "start_time", t: "timestamptz", r: "" },
+            { n: "end_time", t: "timestamptz", r: "" },
+            { n: "technician_id", t: "varchar", r: "fk" },
+            { n: "status", t: "varchar", r: "calc" },
+            { n: "synced_at", t: "timestamptz", r: "" },
+            { n: "error", t: "text", r: "" },
+          ],
+        },
+        {
+          id: "app_user",
+          label: "app_user",
+          schema: "app",
+          desc: "Application user account — Azure Entra ID identity with local role assignment",
+          x: 306,
+          y: 1040,
+          attrs: [
+            { n: "entra_oid", t: "text", r: "pk" },
+            { n: "email", t: "text", r: "" },
+            { n: "display_name", t: "text", r: "" },
+            { n: "role", t: "text", r: "calc" },
+            { n: "is_active", t: "boolean", r: "" },
+          ],
+        },
+        {
+          id: "users",
+          label: "users",
+          schema: "public",
+          desc: "OAuth / SSO user profile (Clerk / Replit Auth integration)",
+          x: 582,
+          y: 1040,
+          attrs: [
+            { n: "id", t: "varchar", r: "pk" },
+            { n: "email", t: "varchar", r: "" },
+            { n: "first_name", t: "varchar", r: "" },
+            { n: "last_name", t: "varchar", r: "" },
+            { n: "profile_image_url", t: "varchar", r: "" },
+          ],
+        },
+        {
+          id: "sessions",
+          label: "sessions",
+          schema: "public",
+          desc: "Express session store — login sessions persisted via connect-pg-simple",
+          x: 858,
+          y: 1040,
+          attrs: [
+            { n: "sid", t: "varchar", r: "pk" },
+            { n: "sess", t: "jsonb", r: "" },
+            { n: "expire", t: "timestamp", r: "" },
+          ],
+        },
+      ];
 
-  // ── App DB ──────────────────────────────────────────────────────────────────
-  {
-    id: 'booking_writebacks', label: 'booking_writebacks', schema: 'public',
-    desc: 'Staging queue: reschedule / reassignment write-backs to Dataverse (optimistic overlay)',
-    x: 30, y: 1040,
-    attrs: [
-      { n: 'id', t: 'integer', r: 'pk' },
-      { n: 'booking_id', t: 'varchar', r: 'fk' },
-      { n: 'work_order_id', t: 'varchar', r: '' },
-      { n: 'start_time', t: 'timestamptz', r: '' },
-      { n: 'end_time', t: 'timestamptz', r: '' },
-      { n: 'technician_id', t: 'varchar', r: 'fk' },
-      { n: 'status', t: 'varchar', r: 'calc' },
-      { n: 'synced_at', t: 'timestamptz', r: '' },
-      { n: 'error', t: 'text', r: '' },
-    ]
-  },
-  {
-    id: 'app_user', label: 'app_user', schema: 'app',
-    desc: 'Application user account — Azure Entra ID identity with local role assignment',
-    x: 306, y: 1040,
-    attrs: [
-      { n: 'entra_oid', t: 'text', r: 'pk' },
-      { n: 'email', t: 'text', r: '' },
-      { n: 'display_name', t: 'text', r: '' },
-      { n: 'role', t: 'text', r: 'calc' },
-      { n: 'is_active', t: 'boolean', r: '' },
-    ]
-  },
-  {
-    id: 'users', label: 'users', schema: 'public',
-    desc: 'OAuth / SSO user profile (Clerk / Replit Auth integration)',
-    x: 582, y: 1040,
-    attrs: [
-      { n: 'id', t: 'varchar', r: 'pk' },
-      { n: 'email', t: 'varchar', r: '' },
-      { n: 'first_name', t: 'varchar', r: '' },
-      { n: 'last_name', t: 'varchar', r: '' },
-      { n: 'profile_image_url', t: 'varchar', r: '' },
-    ]
-  },
-  {
-    id: 'sessions', label: 'sessions', schema: 'public',
-    desc: 'Express session store — login sessions persisted via connect-pg-simple',
-    x: 858, y: 1040,
-    attrs: [
-      { n: 'sid', t: 'varchar', r: 'pk' },
-      { n: 'sess', t: 'jsonb', r: '' },
-      { n: 'expire', t: 'timestamp', r: '' },
-    ]
-  },
-];
+      // ── Relationships ─────────────────────────────────────────────────────────────
+      // Each entry: [fromId, toId, label, dashed?]
+      const relations = [
+        ["bookableresource", "systemuser", "userid →", false],
+        [
+          "msdyn_resourceterritory",
+          "bookableresource",
+          "msdyn_resource →",
+          false,
+        ],
+        ["msdyn_resourceterritory", "territory", "msdyn_territory →", false],
+        ["booking", "bookableresource", "resource →", false],
+        ["booking", "workorder", "msdyn_workorder →", false],
+        ["booking", "bookingstatus", "bookingstatus →", false],
+        ["workorder", "account", "serviceaccount →", false],
+        ["workorder", "territory", "serviceterritory →", false],
+        ["workorder", "cf_servicelocation", "cf_servicelocation →", false],
+        ["contact", "account", "parentcustomerid →", false],
+        ["cf_servicelocation", "account", "cf_account →", false],
+        ["cf_servicelocation", "territory", "cf_serviceterritory →", false],
+        ["cf_workordercustomerequipment", "workorder", "workorderid →", false],
+        ["cf_workordercustomerequipment", "account", "accountid →", false],
+        // Cross-DB (dashed)
+        ["booking_writebacks", "booking", "booking_id → (cross-db)", true],
+        [
+          "booking_writebacks",
+          "bookableresource",
+          "technician_id → (cross-db)",
+          true,
+        ],
+      ];
 
-// ── Relationships ─────────────────────────────────────────────────────────────
-// Each entry: [fromId, toId, label, dashed?]
-const relations = [
-  ['bookableresource', 'systemuser', 'userid →', false],
-  ['msdyn_resourceterritory', 'bookableresource', 'msdyn_resource →', false],
-  ['msdyn_resourceterritory', 'territory', 'msdyn_territory →', false],
-  ['booking', 'bookableresource', 'resource →', false],
-  ['booking', 'workorder', 'msdyn_workorder →', false],
-  ['booking', 'bookingstatus', 'bookingstatus →', false],
-  ['workorder', 'account', 'serviceaccount →', false],
-  ['workorder', 'territory', 'serviceterritory →', false],
-  ['workorder', 'cf_servicelocation', 'cf_servicelocation →', false],
-  ['contact', 'account', 'parentcustomerid →', false],
-  ['cf_servicelocation', 'account', 'cf_account →', false],
-  ['cf_servicelocation', 'territory', 'cf_serviceterritory →', false],
-  ['cf_workordercustomerequipment', 'workorder', 'workorderid →', false],
-  ['cf_workordercustomerequipment', 'account', 'accountid →', false],
-  // Cross-DB (dashed)
-  ['booking_writebacks', 'booking', 'booking_id → (cross-db)', true],
-  ['booking_writebacks', 'bookableresource', 'technician_id → (cross-db)', true],
-];
+      // ── SVG helpers ───────────────────────────────────────────────────────────────
+      function eH(e) {
+        return HEADER_H + e.attrs.length * ROW_H + 6;
+      }
 
-// ── SVG helpers ───────────────────────────────────────────────────────────────
-function eH(e) { return HEADER_H + e.attrs.length * ROW_H + 6; }
+      const eMap = {};
+      for (const e of entities) eMap[e.id] = e;
 
-const eMap = {};
-for (const e of entities) eMap[e.id] = e;
+      function center(e) {
+        return { x: e.x + BW / 2, y: e.y + eH(e) / 2 };
+      }
 
-function center(e) { return { x: e.x + BW / 2, y: e.y + eH(e) / 2 }; }
+      function edgePt(e, side) {
+        const h = eH(e);
+        switch (side) {
+          case "l":
+            return [e.x, e.y + h / 2];
+          case "r":
+            return [e.x + BW, e.y + h / 2];
+          case "t":
+            return [e.x + BW / 2, e.y];
+          case "b":
+            return [e.x + BW / 2, e.y + h];
+        }
+      }
 
-function edgePt(e, side) {
-  const h = eH(e);
-  switch (side) {
-    case 'l': return [e.x, e.y + h / 2];
-    case 'r': return [e.x + BW, e.y + h / 2];
-    case 't': return [e.x + BW / 2, e.y];
-    case 'b': return [e.x + BW / 2, e.y + h];
-  }
-}
+      function bestSides(a, b) {
+        const ac = center(a),
+          bc = center(b);
+        const dx = bc.x - ac.x,
+          dy = bc.y - ac.y;
+        if (Math.abs(dx) >= Math.abs(dy))
+          return dx > 0 ? ["r", "l"] : ["l", "r"];
+        return dy > 0 ? ["b", "t"] : ["t", "b"];
+      }
 
-function bestSides(a, b) {
-  const ac = center(a), bc = center(b);
-  const dx = bc.x - ac.x, dy = bc.y - ac.y;
-  if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? ['r', 'l'] : ['l', 'r'];
-  return dy > 0 ? ['b', 't'] : ['t', 'b'];
-}
+      function elbowPath(x1, y1, x2, y2) {
+        const dx = Math.abs(x2 - x1),
+          dy = Math.abs(y2 - y1);
+        if (dy < 4) return `M${x1},${y1} L${x2},${y2}`;
+        if (dx < 4) return `M${x1},${y1} L${x2},${y2}`;
+        if (dx > dy) {
+          const mx = (x1 + x2) / 2;
+          return `M${x1},${y1} L${mx},${y1} L${mx},${y2} L${x2},${y2}`;
+        } else {
+          const my = (y1 + y2) / 2;
+          return `M${x1},${y1} L${x1},${my} L${x2},${my} L${x2},${y2}`;
+        }
+      }
 
-function elbowPath(x1, y1, x2, y2) {
-  const dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
-  if (dy < 4) return `M${x1},${y1} L${x2},${y2}`;
-  if (dx < 4) return `M${x1},${y1} L${x2},${y2}`;
-  if (dx > dy) {
-    const mx = (x1 + x2) / 2;
-    return `M${x1},${y1} L${mx},${y1} L${mx},${y2} L${x2},${y2}`;
-  } else {
-    const my = (y1 + y2) / 2;
-    return `M${x1},${y1} L${x1},${my} L${x2},${my} L${x2},${y2}`;
-  }
-}
+      function esc(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
 
-function esc(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+      // ── Build SVG ─────────────────────────────────────────────────────────────────
+      function buildSVG() {
+        const W = 1440,
+          H = 1350;
 
-// ── Build SVG ─────────────────────────────────────────────────────────────────
-function buildSVG() {
-  const W = 1440, H = 1350;
+        let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">`;
 
-  let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">`;
-
-  // Arrowhead markers
-  out += `<defs>
+        // Arrowhead markers
+        out += `<defs>
     <marker id="ah" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
       <path d="M0,0 L0,7 L7,3.5z" fill="#94a3b8"/>
     </marker>
@@ -377,112 +607,154 @@ function buildSVG() {
     </filter>
   </defs>`;
 
-  // Section backgrounds
-  // CRM section
-  out += `<rect x="12" y="44" width="${W - 24}" height="955" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>`;
-  out += `<text x="22" y="38" font-size="11" font-weight="600" fill="#1d4ed8">CRM Mirror DB — schema: crm  (Dynamics 365 replica, read-only)</text>`;
+        // Section backgrounds
+        // CRM section
+        out += `<rect x="12" y="44" width="${W - 24}" height="955" rx="10" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>`;
+        out += `<text x="22" y="38" font-size="11" font-weight="600" fill="#1d4ed8">CRM Mirror DB — schema: crm  (Dynamics 365 replica, read-only)</text>`;
 
-  // App DB section
-  out += `<rect x="12" y="1016" width="${W - 24}" height="320" rx="10" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1.5"/>`;
-  out += `<text x="22" y="1012" font-size="11" font-weight="600" fill="#065f46">App Database — schemas: public / app  (local application data, read-write)</text>`;
+        // App DB section
+        out += `<rect x="12" y="1016" width="${W - 24}" height="320" rx="10" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1.5"/>`;
+        out += `<text x="22" y="1012" font-size="11" font-weight="600" fill="#065f46">App Database — schemas: public / app  (local application data, read-write)</text>`;
 
-  // ── Draw relationship paths (behind boxes) ────────────────────────────────
-  for (const [fromId, toId, label, dashed] of relations) {
-    const a = eMap[fromId], b = eMap[toId];
-    if (!a || !b || a.hidden || b.hidden) continue;
-    const [fs, ts] = bestSides(a, b);
-    const [x1, y1] = edgePt(a, fs);
-    const [x2, y2] = edgePt(b, ts);
-    const d = elbowPath(x1, y1, x2, y2);
-    const stroke = dashed ? '#d97706' : '#94a3b8';
-    const dashAttr = dashed ? ' stroke-dasharray="7,4"' : '';
-    const markerId = dashed ? 'ahd' : 'ah';
-    out += `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="1.5"${dashAttr} marker-end="url(#${markerId})" opacity="0.9"/>`;
-  }
+        // ── Draw relationship paths (behind boxes) ────────────────────────────────
+        for (const [fromId, toId, label, dashed] of relations) {
+          const a = eMap[fromId],
+            b = eMap[toId];
+          if (!a || !b || a.hidden || b.hidden) continue;
+          const [fs, ts] = bestSides(a, b);
+          const [x1, y1] = edgePt(a, fs);
+          const [x2, y2] = edgePt(b, ts);
+          const d = elbowPath(x1, y1, x2, y2);
+          const stroke = dashed ? "#d97706" : "#94a3b8";
+          const dashAttr = dashed ? ' stroke-dasharray="7,4"' : "";
+          const markerId = dashed ? "ahd" : "ah";
+          out += `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="1.5"${dashAttr} marker-end="url(#${markerId})" opacity="0.9"/>`;
+        }
 
-  // ── Draw entity boxes ─────────────────────────────────────────────────────
-  for (const e of entities) {
-    if (e.hidden) continue;
-    const h = eH(e);
-    const isCRM = e.schema === 'crm';
-    const hdrBg = isCRM ? '#2563eb' : (e.schema === 'app' ? '#0d9488' : '#059669');
-    const borderCol = isCRM ? '#93c5fd' : '#6ee7b7';
+        // ── Draw entity boxes ─────────────────────────────────────────────────────
+        for (const e of entities) {
+          if (e.hidden) continue;
+          const h = eH(e);
+          const isCRM = e.schema === "crm";
+          const hdrBg = isCRM
+            ? "#2563eb"
+            : e.schema === "app"
+              ? "#0d9488"
+              : "#059669";
+          const borderCol = isCRM ? "#93c5fd" : "#6ee7b7";
 
-    // Drop shadow rect
-    out += `<rect x="${e.x + 3}" y="${e.y + 3}" width="${BW}" height="${h}" rx="6" fill="rgba(0,0,0,0.07)"/>`;
-    // Main box
-    out += `<rect x="${e.x}" y="${e.y}" width="${BW}" height="${h}" rx="6" fill="white" stroke="${borderCol}" stroke-width="1.5" filter="url(#shadow)"/>`;
-    // Header bg
-    out += `<rect x="${e.x}" y="${e.y}" width="${BW}" height="${HEADER_H}" rx="6" fill="${hdrBg}"/>`;
-    // Header bottom fill (square bottom corners on header)
-    out += `<rect x="${e.x}" y="${e.y + HEADER_H - 6}" width="${BW}" height="6" fill="${hdrBg}"/>`;
-    // Header text — table name
-    const hdrLabel = e.label.length > 28 ? e.label.slice(0, 26) + '…' : e.label;
-    out += `<text x="${e.x + PAD}" y="${e.y + 22}" font-size="11.5" font-weight="700" fill="white">${esc(hdrLabel)}</text>`;
-    // Schema badge
-    const badgeX = e.x + BW - PAD - (e.schema.length * 6.2 + 8);
-    out += `<rect x="${badgeX - 2}" y="${e.y + 10}" width="${e.schema.length * 6.2 + 12}" height="14" rx="3" fill="rgba(255,255,255,0.2)"/>`;
-    out += `<text x="${badgeX + 3}" y="${e.y + 21}" font-size="9" fill="rgba(255,255,255,0.9)">${esc(e.schema)}</text>`;
+          // Drop shadow rect
+          out += `<rect x="${e.x + 3}" y="${e.y + 3}" width="${BW}" height="${h}" rx="6" fill="rgba(0,0,0,0.07)"/>`;
+          // Main box
+          out += `<rect x="${e.x}" y="${e.y}" width="${BW}" height="${h}" rx="6" fill="white" stroke="${borderCol}" stroke-width="1.5" filter="url(#shadow)"/>`;
+          // Header bg
+          out += `<rect x="${e.x}" y="${e.y}" width="${BW}" height="${HEADER_H}" rx="6" fill="${hdrBg}"/>`;
+          // Header bottom fill (square bottom corners on header)
+          out += `<rect x="${e.x}" y="${e.y + HEADER_H - 6}" width="${BW}" height="6" fill="${hdrBg}"/>`;
+          // Header text — table name
+          const hdrLabel =
+            e.label.length > 28 ? e.label.slice(0, 26) + "…" : e.label;
+          out += `<text x="${e.x + PAD}" y="${e.y + 22}" font-size="11.5" font-weight="700" fill="white">${esc(hdrLabel)}</text>`;
+          // Schema badge
+          const badgeX = e.x + BW - PAD - (e.schema.length * 6.2 + 8);
+          out += `<rect x="${badgeX - 2}" y="${e.y + 10}" width="${e.schema.length * 6.2 + 12}" height="14" rx="3" fill="rgba(255,255,255,0.2)"/>`;
+          out += `<text x="${badgeX + 3}" y="${e.y + 21}" font-size="9" fill="rgba(255,255,255,0.9)">${esc(e.schema)}</text>`;
 
-    // Attribute rows
-    for (let i = 0; i < e.attrs.length; i++) {
-      const a = e.attrs[i];
-      const ry = e.y + HEADER_H + i * ROW_H;
-      // Alternating row bg
-      if (i % 2 === 1) out += `<rect x="${e.x + 1}" y="${ry}" width="${BW - 2}" height="${ROW_H}" fill="#f8fafc"/>`;
+          // Attribute rows
+          for (let i = 0; i < e.attrs.length; i++) {
+            const a = e.attrs[i];
+            const ry = e.y + HEADER_H + i * ROW_H;
+            // Alternating row bg
+            if (i % 2 === 1)
+              out += `<rect x="${e.x + 1}" y="${ry}" width="${BW - 2}" height="${ROW_H}" fill="#f8fafc"/>`;
 
-      let fill = '#334155';
-      let style = '';
-      let prefix = '';
-      if (a.r === 'pk') { fill = '#1d4ed8'; style = ' font-weight="700"'; prefix = '⬡ '; }
-      else if (a.r === 'fk') { fill = '#7c3aed'; style = ' font-style="italic"'; prefix = '→ '; }
-      else if (a.r === 'calc') { fill = '#0f766e'; prefix = '~ '; }
-      else if (a.r === 'sys') { fill = '#94a3b8'; style = ' font-style="italic"'; }
+            let fill = "#334155";
+            let style = "";
+            let prefix = "";
+            if (a.r === "pk") {
+              fill = "#1d4ed8";
+              style = ' font-weight="700"';
+              prefix = "⬡ ";
+            } else if (a.r === "fk") {
+              fill = "#7c3aed";
+              style = ' font-style="italic"';
+              prefix = "→ ";
+            } else if (a.r === "calc") {
+              fill = "#0f766e";
+              prefix = "~ ";
+            } else if (a.r === "sys") {
+              fill = "#94a3b8";
+              style = ' font-style="italic"';
+            }
 
-      const nameStr = prefix + a.n;
-      const maxLen = 26;
-      const displayName = nameStr.length > maxLen ? nameStr.slice(0, maxLen - 1) + '…' : nameStr;
+            const nameStr = prefix + a.n;
+            const maxLen = 26;
+            const displayName =
+              nameStr.length > maxLen
+                ? nameStr.slice(0, maxLen - 1) + "…"
+                : nameStr;
 
-      out += `<text x="${e.x + PAD}" y="${ry + ROW_H - 6}" font-size="10.5"${style} fill="${fill}">${esc(displayName)}</text>`;
-      out += `<text x="${e.x + BW - PAD}" y="${ry + ROW_H - 6}" font-size="9.5" fill="#9ca3af" text-anchor="end">${esc(a.t)}</text>`;
+            out += `<text x="${e.x + PAD}" y="${ry + ROW_H - 6}" font-size="10.5"${style} fill="${fill}">${esc(displayName)}</text>`;
+            out += `<text x="${e.x + BW - PAD}" y="${ry + ROW_H - 6}" font-size="9.5" fill="#9ca3af" text-anchor="end">${esc(a.t)}</text>`;
 
-      // Divider
-      if (i < e.attrs.length - 1) {
-        out += `<line x1="${e.x + 1}" y1="${ry + ROW_H}" x2="${e.x + BW - 1}" y2="${ry + ROW_H}" stroke="#e2e8f0" stroke-width="0.8"/>`;
+            // Divider
+            if (i < e.attrs.length - 1) {
+              out += `<line x1="${e.x + 1}" y1="${ry + ROW_H}" x2="${e.x + BW - 1}" y2="${ry + ROW_H}" stroke="#e2e8f0" stroke-width="0.8"/>`;
+            }
+          }
+
+          // Tooltip description (title element)
+          out += `<title>${esc(e.label)}: ${esc(e.desc)}</title>`;
+        }
+
+        out += "</svg>";
+        return out;
       }
-    }
 
-    // Tooltip description (title element)
-    out += `<title>${esc(e.label)}: ${esc(e.desc)}</title>`;
-  }
+      // Render
+      document.getElementById("diagramInner").innerHTML = buildSVG();
 
-  out += '</svg>';
-  return out;
-}
+      // Zoom controls
+      let scale = 1;
+      const inner = document.getElementById("diagramInner");
+      function applyZoom() {
+        inner.style.transform = `scale(${scale})`;
+      }
+      document.getElementById("zoomIn").addEventListener("click", () => {
+        scale = Math.min(scale + 0.15, 2.5);
+        applyZoom();
+      });
+      document.getElementById("zoomOut").addEventListener("click", () => {
+        scale = Math.max(scale - 0.15, 0.3);
+        applyZoom();
+      });
+      document.getElementById("zoomReset").addEventListener("click", () => {
+        scale = 1;
+        applyZoom();
+      });
 
-// Render
-document.getElementById('diagramInner').innerHTML = buildSVG();
-
-// Zoom controls
-let scale = 1;
-const inner = document.getElementById('diagramInner');
-function applyZoom() { inner.style.transform = `scale(${scale})`; }
-document.getElementById('zoomIn').addEventListener('click', () => { scale = Math.min(scale + 0.15, 2.5); applyZoom(); });
-document.getElementById('zoomOut').addEventListener('click', () => { scale = Math.max(scale - 0.15, 0.3); applyZoom(); });
-document.getElementById('zoomReset').addEventListener('click', () => { scale = 1; applyZoom(); });
-
-// Pan
-const wrap = document.getElementById('diagramWrap');
-let isPanning = false, startX, startY, scrollLeft, scrollTop;
-wrap.addEventListener('mousedown', e => { isPanning = true; startX = e.pageX - wrap.offsetLeft; startY = e.pageY - wrap.offsetTop; scrollLeft = wrap.scrollLeft; scrollTop = wrap.scrollTop; });
-wrap.addEventListener('mouseleave', () => isPanning = false);
-wrap.addEventListener('mouseup', () => isPanning = false);
-wrap.addEventListener('mousemove', e => {
-  if (!isPanning) return;
-  e.preventDefault();
-  wrap.scrollLeft = scrollLeft - (e.pageX - wrap.offsetLeft - startX);
-  wrap.scrollTop = scrollTop - (e.pageY - wrap.offsetTop - startY);
-});
-</script>
-</body>
+      // Pan
+      const wrap = document.getElementById("diagramWrap");
+      let isPanning = false,
+        startX,
+        startY,
+        scrollLeft,
+        scrollTop;
+      wrap.addEventListener("mousedown", (e) => {
+        isPanning = true;
+        startX = e.pageX - wrap.offsetLeft;
+        startY = e.pageY - wrap.offsetTop;
+        scrollLeft = wrap.scrollLeft;
+        scrollTop = wrap.scrollTop;
+      });
+      wrap.addEventListener("mouseleave", () => (isPanning = false));
+      wrap.addEventListener("mouseup", () => (isPanning = false));
+      wrap.addEventListener("mousemove", (e) => {
+        if (!isPanning) return;
+        e.preventDefault();
+        wrap.scrollLeft = scrollLeft - (e.pageX - wrap.offsetLeft - startX);
+        wrap.scrollTop = scrollTop - (e.pageY - wrap.offsetTop - startY);
+      });
+    </script>
+  </body>
 </html>

@@ -577,10 +577,6 @@ function tsParts(v: Date | string | null | undefined): {
   return { date: iso.slice(0, 10), time: iso.slice(11, 19), iso };
 }
 
-function slugifyLocation(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-}
-
 router.get("/wb/schedule-board", async (req, res) => {
   const viewRaw = (req.query.view as string | undefined) ?? "week";
   const view: "week" | "month" = viewRaw === "month" ? "month" : "week";
@@ -633,14 +629,22 @@ router.get("/wb/schedule-board", async (req, res) => {
     const activeResourceIds = new Set(activeResResult.rows.map((r) => r.bookableresourceid));
 
     // ── Service-location mode ─────────────────────────────────────────────────
-    // Group by work order state/city rather than territory. Each technician can
-    // appear in multiple location groups (one per distinct location of their jobs).
-    // Idle-tech rows are omitted — location groups are derived from actual bookings.
+    // Group by the JOB's service territory (R1, R2, R3 …) — the same region labels
+    // as tech-region mode, but the territory is resolved from the work order's
+    // service location (cf_servicelocation.cf_serviceterritory) with fallback to
+    // the work order's own msdyn_serviceterritory.
+    //
+    // This lets a coordinator filter by region and see ALL jobs in their territory
+    // regardless of which technician's home region performed the work.
+    //
+    // Crucially, a single technician can appear in MULTIPLE territory groups: their
+    // swimlane appears under R1 for jobs located in R1, and separately under R2 for
+    // any jobs whose service location falls in R2.  Idle-tech rows are omitted —
+    // a job territory cannot be determined without an actual booking.
     if (groupBy === "service-location") {
       const locResult = await getCrmPool().query(
         `
         WITH active_res AS (
-          -- Only bookable resources linked to an enabled (active) system user.
           SELECT br.bookableresourceid
           FROM crm.bookableresource br
           JOIN crm.systemuser su ON su.systemuserid = br.userid
@@ -649,30 +653,41 @@ router.get("/wb/schedule-board", async (req, res) => {
             AND COALESCE(su.isdisabled, false) = false
         )
         SELECT
+          ter.territoryid::text    AS region_id,
+          ter.name                 AS region,
           b.bookableresourcebookingid AS booking_id,
-          b.resource                  AS resource_id,
-          b.starttime                 AS start_time,
-          b.endtime                   AS end_time,
+          b.resource               AS resource_id,
+          b.starttime              AS start_time,
+          b.endtime                AS end_time,
           b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue' AS booking_status,
-          wo.msdyn_workorderid::text  AS work_order_id,
-          wo.msdyn_name               AS work_order_number,
+          wo.msdyn_workorderid::text AS work_order_id,
+          wo.msdyn_name            AS work_order_number,
           COALESCE(
             wo.new_customerrequirement,
             wo.raw_json->>'_msdyn_workordertype_value@OData.Community.Display.V1.FormattedValue'
-          )                           AS title,
+          )                        AS title,
           wo.raw_json->>'msdyn_systemstatus@OData.Community.Display.V1.FormattedValue' AS system_status,
-          wo.msdyn_city               AS city,
-          wo.msdyn_stateorprovince    AS state,
+          wo.msdyn_city            AS city,
+          wo.msdyn_stateorprovince AS state,
           COALESCE(
             acc.name,
             wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue'
-          )                           AS customer_name,
+          )                        AS customer_name,
           COALESCE(br.name, b.raw_json->>'_resource_value@OData.Community.Display.V1.FormattedValue') AS resource_name,
-          br.msdyn_primaryemail       AS user_email,
+          br.msdyn_primaryemail    AS user_email,
           eq.equipment_names
         FROM crm.booking b
-        LEFT JOIN crm.workorder wo ON wo.msdyn_workorderid = b.msdyn_workorder
-        LEFT JOIN crm.account acc ON acc.accountid = wo.msdyn_serviceaccount
+        JOIN crm.workorder wo
+          ON wo.msdyn_workorderid = b.msdyn_workorder
+         AND COALESCE(wo.is_deleted, false) = false
+        -- Join service location to get its territory; LEFT so bookings without a
+        -- service location still participate (they fall back to wo.msdyn_serviceterritory).
+        LEFT JOIN crm.cf_servicelocation sl
+          ON sl.cf_servicelocationid = wo.cf_servicelocation
+         AND COALESCE(sl.is_deleted, false) = false
+        LEFT JOIN crm.account acc
+          ON acc.accountid = wo.msdyn_serviceaccount
+         AND COALESCE(acc.is_deleted, false) = false
         LEFT JOIN crm.bookableresource br
           ON br.bookableresourceid = b.resource
          AND COALESCE(br.is_deleted, false) = false
@@ -695,17 +710,31 @@ router.get("/wb/schedule-board", async (req, res) => {
             LIMIT 5
           ) woce
         ) eq ON true
+        -- Inner join on territory so bookings with no determinable region are excluded.
+        -- Territory resolution: service-location territory → work-order service territory.
+        JOIN crm.territory ter
+          ON ter.territoryid = COALESCE(sl.cf_serviceterritory, wo.msdyn_serviceterritory)
+         AND COALESCE(ter.is_deleted, false) = false
         WHERE b.starttime >= $1::date
           AND b.starttime <  $2::date
           AND COALESCE(b.is_deleted, false) = false
           AND b.resource IN (SELECT bookableresourceid FROM active_res)
-        ORDER BY
-          COALESCE(NULLIF(BTRIM(wo.msdyn_stateorprovince), ''), NULLIF(BTRIM(wo.msdyn_city), ''), 'Unknown Location') ASC,
-          resource_name ASC,
-          b.starttime ASC NULLS LAST
+        ORDER BY ter.name ASC, resource_name ASC, b.starttime ASC NULLS LAST
         `,
         [rangeStart, rangeEnd],
       );
+
+      // Build a name/email lookup so overlay reassignments can show the new tech's
+      // display name rather than the original tech's name.
+      const locTechNameMap = new Map<string, { resource_name: string | null; user_email: string | null }>();
+      for (const row of locResult.rows) {
+        if (row.resource_id && !locTechNameMap.has(row.resource_id as string)) {
+          locTechNameMap.set(row.resource_id as string, {
+            resource_name: row.resource_name as string | null,
+            user_email: row.user_email as string | null,
+          });
+        }
+      }
 
       // Collect queued write-back overlays for the returned booking ids
       const locBookingIds = locResult.rows
@@ -741,24 +770,24 @@ router.get("/wb/schedule-board", async (req, res) => {
       }
 
       type LocTechRow = { technician_id: string; resource_name: string | null; user_email: string | null; jobs: unknown[] };
+      // keyed by territory uuid
       type LocRegionRow = { regionid_id: string; region: string; company: null; technicians: Map<string, LocTechRow> };
 
-      // Key: locationId + "|" + technicianId so same tech in two locations gets two entries
       const locMap = new Map<string, LocRegionRow>();
       const rangeStartMs = start.getTime();
       const maxDayIndex = dayCount - 1;
 
       for (const row of locResult.rows) {
-        if (!row.booking_id || !row.start_time) continue;
+        if (!row.booking_id || !row.start_time || !row.region_id) continue;
 
         const overlay = locOverlayByBooking.get(row.booking_id as string);
         const effStart = overlay?.start_time ?? row.start_time;
         const effEnd = overlay?.end_time ?? row.end_time;
 
-        const stateVal = row.state != null && String(row.state).trim() !== "" ? String(row.state).trim() : null;
-        const cityVal = row.city != null && String(row.city).trim() !== "" ? String(row.city).trim() : null;
-        const locationLabel = stateVal ?? cityVal ?? "Unknown Location";
-        const locationId = slugifyLocation(locationLabel);
+        // Region key is the job's territory UUID — consistent with tech-region regionid_id
+        // so the same Filter Regions selection works for both modes.
+        const regionId = row.region_id as string;
+        const regionName = row.region as string;
 
         // Only honor an overlay reassignment to an active resource; otherwise keep
         // the booking on its original (already active-filtered) resource.
@@ -769,13 +798,17 @@ router.get("/wb/schedule-board", async (req, res) => {
         const techId = (overlayTechId ?? row.resource_id) as string | null;
         if (!techId) continue;
 
-        const techName = row.resource_name as string | null;
-        const userEmail = row.user_email as string | null;
+        // Resolve tech display name — use the overlay tech's info when reassigned.
+        const techLookup = locTechNameMap.get(techId);
+        const techName = techLookup?.resource_name ?? (row.resource_name as string | null);
+        const userEmail = techLookup?.user_email ?? (row.user_email as string | null);
 
-        if (!locMap.has(locationId)) {
-          locMap.set(locationId, { regionid_id: locationId, region: locationLabel, company: null, technicians: new Map() });
+        if (!locMap.has(regionId)) {
+          locMap.set(regionId, { regionid_id: regionId, region: regionName, company: null, technicians: new Map() });
         }
-        const loc = locMap.get(locationId)!;
+        const loc = locMap.get(regionId)!;
+        // The same tech appearing under multiple territories is the intended behaviour:
+        // each territory gets its own tech swimlane for that tech's jobs in that area.
         if (!loc.technicians.has(techId)) {
           loc.technicians.set(techId, { technician_id: techId, resource_name: techName, user_email: userEmail, jobs: [] });
         }
@@ -826,12 +859,16 @@ router.get("/wb/schedule-board", async (req, res) => {
         }
       }
 
-      const locRegions = Array.from(locMap.values()).map((loc) => ({
-        regionid_id: loc.regionid_id,
-        region: loc.region,
-        company: loc.company,
-        technicians: Array.from(loc.technicians.values()),
-      }));
+      const locRegions = Array.from(locMap.values())
+        .sort((a, b) => a.region.localeCompare(b.region))
+        .map((loc) => ({
+          regionid_id: loc.regionid_id,
+          region: loc.region,
+          company: loc.company,
+          technicians: Array.from(loc.technicians.values()).sort((a, b) =>
+            (a.resource_name ?? "").localeCompare(b.resource_name ?? ""),
+          ),
+        }));
 
       res.json({
         view,
