@@ -540,24 +540,14 @@ router.get("/wb/technicians", async (req, res) => {
     // bookings (with their formatted name from raw_json) so the reassign dropdown
     // remains usable while crm.bookableresource is sparse/empty.
     const r = await getCrmPool().query<{ technician_id: string; resource_name: string | null }>(
-      `SELECT technician_id, resource_name
-       FROM (
-         SELECT DISTINCT ON (technician_id) technician_id, resource_name
-         FROM (
-           SELECT bookableresourceid::text AS technician_id, name AS resource_name, 0 AS pri
-           FROM crm.bookableresource
-           WHERE COALESCE(is_deleted, false) = false
-           UNION ALL
-           SELECT DISTINCT resource::text AS technician_id,
-                  raw_json->>'_resource_value@OData.Community.Display.V1.FormattedValue' AS resource_name,
-                  1 AS pri
-           FROM crm.booking
-           WHERE resource IS NOT NULL AND COALESCE(is_deleted, false) = false
-         ) u
-         WHERE technician_id IS NOT NULL
-         ORDER BY technician_id, pri
-       ) d
-       ORDER BY resource_name ASC NULLS LAST`,
+      `SELECT bookableresourceid::text AS technician_id, name AS resource_name
+       FROM crm.bookableresource br
+       JOIN crm.systemuser su ON su.systemuserid = br.userid
+       WHERE COALESCE(br.is_deleted, false) = false
+         AND COALESCE(su.is_deleted, false) = false
+         AND COALESCE(su.isdisabled, false) = false
+         AND COALESCE(br.msdyn_displayonscheduleassistant, false) = true
+       ORDER BY name ASC NULLS LAST`,
     );
     res.json(r.rows);
   } catch (err) {
@@ -624,6 +614,7 @@ router.get("/wb/schedule-board", async (req, res) => {
       WHERE COALESCE(br.is_deleted, false) = false
         AND COALESCE(su.is_deleted, false) = false
         AND COALESCE(su.isdisabled, false) = false
+        AND COALESCE(br.msdyn_displayonscheduleassistant, false) = true
       `,
     );
     const activeResourceIds = new Set(activeResResult.rows.map((r) => r.bookableresourceid));
@@ -651,6 +642,7 @@ router.get("/wb/schedule-board", async (req, res) => {
           WHERE COALESCE(br.is_deleted, false) = false
             AND COALESCE(su.is_deleted, false) = false
             AND COALESCE(su.isdisabled, false) = false
+            AND COALESCE(br.msdyn_displayonscheduleassistant, false) = true
         )
         SELECT
           ter.territoryid::text    AS region_id,
@@ -903,13 +895,15 @@ router.get("/wb/schedule-board", async (req, res) => {
     const result = await getCrmPool().query(
       `
       WITH active_res AS (
-        -- Only bookable resources linked to an enabled (active) system user.
+        -- Only bookable resources linked to an enabled (active) system user
+        -- that are flagged for display on the schedule assistant.
         SELECT br.bookableresourceid
         FROM crm.bookableresource br
         JOIN crm.systemuser su ON su.systemuserid = br.userid
         WHERE COALESCE(br.is_deleted, false) = false
           AND COALESCE(su.is_deleted, false) = false
           AND COALESCE(su.isdisabled, false) = false
+          AND COALESCE(br.msdyn_displayonscheduleassistant, false) = true
       ),
       res_terr AS (
         SELECT DISTINCT ON (rt.msdyn_resource)
