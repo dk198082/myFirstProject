@@ -55,10 +55,13 @@ export function EditBookingDialog({
   row,
   durationMinutes,
   onClose,
+  onSaveSuccess,
 }: {
   row: WbWorkOrder;
   durationMinutes?: number | null;
   onClose: () => void;
+  /** Called when a direct-to-CRM save completes successfully, before the dialog closes. */
+  onSaveSuccess?: () => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -130,6 +133,7 @@ export function EditBookingDialog({
           title: "Saved to CRM",
           description: `${row.work_order_number ?? "Booking"} updated in Dynamics.`,
         });
+        onSaveSuccess?.();
         invalidateAllWithFollowUp();
         onClose();
       },
@@ -150,6 +154,7 @@ export function EditBookingDialog({
           title: "Booking created in CRM",
           description: `New booking for ${row.work_order_number ?? "work order"} saved to Dynamics.`,
         });
+        onSaveSuccess?.();
         invalidateAllWithFollowUp();
         onClose();
       },
