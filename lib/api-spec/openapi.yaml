@@ -111,6 +111,80 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /wb/bookings/{bookingId}/save:
+    post:
+      operationId: saveWbBooking
+      tags: [writeback]
+      summary: Directly save a booking edit to Dynamics CRM (bypasses the local queue)
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WbBookingUpdate"
+      responses:
+        "200":
+          description: Booking updated in CRM
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WbSaveResult"
+        "404":
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Dataverse not configured or unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/work-orders/{workOrderId}/booking/save:
+    post:
+      operationId: saveNewWbBooking
+      tags: [writeback]
+      summary: Directly create a new booking in Dynamics CRM for an unscheduled work order (bypasses the local queue)
+      parameters:
+        - name: workOrderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WbBookingUpdate"
+      responses:
+        "200":
+          description: Booking created in CRM
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WbSaveResult"
+        "404":
+          description: Work order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Dataverse not configured or unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /wb/work-orders/{workOrderId}/detail:
     get:
       operationId: getWbWorkOrderDetail
@@ -673,6 +747,13 @@ components:
           nullable: true
       required:
         - work_order_id
+
+    WbSaveResult:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
 
     WbBookingUpdate:
       type: object

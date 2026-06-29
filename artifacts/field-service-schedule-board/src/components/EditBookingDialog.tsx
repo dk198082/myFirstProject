@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import {
   useUpdateWbBooking,
   useCreateWbBooking,
+  useSaveWbBooking,
+  useSaveNewWbBooking,
   useListWbTechnicians,
   getListWbWorkOrdersQueryKey,
   getListWbWritebacksQueryKey,
@@ -28,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Loader2, ExternalLink } from "lucide-react";
+import { Loader2, ExternalLink, CloudUpload } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -55,8 +57,6 @@ export function EditBookingDialog({
   onClose,
 }: {
   row: WbWorkOrder;
-  // Estimated job duration, used to auto-fill the end time when scheduling a new
-  // booking for an unscheduled work order.
   durationMinutes?: number | null;
   onClose: () => void;
 }) {
@@ -64,8 +64,6 @@ export function EditBookingDialog({
   const queryClient = useQueryClient();
   const { data: technicians = [] } = useListWbTechnicians();
 
-  // New-booking mode: an unscheduled work order has no booking yet, so we create
-  // one rather than patching an existing booking.
   const isNew = !row.booking_id;
 
   const invalidateAll = () => {
@@ -75,6 +73,7 @@ export function EditBookingDialog({
     queryClient.invalidateQueries({ queryKey: getGetWbUnscheduledJobsQueryKey() });
   };
 
+  // ── Queue write-back (staged locally) ────────────────────────────────────
   const updateMutation = useUpdateWbBooking({
     mutation: {
       onSuccess: () => {
@@ -115,15 +114,56 @@ export function EditBookingDialog({
     },
   });
 
-  const isPending = updateMutation.isPending || createMutation.isPending;
+  // ── Save directly to CRM ─────────────────────────────────────────────────
+  const saveMutation = useSaveWbBooking({
+    mutation: {
+      onSuccess: () => {
+        toast({
+          title: "Saved to CRM",
+          description: `${row.work_order_number ?? "Booking"} updated in Dynamics.`,
+        });
+        invalidateAll();
+        onClose();
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to save to CRM",
+          description: err instanceof Error ? err.message : "Unknown error",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  const saveNewMutation = useSaveNewWbBooking({
+    mutation: {
+      onSuccess: () => {
+        toast({
+          title: "Booking created in CRM",
+          description: `New booking for ${row.work_order_number ?? "work order"} saved to Dynamics.`,
+        });
+        invalidateAll();
+        onClose();
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to create booking in CRM",
+          description: err instanceof Error ? err.message : "Unknown error",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  const isQueuePending = updateMutation.isPending || createMutation.isPending;
+  const isSavePending = saveMutation.isPending || saveNewMutation.isPending;
+  const isPending = isQueuePending || isSavePending;
 
   const seed = row.pending_writeback ?? row;
   const [start, setStart] = useState(toLocalInput(seed.start_time));
   const [end, setEnd] = useState(toLocalInput(seed.end_time));
   const [techId, setTechId] = useState<string>(seed.technician_id ?? UNASSIGNED);
 
-  // When scheduling a new booking, auto-fill the end time from the estimated
-  // duration as soon as the user picks a start (unless they've set one already).
   const onStartChange = (value: string) => {
     setStart(value);
     if (isNew && durationMinutes && durationMinutes > 0 && !end && value) {
@@ -143,18 +183,31 @@ export function EditBookingDialog({
     [technicians],
   );
 
-  const submit = () => {
-    const data = {
-      start_time: fromLocalInput(start),
-      end_time: fromLocalInput(end),
-      technician_id: techId === UNASSIGNED ? null : techId,
-    };
+  const buildData = () => ({
+    start_time: fromLocalInput(start),
+    end_time: fromLocalInput(end),
+    technician_id: techId === UNASSIGNED ? null : techId,
+  });
+
+  const submitQueue = () => {
+    const data = buildData();
     if (isNew) {
       if (!row.work_order_id) return;
       createMutation.mutate({ workOrderId: row.work_order_id, data });
     } else {
       if (!row.booking_id) return;
       updateMutation.mutate({ bookingId: row.booking_id, data });
+    }
+  };
+
+  const submitSave = () => {
+    const data = buildData();
+    if (isNew) {
+      if (!row.work_order_id) return;
+      saveNewMutation.mutate({ workOrderId: row.work_order_id, data });
+    } else {
+      if (!row.booking_id) return;
+      saveMutation.mutate({ bookingId: row.booking_id, data });
     }
   };
 
@@ -205,34 +258,18 @@ export function EditBookingDialog({
               </SelectContent>
             </Select>
           </div>
-
-          <div className="rounded-md bg-muted/60 border border-border px-3 py-2 text-xs text-muted-foreground">
-            {isNew ? (
-              <>
-                A new booking is staged in the local{" "}
-                <code className="font-mono">booking_writebacks</code> queue. Nothing is created in
-                Dynamics until a sync job runs.
-              </>
-            ) : (
-              <>
-                Edits are staged in the local{" "}
-                <code className="font-mono">booking_writebacks</code> table. Nothing is pushed to
-                Dynamics until a sync job runs.
-              </>
-            )}
-          </div>
         </div>
 
-        <DialogFooter className="sm:justify-between">
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           {row.work_order_id ? (
-            <Button variant="outline" asChild>
+            <Button variant="outline" size="sm" asChild>
               <Link
                 href={`/work-order/${row.work_order_id}`}
                 onClick={onClose}
                 className="inline-flex items-center gap-1.5"
               >
                 <ExternalLink className="h-4 w-4" />
-                View work order details
+                View work order
               </Link>
             </Button>
           ) : (
@@ -242,9 +279,15 @@ export function EditBookingDialog({
             <Button variant="ghost" onClick={onClose} disabled={isPending}>
               Cancel
             </Button>
-            <Button onClick={submit} disabled={isPending}>
-              {isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+            <Button variant="outline" onClick={submitQueue} disabled={isPending}>
+              {isQueuePending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
               {isNew ? "Queue booking" : "Queue write-back"}
+            </Button>
+            <Button onClick={submitSave} disabled={isPending}>
+              {isSavePending
+                ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                : <CloudUpload className="h-4 w-4 mr-1.5" />}
+              Save
             </Button>
           </div>
         </DialogFooter>

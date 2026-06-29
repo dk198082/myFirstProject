@@ -58,6 +58,7 @@ export * from './unscheduledJobsResponse';
 export * from './utilizationRegion';
 export * from './utilizationTech';
 export * from './wbBookingUpdate';
+export * from './wbSaveResult';
 export * from './wbSyncRequest';
 export * from './wbSyncResult';
 export * from './wbSyncResultResultsItem';

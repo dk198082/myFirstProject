@@ -346,6 +346,103 @@ router.post("/wb/work-orders/:workOrderId/booking", async (req, res) => {
   }
 });
 
+// ── Direct CRM save (bypass queue) ────────────────────────────────────────────
+// These endpoints call patchBooking / createBooking immediately and return once
+// Dataverse confirms. Nothing is written to booking_writebacks. Dataverse must
+// be fully configured (TENANT_ID, CLIENT_ID, CLIENT_SECRET, DATAVERSE_URL) or
+// the request is rejected with 503.
+
+router.post("/wb/bookings/:bookingId/save", async (req, res) => {
+  const { bookingId } = req.params;
+  const parsed = bookingUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
+    return;
+  }
+  const body = parsed.data;
+
+  if (!isDataverseConfigured()) {
+    res.status(503).json({ error: "Dataverse is not configured. Set TENANT_ID, CLIENT_ID, CLIENT_SECRET, and DATAVERSE_URL to enable direct CRM saves." });
+    return;
+  }
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+
+  try {
+    const existing = await getCrmPool().query<{ booking_id: string }>(
+      `SELECT bookableresourcebookingid::text AS booking_id
+       FROM crm.booking WHERE bookableresourcebookingid = $1 LIMIT 1`,
+      [bookingId],
+    );
+    if (existing.rows.length === 0) {
+      res.status(404).json({ error: "Booking not found" });
+      return;
+    }
+
+    await patchBooking(bookingId, {
+      startTime: body.start_time ?? undefined,
+      endTime: body.end_time ?? undefined,
+      resourceId: body.technician_id ?? undefined,
+    });
+
+    res.json({ message: "Booking saved to CRM" });
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to save booking to CRM", "Failed to save to CRM", {
+      logContext: { bookingId },
+      source: "mixed",
+    });
+  }
+});
+
+router.post("/wb/work-orders/:workOrderId/booking/save", async (req, res) => {
+  const { workOrderId } = req.params;
+  const parsed = bookingUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
+    return;
+  }
+  const body = parsed.data;
+
+  if (!isDataverseConfigured()) {
+    res.status(503).json({ error: "Dataverse is not configured. Set TENANT_ID, CLIENT_ID, CLIENT_SECRET, and DATAVERSE_URL to enable direct CRM saves." });
+    return;
+  }
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+
+  try {
+    const existing = await getCrmPool().query<{ work_order_id: string }>(
+      `SELECT msdyn_workorderid::text AS work_order_id
+       FROM crm.workorder
+       WHERE msdyn_workorderid = $1 AND COALESCE(is_deleted, false) = false
+       LIMIT 1`,
+      [workOrderId],
+    );
+    if (existing.rows.length === 0) {
+      res.status(404).json({ error: "Work order not found" });
+      return;
+    }
+
+    await createBooking({
+      workOrderId,
+      startTime: body.start_time ?? undefined,
+      endTime: body.end_time ?? undefined,
+      resourceId: body.technician_id ?? undefined,
+    });
+
+    res.json({ message: "Booking created in CRM" });
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to create booking in CRM", "Failed to save to CRM", {
+      logContext: { workOrderId },
+      source: "mixed",
+    });
+  }
+});
+
 // View-only detail for a single d365crm work order. Mirrors the FS-backed
 // GET /work-orders/:id response (WorkOrderDetail schema) but sourced from the
 // crm.* mirror so the dynamics-write-back app can show details for its own jobs.

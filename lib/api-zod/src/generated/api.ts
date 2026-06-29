@@ -106,6 +106,42 @@ export const CreateWbBookingResponse = zod.object({
 
 
 /**
+ * @summary Directly save a booking edit to Dynamics CRM (bypasses the local queue)
+ */
+export const SaveWbBookingParams = zod.object({
+  "bookingId": zod.coerce.string()
+})
+
+export const SaveWbBookingBody = zod.object({
+  "start_time": zod.string().nullish().describe('ISO 8601 timestamp'),
+  "end_time": zod.string().nullish().describe('ISO 8601 timestamp'),
+  "technician_id": zod.string().nullish()
+})
+
+export const SaveWbBookingResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Directly create a new booking in Dynamics CRM for an unscheduled work order (bypasses the local queue)
+ */
+export const SaveNewWbBookingParams = zod.object({
+  "workOrderId": zod.coerce.string()
+})
+
+export const SaveNewWbBookingBody = zod.object({
+  "start_time": zod.string().nullish().describe('ISO 8601 timestamp'),
+  "end_time": zod.string().nullish().describe('ISO 8601 timestamp'),
+  "technician_id": zod.string().nullish()
+})
+
+export const SaveNewWbBookingResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * @summary Get detailed info about a d365crm work order (view-only)
  */
 export const GetWbWorkOrderDetailParams = zod.object({

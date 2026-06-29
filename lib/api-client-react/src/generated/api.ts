@@ -45,6 +45,7 @@ import type {
   TechnicianSummary,
   UnscheduledJobsResponse,
   WbBookingUpdate,
+  WbSaveResult,
   WbSyncRequest,
   WbSyncResult,
   WbTechnician,
@@ -292,6 +293,150 @@ export const useCreateWbBooking = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getCreateWbBookingMutationOptions(options));
+    }
+
+export const getSaveWbBookingUrl = (bookingId: string,) => {
+
+
+
+
+  return `/api/wb/bookings/${bookingId}/save`
+}
+
+/**
+ * @summary Directly save a booking edit to Dynamics CRM (bypasses the local queue)
+ */
+export const saveWbBooking = async (bookingId: string,
+    wbBookingUpdate: WbBookingUpdate, options?: RequestInit): Promise<WbSaveResult> => {
+
+  return customFetch<WbSaveResult>(getSaveWbBookingUrl(bookingId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      wbBookingUpdate,)
+  }
+);}
+
+
+
+
+export const getSaveWbBookingMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveWbBooking>>, TError,{bookingId: string;data: BodyType<WbBookingUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveWbBooking>>, TError,{bookingId: string;data: BodyType<WbBookingUpdate>}, TContext> => {
+
+const mutationKey = ['saveWbBooking'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveWbBooking>>, {bookingId: string;data: BodyType<WbBookingUpdate>}> = (props) => {
+          const {bookingId,data} = props ?? {};
+
+          return  saveWbBooking(bookingId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveWbBookingMutationResult = NonNullable<Awaited<ReturnType<typeof saveWbBooking>>>
+    export type SaveWbBookingMutationBody = BodyType<WbBookingUpdate>
+    export type SaveWbBookingMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Directly save a booking edit to Dynamics CRM (bypasses the local queue)
+ */
+export const useSaveWbBooking = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveWbBooking>>, TError,{bookingId: string;data: BodyType<WbBookingUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveWbBooking>>,
+        TError,
+        {bookingId: string;data: BodyType<WbBookingUpdate>},
+        TContext
+      > => {
+      return useMutation(getSaveWbBookingMutationOptions(options));
+    }
+
+export const getSaveNewWbBookingUrl = (workOrderId: string,) => {
+
+
+
+
+  return `/api/wb/work-orders/${workOrderId}/booking/save`
+}
+
+/**
+ * @summary Directly create a new booking in Dynamics CRM for an unscheduled work order (bypasses the local queue)
+ */
+export const saveNewWbBooking = async (workOrderId: string,
+    wbBookingUpdate: WbBookingUpdate, options?: RequestInit): Promise<WbSaveResult> => {
+
+  return customFetch<WbSaveResult>(getSaveNewWbBookingUrl(workOrderId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      wbBookingUpdate,)
+  }
+);}
+
+
+
+
+export const getSaveNewWbBookingMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveNewWbBooking>>, TError,{workOrderId: string;data: BodyType<WbBookingUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveNewWbBooking>>, TError,{workOrderId: string;data: BodyType<WbBookingUpdate>}, TContext> => {
+
+const mutationKey = ['saveNewWbBooking'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveNewWbBooking>>, {workOrderId: string;data: BodyType<WbBookingUpdate>}> = (props) => {
+          const {workOrderId,data} = props ?? {};
+
+          return  saveNewWbBooking(workOrderId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveNewWbBookingMutationResult = NonNullable<Awaited<ReturnType<typeof saveNewWbBooking>>>
+    export type SaveNewWbBookingMutationBody = BodyType<WbBookingUpdate>
+    export type SaveNewWbBookingMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Directly create a new booking in Dynamics CRM for an unscheduled work order (bypasses the local queue)
+ */
+export const useSaveNewWbBooking = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveNewWbBooking>>, TError,{workOrderId: string;data: BodyType<WbBookingUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveNewWbBooking>>,
+        TError,
+        {workOrderId: string;data: BodyType<WbBookingUpdate>},
+        TContext
+      > => {
+      return useMutation(getSaveNewWbBookingMutationOptions(options));
     }
 
 export const getGetWbWorkOrderDetailUrl = (workOrderId: string,) => {

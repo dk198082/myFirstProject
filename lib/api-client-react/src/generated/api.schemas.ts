@@ -55,6 +55,10 @@ export interface WbWorkOrder {
   pending_writeback?: WbWriteback | null;
 }
 
+export interface WbSaveResult {
+  message: string;
+}
+
 export interface WbBookingUpdate {
   /**
      * ISO 8601 timestamp
