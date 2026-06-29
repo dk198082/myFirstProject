@@ -616,6 +616,22 @@ router.get("/wb/schedule-board", async (req, res) => {
   }
 
   try {
+    // Set of bookable resources linked to an enabled (active) system user. The SQL
+    // queries below already filter base rows to these, but a queued write-back can
+    // reassign a booking to another resource — guard those overlay reassignments so
+    // an inactive/non-user resource can never re-surface on the board.
+    const activeResResult = await getCrmPool().query<{ bookableresourceid: string }>(
+      `
+      SELECT br.bookableresourceid::text AS bookableresourceid
+      FROM crm.bookableresource br
+      JOIN crm.systemuser su ON su.systemuserid = br.userid
+      WHERE COALESCE(br.is_deleted, false) = false
+        AND COALESCE(su.is_deleted, false) = false
+        AND COALESCE(su.isdisabled, false) = false
+      `,
+    );
+    const activeResourceIds = new Set(activeResResult.rows.map((r) => r.bookableresourceid));
+
     // ── Service-location mode ─────────────────────────────────────────────────
     // Group by work order state/city rather than territory. Each technician can
     // appear in multiple location groups (one per distinct location of their jobs).
@@ -623,6 +639,15 @@ router.get("/wb/schedule-board", async (req, res) => {
     if (groupBy === "service-location") {
       const locResult = await getCrmPool().query(
         `
+        WITH active_res AS (
+          -- Only bookable resources linked to an enabled (active) system user.
+          SELECT br.bookableresourceid
+          FROM crm.bookableresource br
+          JOIN crm.systemuser su ON su.systemuserid = br.userid
+          WHERE COALESCE(br.is_deleted, false) = false
+            AND COALESCE(su.is_deleted, false) = false
+            AND COALESCE(su.isdisabled, false) = false
+        )
         SELECT
           b.bookableresourcebookingid AS booking_id,
           b.resource                  AS resource_id,
@@ -663,7 +688,7 @@ router.get("/wb/schedule-board", async (req, res) => {
                      ELSE ''
                    END AS label
             FROM crm.cf_workordercustomerequipment
-            WHERE workorderid = wo.msdyn_workorderid::text
+            WHERE workorderid = wo.msdyn_workorderid
               AND COALESCE(is_deleted, false) = false
               AND cf_name IS NOT NULL
             ORDER BY cf_name ASC
@@ -673,6 +698,7 @@ router.get("/wb/schedule-board", async (req, res) => {
         WHERE b.starttime >= $1::date
           AND b.starttime <  $2::date
           AND COALESCE(b.is_deleted, false) = false
+          AND b.resource IN (SELECT bookableresourceid FROM active_res)
         ORDER BY
           COALESCE(NULLIF(BTRIM(wo.msdyn_stateorprovince), ''), NULLIF(BTRIM(wo.msdyn_city), ''), 'Unknown Location') ASC,
           resource_name ASC,
@@ -734,7 +760,13 @@ router.get("/wb/schedule-board", async (req, res) => {
         const locationLabel = stateVal ?? cityVal ?? "Unknown Location";
         const locationId = slugifyLocation(locationLabel);
 
-        const techId = (overlay?.technician_id ?? row.resource_id) as string | null;
+        // Only honor an overlay reassignment to an active resource; otherwise keep
+        // the booking on its original (already active-filtered) resource.
+        const overlayTechId =
+          overlay?.technician_id && activeResourceIds.has(overlay.technician_id)
+            ? overlay.technician_id
+            : null;
+        const techId = (overlayTechId ?? row.resource_id) as string | null;
         if (!techId) continue;
 
         const techName = row.resource_name as string | null;
@@ -833,7 +865,16 @@ router.get("/wb/schedule-board", async (req, res) => {
     //       still render with an empty schedule (parity with the FS board).
     const result = await getCrmPool().query(
       `
-      WITH res_terr AS (
+      WITH active_res AS (
+        -- Only bookable resources linked to an enabled (active) system user.
+        SELECT br.bookableresourceid
+        FROM crm.bookableresource br
+        JOIN crm.systemuser su ON su.systemuserid = br.userid
+        WHERE COALESCE(br.is_deleted, false) = false
+          AND COALESCE(su.is_deleted, false) = false
+          AND COALESCE(su.isdisabled, false) = false
+      ),
+      res_terr AS (
         SELECT DISTINCT ON (rt.msdyn_resource)
                rt.msdyn_resource AS resource_id,
                rt.msdyn_territory AS territory_id
@@ -871,6 +912,7 @@ router.get("/wb/schedule-board", async (req, res) => {
         WHERE b.starttime >= $1::date
           AND b.starttime <  $2::date
           AND COALESCE(b.is_deleted, false) = false
+          AND b.resource IN (SELECT bookableresourceid FROM active_res)
       )
       SELECT
         ter.territoryid::text                        AS regionid_id,
@@ -944,6 +986,7 @@ router.get("/wb/schedule-board", async (req, res) => {
         ON br.bookableresourceid = rterr.resource_id
        AND COALESCE(br.is_deleted, false) = false
       WHERE NOT EXISTS (SELECT 1 FROM bk WHERE bk.resource_id = rterr.resource_id)
+        AND rterr.resource_id IN (SELECT bookableresourceid FROM active_res)
 
       ORDER BY region ASC, resource_name ASC, start_time ASC NULLS LAST
       `,
@@ -1078,7 +1121,11 @@ router.get("/wb/schedule-board", async (req, res) => {
       let targetTechId = row.technician_id as string;
       let targetTechName = row.resource_name as string | null;
       let targetUserEmail = row.user_email as string | null;
-      if (overlay?.technician_id && overlay.technician_id !== targetTechId) {
+      if (
+        overlay?.technician_id &&
+        overlay.technician_id !== targetTechId &&
+        activeResourceIds.has(overlay.technician_id)
+      ) {
         const info = techInfo.get(overlay.technician_id);
         targetTechId = overlay.technician_id;
         if (info) {
