@@ -38,7 +38,31 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+### Session table is provisioned out of band
+
+The Express session store (`connect-pg-simple` in `artifacts/api-server/src/app.ts`) uses
+the `sessions` table with `createTableIfMissing: false`. This table is **not** part of the
+Drizzle schema, so Replit's Publish flow (which diffs the declared schema) will **not**
+create it in production. Each environment must have a `sessions` table or `/api/login`
+fails at runtime with `relation "sessions" does not exist`.
+
+Provision it once per environment (dev already has it). Run this against **production**
+before/after deploying:
+
+```sql
+CREATE TABLE IF NOT EXISTS public.sessions (
+  sid    varchar NOT NULL PRIMARY KEY,
+  sess   jsonb   NOT NULL,
+  expire timestamp(6) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON public.sessions (expire);
+-- Remove the old singular table if it exists in that environment:
+DROP TABLE IF EXISTS public.session;
+```
+
+Notes: the store was consolidated from a stray singular `session` table to `sessions`
+(plural); `jsonb` is compatible with `connect-pg-simple`. Production DB is read-only to the
+agent and may be frozen when the app isn't actively deployed — the user runs the SQL above.
 
 ## Pointers
 
