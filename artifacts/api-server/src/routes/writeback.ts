@@ -1,8 +1,40 @@
 import { Router } from "express";
+import type { Request, Response } from "express";
 import { z } from "zod";
-import { getCrmPool, isCrmConfigured } from "../lib/crmDb.js";
+import { getCrmPool, isCrmConfigured, isCrmUnavailableError } from "../lib/crmDb.js";
 import { localPool } from "../lib/localDb.js";
 import { isDataverseConfigured, patchBooking, createBooking } from "../lib/dataverse.js";
+
+// Shared error handler for /wb/* routes. When the failure is the CRM database
+// being unreachable (e.g. a disabled/suspended Neon endpoint) we return 503 so
+// the frontend can show a clear, retryable "temporarily unavailable" state
+// instead of an opaque 500. Genuine errors still surface as 500.
+//
+// `source` distinguishes CRM-only handlers (where any connection-level failure
+// is a CRM-DB outage) from "mixed" handlers that also call the Dataverse HTTP
+// API or the local write-back DB. For mixed handlers we only honour the
+// unambiguous Neon "endpoint disabled/suspended" messages, not bare socket
+// codes, so a Dataverse/local outage isn't mislabeled as a CRM-DB outage.
+function handleWbError(
+  req: Request,
+  res: Response,
+  err: unknown,
+  logMessage: string,
+  errorMessage: string,
+  opts: { logContext?: Record<string, unknown>; source?: "crm" | "mixed" } = {},
+): void {
+  const { logContext = {}, source = "crm" } = opts;
+  if (isCrmUnavailableError(err, source === "crm")) {
+    req.log.error({ ...logContext, err }, `${logMessage} (CRM database unavailable)`);
+    res.status(503).json({
+      error: "The CRM database is temporarily unavailable. Please try again in a moment.",
+      code: "CRM_DB_UNAVAILABLE",
+    });
+    return;
+  }
+  req.log.error({ ...logContext, err }, logMessage);
+  res.status(500).json({ error: errorMessage });
+}
 
 // Synthetic booking_id prefix for write-backs that schedule a brand-new booking
 // for an unscheduled work order. There is no crm.booking row yet, but
@@ -206,8 +238,7 @@ router.get("/wb/work-orders", async (req, res) => {
 
     res.json(out);
   } catch (err) {
-    req.log.error({ err }, "Failed to list write-back work orders");
-    res.status(500).json({ error: "Failed to list work orders" });
+    handleWbError(req, res, err, "Failed to list write-back work orders", "Failed to list work orders");
   }
 });
 
@@ -256,8 +287,10 @@ router.patch("/wb/bookings/:bookingId", async (req, res) => {
     const techNames = await resolveTechNames([row.technician_id]);
     res.json(shapeWriteback(row, techNames));
   } catch (err) {
-    req.log.error({ err, bookingId }, "Failed to queue booking write-back");
-    res.status(500).json({ error: "Failed to queue write-back" });
+    handleWbError(req, res, err, "Failed to queue booking write-back", "Failed to queue write-back", {
+      logContext: { bookingId },
+      source: "mixed",
+    });
   }
 });
 
@@ -306,8 +339,10 @@ router.post("/wb/work-orders/:workOrderId/booking", async (req, res) => {
     const techNames = await resolveTechNames([row.technician_id]);
     res.json(shapeWriteback(row, techNames));
   } catch (err) {
-    req.log.error({ err, workOrderId }, "Failed to queue new-booking write-back");
-    res.status(500).json({ error: "Failed to queue write-back" });
+    handleWbError(req, res, err, "Failed to queue new-booking write-back", "Failed to queue write-back", {
+      logContext: { workOrderId },
+      source: "mixed",
+    });
   }
 });
 
@@ -474,8 +509,9 @@ router.get("/wb/work-orders/:workOrderId/detail", async (req, res) => {
       equipment,
     });
   } catch (err) {
-    req.log.error({ err, workOrderId }, "Failed to get d365crm work order detail");
-    res.status(500).json({ error: "Failed to get work order detail" });
+    handleWbError(req, res, err, "Failed to get d365crm work order detail", "Failed to get work order detail", {
+      logContext: { workOrderId },
+    });
   }
 });
 
@@ -490,8 +526,7 @@ router.get("/wb/writebacks", async (req, res) => {
     const techNames = await resolveTechNames(r.rows.map((row) => row.technician_id));
     res.json(r.rows.map((row) => shapeWriteback(row, techNames)));
   } catch (err) {
-    req.log.error({ err }, "Failed to list write-backs");
-    res.status(500).json({ error: "Failed to list write-backs" });
+    handleWbError(req, res, err, "Failed to list write-backs", "Failed to list write-backs", { source: "mixed" });
   }
 });
 
@@ -526,8 +561,7 @@ router.get("/wb/technicians", async (req, res) => {
     );
     res.json(r.rows);
   } catch (err) {
-    req.log.error({ err }, "Failed to list write-back technicians");
-    res.status(500).json({ error: "Failed to list technicians" });
+    handleWbError(req, res, err, "Failed to list write-back technicians", "Failed to list technicians");
   }
 });
 
@@ -1144,8 +1178,7 @@ router.get("/wb/schedule-board", async (req, res) => {
       regions,
     });
   } catch (err) {
-    req.log.error({ err }, "Failed to get write-back schedule board");
-    res.status(500).json({ error: "Failed to get schedule board" });
+    handleWbError(req, res, err, "Failed to get write-back schedule board", "Failed to get schedule board");
   }
 });
 
@@ -1352,8 +1385,7 @@ router.get("/wb/unscheduled-jobs", async (req, res) => {
 
     res.json({ jobs });
   } catch (err) {
-    req.log.error({ err }, "Failed to get write-back unscheduled jobs");
-    res.status(500).json({ error: "Failed to get unscheduled jobs" });
+    handleWbError(req, res, err, "Failed to get write-back unscheduled jobs", "Failed to get unscheduled jobs");
   }
 });
 
@@ -1526,8 +1558,7 @@ router.get("/wb/resource-utilization", async (req, res) => {
       regions: Array.from(regionMap.values()),
     });
   } catch (err) {
-    req.log.error({ err }, "Failed to get write-back resource utilization");
-    res.status(500).json({ error: "Failed to get resource utilization" });
+    handleWbError(req, res, err, "Failed to get write-back resource utilization", "Failed to get resource utilization");
   }
 });
 
@@ -1737,8 +1768,7 @@ router.get("/wb/jobs-by-region", async (req, res) => {
 
     res.json(response);
   } catch (err) {
-    req.log.error({ err }, "Failed to get write-back jobs by region");
-    res.status(500).json({ error: "Failed to get jobs by region" });
+    handleWbError(req, res, err, "Failed to get write-back jobs by region", "Failed to get jobs by region");
   }
 });
 
@@ -1856,8 +1886,7 @@ router.get("/wb/reports/filters", async (req, res) => {
       approvers: approversR.rows.map((r) => r.approver),
     });
   } catch (err) {
-    req.log.error({ err }, "Failed to load report filters");
-    res.status(500).json({ error: "Failed to load report filters" });
+    handleWbError(req, res, err, "Failed to load report filters", "Failed to load report filters");
   }
 });
 
@@ -1886,8 +1915,7 @@ router.get("/wb/reports/completed-not-approved", async (req, res) => {
     }
     res.json(await runServiceOrderReport(where, params, "completed_on"));
   } catch (err) {
-    req.log.error({ err }, "Failed to run completed-not-approved report");
-    res.status(500).json({ error: "Failed to run report" });
+    handleWbError(req, res, err, "Failed to run completed-not-approved report", "Failed to run report");
   }
 });
 
@@ -1908,8 +1936,7 @@ router.get("/wb/reports/approved-not-invoiced", async (req, res) => {
     where += appendRegionFilter(region, params);
     res.json(await runServiceOrderReport(where, params, "approved_on"));
   } catch (err) {
-    req.log.error({ err }, "Failed to run approved-not-invoiced report");
-    res.status(500).json({ error: "Failed to run report" });
+    handleWbError(req, res, err, "Failed to run approved-not-invoiced report", "Failed to run report");
   }
 });
 
@@ -2007,8 +2034,7 @@ router.get("/wb/reports/weekly-approved", async (req, res) => {
     const approvers = Array.from(byApprover.values()).sort((x, y) => y.total - x.total);
     res.json({ total, week_numbers, approvers });
   } catch (err) {
-    req.log.error({ err }, "Failed to run weekly-approved report");
-    res.status(500).json({ error: "Failed to run report" });
+    handleWbError(req, res, err, "Failed to run weekly-approved report", "Failed to run report");
   }
 });
 
@@ -2110,8 +2136,7 @@ router.post("/wb/sync", async (req, res) => {
       results,
     });
   } catch (err) {
-    req.log.error({ err }, "Failed to run write-back sync");
-    res.status(500).json({ error: "Failed to run write-back sync" });
+    handleWbError(req, res, err, "Failed to run write-back sync", "Failed to run write-back sync", { source: "mixed" });
   }
 });
 
