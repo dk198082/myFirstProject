@@ -810,7 +810,7 @@ export default function ScheduleBoard() {
   // Capacity-planning toggle. When false (default) the board hides technicians
   // with no jobs in the current range to keep the view focused on scheduled
   // work. When true, idle technicians are shown across all views and counts.
-  const [showIdleTechs, setShowIdleTechs] = useState(false);
+  const [showIdleTechs, setShowIdleTechs] = useState(true);
   // Calendar (tech) view weekend visibility. Default off — the calendar shows
   // Mon–Fri only; when true, Saturday and Sunday columns are included.
   const [showWeekends, setShowWeekends] = useState(false);
