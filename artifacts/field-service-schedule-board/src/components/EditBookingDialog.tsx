@@ -73,6 +73,14 @@ export function EditBookingDialog({
     queryClient.invalidateQueries({ queryKey: getGetWbUnscheduledJobsQueryKey() });
   };
 
+  // After a direct CRM save the mirror DB needs a moment to sync. Fire
+  // additional refetches at 5 s, 12 s and 20 s so the board updates as soon
+  // as the mirror picks up the change (without continuous polling overhead).
+  const invalidateAllWithFollowUp = () => {
+    invalidateAll();
+    [5_000, 12_000, 20_000].forEach((ms) => setTimeout(invalidateAll, ms));
+  };
+
   // ── Queue write-back (staged locally) ────────────────────────────────────
   const updateMutation = useUpdateWbBooking({
     mutation: {
@@ -122,7 +130,7 @@ export function EditBookingDialog({
           title: "Saved to CRM",
           description: `${row.work_order_number ?? "Booking"} updated in Dynamics.`,
         });
-        invalidateAll();
+        invalidateAllWithFollowUp();
         onClose();
       },
       onError: (err) => {
@@ -142,7 +150,7 @@ export function EditBookingDialog({
           title: "Booking created in CRM",
           description: `New booking for ${row.work_order_number ?? "work order"} saved to Dynamics.`,
         });
-        invalidateAll();
+        invalidateAllWithFollowUp();
         onClose();
       },
       onError: (err) => {
