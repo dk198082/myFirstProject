@@ -7,10 +7,14 @@ description: How to archive or remove a registered artifact in this monorepo (no
 
 There is **no `archiveArtifact`/`deleteArtifact` callback**. To archive or remove an artifact:
 
-1. Move (or delete) its directory out of `artifacts/<slug>/`. The workspace glob is
-   `artifacts/*`, so moving the dir to a non-glob location (e.g. top-level `archive/`)
-   deregisters it. The platform auto-detects this and emits `Removed artifact: <Title>`.
-   Recoverable via git checkpoint either way; moving to `archive/` keeps it in-tree.
+1. **The platform discovers artifacts by scanning for `.replit-artifact/artifact.toml`
+   repo-wide — NOT just under the `artifacts/*` pnpm glob.** Moving the dir to `archive/`
+   is NOT enough: the toml there still gets re-registered (and will cause
+   `DUPLICATE_PREVIEW_PATH` if it owns a path another artifact wants). To truly
+   deregister, **rename/remove the artifact.toml** (e.g. `artifact.toml` →
+   `artifact.toml.archived`). The platform then emits `Removed artifact: <Title>`.
+   Moving the dir to top-level `archive/` is still nice for keeping it out of the pnpm
+   workspace + in-tree for recovery, but the toml rename is the part that deregisters.
 2. Run `pnpm install` afterward to drop the package from `pnpm-lock.yaml` — otherwise the
    frozen-lockfile install used at deploy time can break.
 3. Run `pnpm run typecheck` to confirm nothing else referenced it.

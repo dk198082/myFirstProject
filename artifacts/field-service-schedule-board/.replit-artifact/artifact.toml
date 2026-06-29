@@ -1,5 +1,5 @@
 kind = "web"
-previewPath = "/field-service-schedule-board/"
+previewPath = "/"
 title = "Field Service Schedule Board"
 version = "1.0.0"
 id = "artifacts/field-service-schedule-board"
@@ -11,7 +11,7 @@ version = "1.0.0"
 
 [[services]]
 name = "web"
-paths = [ "/field-service-schedule-board/" ]
+paths = [ "/" ]
 localPort = 24240
 
 [services.development]
@@ -28,4 +28,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "24240"
-BASE_PATH = "/field-service-schedule-board/"
+BASE_PATH = "/"
