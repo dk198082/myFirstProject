@@ -64,6 +64,25 @@ Notes: the store was consolidated from a stray singular `session` table to `sess
 (plural); `jsonb` is compatible with `connect-pg-simple`. Production DB is read-only to the
 agent and may be frozen when the app isn't actively deployed — the user runs the SQL above.
 
+### `pg` sslmode deprecation warning
+
+`pg` (v8.16+) prints a one-time `SECURITY WARNING: The SSL modes 'prefer',
+'require', and 'verify-ca' are treated as aliases for 'verify-full'` whenever a
+connection **string** carries one of those `sslmode` values. It is a forward-compat
+notice (those modes change meaning in `pg` v9), **not** an error — connections still
+work.
+
+- Only the main pool (`lib/db/src/index.ts`) passes a raw `connectionString`, so it's
+  the only one that can emit it. The `db.ts` (FS Azure) and `crmDb.ts` (Dynamics)
+  pools build from discrete fields and never trigger it.
+- Dev's `DATABASE_URL` uses `sslmode=disable`, which is not a warned mode, so the
+  warning only appears in **production**, where `DATABASE_URL` uses `sslmode=require`.
+
+`lib/db/src/index.ts` now normalizes this: it strips `sslmode` from the URL and sets
+`ssl` explicitly (preserving current behavior), so the warning is silenced in every
+environment. Alternatively/redundantly, you can set the production `DATABASE_URL`
+secret to `sslmode=verify-full` to make pg's current behavior explicit.
+
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
