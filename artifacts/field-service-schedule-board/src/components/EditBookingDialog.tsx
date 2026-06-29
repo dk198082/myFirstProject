@@ -213,7 +213,7 @@ export function EditBookingDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg overflow-hidden">
         <DialogHeader>
           <DialogTitle>{isNew ? "Schedule booking" : "Edit booking"}</DialogTitle>
           <DialogDescription>
@@ -221,7 +221,7 @@ export function EditBookingDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2 min-w-0">
+        <div className="space-y-4 py-2 min-w-0 overflow-hidden">
           <div className="space-y-1.5 min-w-0">
             <Label htmlFor="start">Start time</Label>
             <Input
@@ -258,38 +258,33 @@ export function EditBookingDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {row.work_order_id && (
+            <Link
+              href={`/work-order/${row.work_order_id}`}
+              onClick={onClose}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              View work order details
+            </Link>
+          )}
         </div>
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          {row.work_order_id ? (
-            <Button variant="outline" size="sm" asChild>
-              <Link
-                href={`/work-order/${row.work_order_id}`}
-                onClick={onClose}
-                className="inline-flex items-center gap-1.5"
-              >
-                <ExternalLink className="h-4 w-4" />
-                View work order
-              </Link>
-            </Button>
-          ) : (
-            <span />
-          )}
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={onClose} disabled={isPending}>
-              Cancel
-            </Button>
-            <Button variant="outline" onClick={submitQueue} disabled={isPending}>
-              {isQueuePending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
-              {isNew ? "Queue booking" : "Queue write-back"}
-            </Button>
-            <Button onClick={submitSave} disabled={isPending}>
-              {isSavePending
-                ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
-                : <CloudUpload className="h-4 w-4 mr-1.5" />}
-              Save
-            </Button>
-          </div>
+        <DialogFooter className="gap-2 flex-row flex-wrap justify-end sm:space-x-0">
+          <Button variant="ghost" onClick={onClose} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button variant="outline" onClick={submitQueue} disabled={isPending}>
+            {isQueuePending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+            {isNew ? "Queue booking" : "Queue write-back"}
+          </Button>
+          <Button onClick={submitSave} disabled={isPending}>
+            {isSavePending
+              ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+              : <CloudUpload className="h-4 w-4 mr-1.5" />}
+            Save
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
