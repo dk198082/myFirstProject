@@ -48,12 +48,13 @@ if (!sessionSecret) {
 }
 app.use(
   session({
-    // The session table is provisioned out of band (see repl docs), so we do not
-    // let connect-pg-simple create it — its bundled table.sql is not available
-    // after esbuild bundling.
+    // The "sessions" table is provisioned out of band (see repl docs), so we do
+    // not let connect-pg-simple create it — its bundled table.sql is not available
+    // after esbuild bundling. The table needs columns sid (PK), sess (jsonb),
+    // expire, plus an index on expire, in every environment (dev and production).
     store: new PgSession({
       pool: localPool,
-      tableName: "session",
+      tableName: "sessions",
       createTableIfMissing: false,
     }),
     secret: sessionSecret ?? "insecure-dev-session-secret",
