@@ -37,6 +37,7 @@ import {
   Clock,
   Download,
   ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 import {
@@ -305,8 +306,8 @@ function JobChip({
       data-testid={`chip-job-${job.booking_id}`}
     >
       {syncPending && (
-        <span
-          className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-sky-500 animate-pulse"
+        <RefreshCw
+          className="absolute top-0.5 right-0.5 h-3 w-3 text-red-500 animate-spin"
           aria-label="Syncing with CRM"
         />
       )}
