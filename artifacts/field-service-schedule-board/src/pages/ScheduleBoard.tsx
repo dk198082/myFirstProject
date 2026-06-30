@@ -1571,7 +1571,7 @@ export default function ScheduleBoard() {
         <div className="flex items-center gap-2 flex-wrap" data-testid="region-filter">
           {allRegions.length > 0 && (
             <>
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mr-1">
+          <span className="text-xs font-bold uppercase tracking-wide text-foreground mr-1">
             Filter regions:
           </span>
           {allRegions.map((rg) => {
@@ -1599,16 +1599,16 @@ export default function ScheduleBoard() {
               type="button"
               onClick={selectAllRegions}
               data-testid="filter-all"
-              className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+              className="text-xs font-bold px-2 py-1 text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
             >
               All
             </button>
-            <span className="text-muted-foreground text-xs">|</span>
+            <span className="text-muted-foreground text-xs font-bold">|</span>
             <button
               type="button"
               onClick={clearRegions}
               data-testid="filter-none"
-              className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+              className="text-xs font-bold px-2 py-1 text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
             >
               None
             </button>
@@ -1677,7 +1677,7 @@ export default function ScheduleBoard() {
       {/* Tech filter (multi-select) — available in both Week and Calendar views */}
       {!isLoading && allTechs.length > 0 && (
         <div className="flex items-start gap-2 flex-wrap print:hidden" data-testid="tech-filter">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mr-1 pt-1.5">
+          <span className="text-xs font-bold uppercase tracking-wide text-foreground mr-1 pt-1.5">
             Technicians:
           </span>
           {allTechs.map((t) => {
@@ -1706,16 +1706,16 @@ export default function ScheduleBoard() {
               type="button"
               onClick={selectAllTechs}
               data-testid="filter-tech-all"
-              className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+              className="text-xs font-bold px-2 py-1 text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
             >
               All
             </button>
-            <span className="text-muted-foreground text-xs">|</span>
+            <span className="text-muted-foreground text-xs font-bold">|</span>
             <button
               type="button"
               onClick={clearTechs}
               data-testid="filter-tech-none"
-              className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+              className="text-xs font-bold px-2 py-1 text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
             >
               None
             </button>
@@ -1726,7 +1726,7 @@ export default function ScheduleBoard() {
       {/* Work Order Search */}
       {!isLoading && data && (
         <div className="flex items-center gap-2 print:hidden">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mr-1 shrink-0">
+          <span className="text-xs font-bold uppercase tracking-wide text-foreground mr-1 shrink-0">
             Search:
           </span>
           <div className="relative flex-1 max-w-sm">
