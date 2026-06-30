@@ -37,7 +37,6 @@ import {
   Clock,
   Download,
   ExternalLink,
-  RefreshCw,
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 import {
@@ -257,6 +256,7 @@ function JobChip({
   compact,
   colorClass,
   isConflict,
+  syncPending,
   onOpen,
   onDragStart,
   onDragEnd,
@@ -268,6 +268,8 @@ function JobChip({
   compact: boolean;
   colorClass: string;
   isConflict?: boolean;
+  /** True while a CRM save for this booking is still syncing back to the mirror DB. */
+  syncPending?: boolean;
   onOpen: () => void;
   onDragStart?: () => void;
   onDragEnd?: () => void;
@@ -299,9 +301,15 @@ function JobChip({
         }
       }}
       onDragEnd={() => onDragEnd?.()}
-      className={`w-full text-left text-[11px] leading-tight rounded border ${compact ? "px-1 py-0.5" : "px-1.5 py-1"} ${isStartChip ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} transition-colors ${isCancelled ? cancelledChipColor() : colorClass} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""} ${isDragging ? "opacity-40" : ""}`}
+      className={`relative w-full text-left text-[11px] leading-tight rounded border ${compact ? "px-1 py-0.5" : "px-1.5 py-1"} ${isStartChip ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} transition-colors ${isCancelled ? cancelledChipColor() : colorClass} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""} ${isDragging ? "opacity-40" : ""}`}
       data-testid={`chip-job-${job.booking_id}`}
     >
+      {syncPending && (
+        <span
+          className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-sky-500 animate-pulse"
+          aria-label="Syncing with CRM"
+        />
+      )}
       <div className="flex items-center gap-1">
         <span className="font-semibold truncate">{job.work_order_number ?? "WO"}</span>
         {isMultiDay && (
@@ -819,13 +827,25 @@ export default function ScheduleBoard() {
   // "service-location" re-groups by work order state/city. Resets on page reload.
   const [groupBy, setGroupBy] = useState<GroupByMode>("tech-region");
 
-  // Shown after a direct-to-CRM save while the mirror DB catches up (up to 20 s).
-  const [crmSyncing, setCrmSyncing] = useState(false);
-  const crmSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleSaveSuccess = () => {
-    setCrmSyncing(true);
-    if (crmSyncTimerRef.current) clearTimeout(crmSyncTimerRef.current);
-    crmSyncTimerRef.current = setTimeout(() => setCrmSyncing(false), 22_000);
+  // Per-booking-id set of chips that are still syncing from CRM after a direct save.
+  // Each id is removed individually after 22 s (matching the last follow-up refetch).
+  const [pendingSyncIds, setPendingSyncIds] = useState<Set<string>>(new Set());
+  const pendingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const handleSaveSuccess = (bookingId: string | null) => {
+    if (!bookingId) return; // new booking — chip doesn't exist yet
+    setPendingSyncIds((prev) => new Set([...prev, bookingId]));
+    if (pendingTimersRef.current.has(bookingId)) {
+      clearTimeout(pendingTimersRef.current.get(bookingId));
+    }
+    const timer = setTimeout(() => {
+      setPendingSyncIds((prev) => {
+        const next = new Set(prev);
+        next.delete(bookingId);
+        return next;
+      });
+      pendingTimersRef.current.delete(bookingId);
+    }, 22_000);
+    pendingTimersRef.current.set(bookingId, timer);
   };
 
   // Open the booking dialog in "new booking" mode for an unscheduled work order,
@@ -1343,14 +1363,6 @@ export default function ScheduleBoard() {
         </div>
       </div>
 
-      {/* CRM sync pending banner */}
-      {crmSyncing && (
-        <div className="flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-          <RefreshCw className="h-3.5 w-3.5 animate-spin shrink-0" />
-          <span>Changes saved to CRM — refreshing board to reflect updates…</span>
-        </div>
-      )}
-
       {/* Region filter + capacity-planning toggle */}
       {!isLoading && data && (
         <div className="flex items-center gap-2 flex-wrap" data-testid="region-filter">
@@ -1702,6 +1714,7 @@ export default function ScheduleBoard() {
                                     compact={false}
                                     colorClass={palette.chip}
                                     isConflict={conflictedBookingIds.has(j.booking_id)}
+                                    syncPending={pendingSyncIds.has(j.booking_id)}
                                     onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
                                     onDragStart={() => startDrag(j, tech.technician_id)}
                                     onDragEnd={endDrag}
@@ -1909,6 +1922,7 @@ export default function ScheduleBoard() {
                                     compact={view === "month"}
                                     colorClass={palette.chip}
                                     isConflict={conflictedBookingIds.has(j.booking_id)}
+                                    syncPending={pendingSyncIds.has(j.booking_id)}
                                     onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
                                     onDragStart={() => startDrag(j, tech.technician_id)}
                                     onDragEnd={endDrag}

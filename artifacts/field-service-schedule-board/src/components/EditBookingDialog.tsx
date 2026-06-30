@@ -58,8 +58,11 @@ export function EditBookingDialog({
   row: WbWorkOrder;
   durationMinutes?: number | null;
   onClose: () => void;
-  /** Called when a direct-to-CRM save completes successfully, before the dialog closes. */
-  onSaveSuccess?: () => void;
+  /**
+   * Called when a direct-to-CRM save completes successfully, before the dialog closes.
+   * Receives the booking_id that was updated (null for new bookings that didn't have one yet).
+   */
+  onSaveSuccess?: (bookingId: string | null) => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -89,7 +92,7 @@ export function EditBookingDialog({
           title: "Saved to CRM",
           description: `${row.work_order_number ?? "Booking"} updated in Dynamics.`,
         });
-        onSaveSuccess?.();
+        onSaveSuccess?.(row.booking_id ?? null);
         invalidateAllWithFollowUp();
         onClose();
       },
@@ -110,7 +113,7 @@ export function EditBookingDialog({
           title: "Booking created in CRM",
           description: `New booking for ${row.work_order_number ?? "work order"} saved to Dynamics.`,
         });
-        onSaveSuccess?.();
+        onSaveSuccess?.(null); // new booking — no chip exists yet to highlight
         invalidateAllWithFollowUp();
         onClose();
       },
