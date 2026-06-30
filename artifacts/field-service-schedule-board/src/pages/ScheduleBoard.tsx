@@ -261,6 +261,16 @@ function chipTimeLabel(job: ScheduleJob): string {
   return "All day";
 }
 
+function fmtBlockDuration(startIso: string, endIso: string): string {
+  const mins = Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000);
+  if (mins <= 0) return "";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 function BlockChip({
   block,
   onDelete,
@@ -269,6 +279,7 @@ function BlockChip({
   onDelete: () => void;
 }) {
   const isDriveTime = block.block_type === "drive_time";
+  const duration = fmtBlockDuration(block.start_time, block.end_time);
   return (
     <div
       className={`flex items-center gap-1 rounded border text-[11px] px-1.5 py-0.5 leading-tight ${
@@ -283,6 +294,9 @@ function BlockChip({
         <Sun className="h-3 w-3 shrink-0" />
       )}
       <span className="truncate">{isDriveTime ? "Drive Time" : "PTO"}</span>
+      {duration && (
+        <span className="opacity-70 shrink-0">{duration}</span>
+      )}
       {block.notes && (
         <span className="truncate opacity-60">· {block.notes}</span>
       )}
