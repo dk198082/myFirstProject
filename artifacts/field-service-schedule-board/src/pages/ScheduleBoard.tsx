@@ -19,6 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,6 +47,7 @@ import {
   Sun,
   Plus,
   X,
+  Search,
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 import { AddBlockDialog } from "@/components/AddBlockDialog";
@@ -241,6 +243,19 @@ function buildNewBookingRow(job: UnscheduledJob, technicianId: string | null): W
 
 // Count distinct bookings in a chip list. Multi-day bookings emit one chip per
 // spanned day, so the raw chip count over-reports the number of bookings.
+function jobMatchesSearch(job: ScheduleJob, q: string): boolean {
+  if (!q) return true;
+  const lower = q.toLowerCase();
+  return !!(
+    job.work_order_number?.toLowerCase().includes(lower) ||
+    job.customer_name?.toLowerCase().includes(lower) ||
+    job.city?.toLowerCase().includes(lower) ||
+    job.state?.toLowerCase().includes(lower) ||
+    job.technician_name?.toLowerCase().includes(lower) ||
+    job.title?.toLowerCase().includes(lower)
+  );
+}
+
 function distinctJobCount(jobs: { booking_id: string }[]): number {
   return new Set(jobs.map((j) => j.booking_id)).size;
 }
@@ -321,6 +336,7 @@ function JobChip({
   isDragging,
   showEquipment,
   showDuration = true,
+  dimmed,
 }: {
   job: ScheduleJob;
   compact: boolean;
@@ -334,6 +350,8 @@ function JobChip({
   isDragging?: boolean;
   showEquipment?: boolean;
   showDuration?: boolean;
+  /** Fades the chip when a search is active and this job doesn't match. */
+  dimmed?: boolean;
 }) {
   const isCancelled = (job.system_status ?? "").toLowerCase() === "cancelled";
   const spanStart = job.span_start_day ?? job.day_index;
@@ -359,7 +377,7 @@ function JobChip({
         }
       }}
       onDragEnd={() => onDragEnd?.()}
-      className={`relative w-full text-left text-[11px] leading-tight rounded border ${compact ? "px-1 py-0.5" : "px-1.5 py-1"} ${isStartChip ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} transition-colors ${isCancelled ? cancelledChipColor() : colorClass} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""} ${isDragging ? "opacity-40" : ""}`}
+      className={`relative w-full text-left text-[11px] leading-tight rounded border ${compact ? "px-1 py-0.5" : "px-1.5 py-1"} ${isStartChip ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} transition-opacity transition-colors ${isCancelled ? cancelledChipColor() : colorClass} ${isConflict ? "ring-2 ring-amber-400 ring-offset-0" : ""} ${isDragging ? "opacity-40" : ""} ${dimmed ? "opacity-20" : ""}`}
       data-testid={`chip-job-${job.booking_id}`}
     >
       {syncPending && (
@@ -912,6 +930,7 @@ export default function ScheduleBoard() {
   const [start, setStart] = useState<string>(() => startOfWeekISO(new Date()));
   const [selectedRegions, setSelectedRegions] = useState<Set<string> | null>(null);
   const [selectedTechIds, setSelectedTechIds] = useState<Set<string> | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [editing, setEditing] = useState<WbWorkOrder | null>(null);
   // Estimated duration carried into the dialog when scheduling a new booking for
   // an unscheduled job, so the dialog can auto-fill the end time.
@@ -1183,6 +1202,17 @@ export default function ScheduleBoard() {
 
   const idleCapMinutes = (technicianId: string) =>
     techCapMinutesById.get(technicianId) ?? defaultCapMinutes;
+
+  const activeSearch = searchQuery.trim().toLowerCase();
+
+  // Count of distinct jobs visible on the board that match the current search.
+  const searchMatchCount = useMemo(() => {
+    if (!activeSearch) return 0;
+    return (data?.regions ?? [])
+      .flatMap((r) => r.technicians ?? [])
+      .flatMap((t) => t.jobs ?? [])
+      .filter((j) => jobMatchesSearch(j as ScheduleJob, activeSearch)).length;
+  }, [activeSearch, data]);
 
   // Minutes from the CRM (work orders only).
   const techUtilMinutes = (technicianId: string) =>
@@ -1693,6 +1723,42 @@ export default function ScheduleBoard() {
         </div>
       )}
 
+      {/* Work Order Search */}
+      {!isLoading && data && (
+        <div className="flex items-center gap-2 print:hidden">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mr-1 shrink-0">
+            Search:
+          </span>
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              type="search"
+              placeholder="WO#, customer, city, technician…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-7 pl-8 pr-7 text-xs rounded-full border-border"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {activeSearch && (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {searchMatchCount === 0
+                ? "No matches"
+                : `${searchMatchCount} job${searchMatchCount !== 1 ? "s" : ""} matched`}
+            </span>
+          )}
+        </div>
+      )}
+
       {isLoading && (
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
@@ -1924,6 +1990,7 @@ export default function ScheduleBoard() {
                                     isDragging={draggingId === j.booking_id}
                                     showEquipment
                                     showDuration={false}
+                                    dimmed={!!activeSearch && !jobMatchesSearch(j, activeSearch)}
                                   />
                                 ))}
                                 {blocksForCell(tech.technician_id, dh.iso).map((blk) => (
@@ -2182,6 +2249,7 @@ export default function ScheduleBoard() {
                                     onDragEnd={endDrag}
                                     isDragging={draggingId === j.booking_id}
                                     showEquipment={view === "week"}
+                                    dimmed={!!activeSearch && !jobMatchesSearch(j, activeSearch)}
                                   />
                                 ))}
                                 {blocksForCell(tech.technician_id, dayHeaders[i].iso).map((blk) => (
