@@ -262,13 +262,7 @@ function chipTimeLabel(job: ScheduleJob): string {
 }
 
 function fmtBlockDuration(startIso: string, endIso: string): string {
-  const mins = Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000);
-  if (mins <= 0) return "";
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
+  return fmtMins(Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000));
 }
 
 function BlockChip({
@@ -520,15 +514,23 @@ function CapacityTooltipContent({
   utilizedMinutes,
   capacityMinutes,
   colorClass,
+  jobMinutes,
+  driveTimeMinutes,
+  ptoMinutes,
 }: {
   utilizedMinutes: number;
   capacityMinutes: number;
   colorClass?: string;
+  jobMinutes?: number;
+  driveTimeMinutes?: number;
+  ptoMinutes?: number;
 }) {
   const pct = capacityMinutes > 0 ? Math.round((utilizedMinutes / capacityMinutes) * 100) : 0;
   const remainingMinutes = capacityMinutes - utilizedMinutes;
   const colors = utilColors(pct);
   const labelCls = colorClass ? "font-medium opacity-70" : "font-medium text-muted-foreground";
+  const hasBreakdown =
+    (jobMinutes ?? 0) > 0 || (driveTimeMinutes ?? 0) > 0 || (ptoMinutes ?? 0) > 0;
   return (
     <TooltipContent
       side="top"
@@ -540,6 +542,28 @@ function CapacityTooltipContent({
           <span className={labelCls}>Booked:</span>
           <span>{fmtUtilHours(utilizedMinutes)}</span>
         </div>
+        {hasBreakdown && (
+          <div className="pl-2 space-y-0.5 text-[10px] opacity-80">
+            {(jobMinutes ?? 0) > 0 && (
+              <div className="flex justify-between gap-4">
+                <span className={labelCls}>↳ Jobs:</span>
+                <span>{fmtMins(jobMinutes!)}</span>
+              </div>
+            )}
+            {(driveTimeMinutes ?? 0) > 0 && (
+              <div className="flex justify-between gap-4">
+                <span className={labelCls}>↳ Drive Time:</span>
+                <span>{fmtMins(driveTimeMinutes!)}</span>
+              </div>
+            )}
+            {(ptoMinutes ?? 0) > 0 && (
+              <div className="flex justify-between gap-4">
+                <span className={labelCls}>↳ PTO:</span>
+                <span>{fmtMins(ptoMinutes!)}</span>
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex justify-between gap-4">
           <span className={labelCls}>Capacity:</span>
           <span>{capacityMinutes > 0 ? fmtUtilHours(capacityMinutes) : "—"}</span>
@@ -601,10 +625,16 @@ function CapacityBadge({
   utilizedMinutes,
   capacityMinutes,
   colorClass,
+  jobMinutes,
+  driveTimeMinutes,
+  ptoMinutes,
 }: {
   utilizedMinutes: number;
   capacityMinutes: number;
   colorClass?: string;
+  jobMinutes?: number;
+  driveTimeMinutes?: number;
+  ptoMinutes?: number;
 }) {
   const utilH = Math.round(utilizedMinutes / 60);
   const capH = Math.round(capacityMinutes / 60);
@@ -623,7 +653,14 @@ function CapacityBadge({
           </span>
         </div>
       </TooltipTrigger>
-      <CapacityTooltipContent utilizedMinutes={utilizedMinutes} capacityMinutes={capacityMinutes} colorClass={colorClass} />
+      <CapacityTooltipContent
+        utilizedMinutes={utilizedMinutes}
+        capacityMinutes={capacityMinutes}
+        colorClass={colorClass}
+        jobMinutes={jobMinutes}
+        driveTimeMinutes={driveTimeMinutes}
+        ptoMinutes={ptoMinutes}
+      />
     </Tooltip>
   );
 }
@@ -1147,8 +1184,36 @@ export default function ScheduleBoard() {
   const idleCapMinutes = (technicianId: string) =>
     techCapMinutesById.get(technicianId) ?? defaultCapMinutes;
 
+  // Minutes from the CRM (work orders only).
   const techUtilMinutes = (technicianId: string) =>
     techUtilMinutesById.get(technicianId) ?? 0;
+
+  // Per-technician Drive Time + PTO block minutes, summed across the whole range.
+  const blockMinutesByTech = useMemo(() => {
+    const m = new Map<string, { driveTime: number; pto: number }>();
+    for (const block of blocks) {
+      const dur = Math.max(
+        0,
+        Math.round(
+          (new Date(block.end_time).getTime() - new Date(block.start_time).getTime()) / 60000,
+        ),
+      );
+      const cur = m.get(block.technician_id) ?? { driveTime: 0, pto: 0 };
+      if (block.block_type === "drive_time") cur.driveTime += dur;
+      else cur.pto += dur;
+      m.set(block.technician_id, { ...cur });
+    }
+    return m;
+  }, [blocks]);
+
+  const techBlockMinutes = (technicianId: string) =>
+    blockMinutesByTech.get(technicianId) ?? { driveTime: 0, pto: 0 };
+
+  // Total utilization = CRM jobs + local Drive Time + PTO blocks.
+  const techTotalUtilMinutes = (technicianId: string) => {
+    const { driveTime, pto } = techBlockMinutes(technicianId);
+    return techUtilMinutes(technicianId) + driveTime + pto;
+  };
 
   // Time horizon for unscheduled jobs driven by the active view (no separate toggle)
   const unscheduledHorizonDays = view === "week" ? 7 : 30;
@@ -1660,7 +1725,7 @@ export default function ScheduleBoard() {
             if (techsInRegion.length === 0) return null;
             const regionJobCount = techsInRegion.reduce((s, t) => s + distinctJobCount(t.jobs), 0);
             const regionUtilMinutes = techsInRegion.reduce(
-              (s, t) => s + techUtilMinutes(t.technician_id),
+              (s, t) => s + techTotalUtilMinutes(t.technician_id),
               0,
             );
             const regionCapMinutes = techsInRegion.reduce(
@@ -1758,23 +1823,53 @@ export default function ScheduleBoard() {
                               <div className="text-xs font-semibold text-foreground leading-tight truncate">
                                 {tech.resource_name ?? "Unassigned"}
                               </div>
-                              <div className="text-[10px] text-foreground/50">
-                                {distinctJobCount(tech.jobs)} job{distinctJobCount(tech.jobs) !== 1 ? "s" : ""}
-                              </div>
-                              {tech.jobs.length === 0
-                                ? showIdleTechs && (
-                                    <IdleCapacityBadge
-                                      capacityMinutes={idleCapMinutes(tech.technician_id)}
-                                      colorClass={palette.chip}
-                                    />
-                                  )
-                                : (
-                                    <CapacityBadge
-                                      utilizedMinutes={techUtilMinutes(tech.technician_id)}
-                                      capacityMinutes={idleCapMinutes(tech.technician_id)}
-                                      colorClass={palette.chip}
-                                    />
-                                  )}
+                              {(() => {
+                                const blkMins = techBlockMinutes(tech.technician_id);
+                                const jobMins = techUtilMinutes(tech.technician_id);
+                                const totalMins = jobMins + blkMins.driveTime + blkMins.pto;
+                                const hasAnyBooking = tech.jobs.length > 0 || blkMins.driveTime > 0 || blkMins.pto > 0;
+                                return (
+                                  <>
+                                    <div className="text-[10px] text-foreground/50">
+                                      {distinctJobCount(tech.jobs)} job{distinctJobCount(tech.jobs) !== 1 ? "s" : ""}
+                                      {jobMins > 0 && ` · ${fmtMins(jobMins)}`}
+                                    </div>
+                                    {(blkMins.driveTime > 0 || blkMins.pto > 0) && (
+                                      <div className="flex items-center gap-1.5 text-[10px] mt-0.5 flex-wrap">
+                                        {blkMins.driveTime > 0 && (
+                                          <span className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
+                                            <Car className="h-2.5 w-2.5 shrink-0" />
+                                            {fmtMins(blkMins.driveTime)}
+                                          </span>
+                                        )}
+                                        {blkMins.pto > 0 && (
+                                          <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                                            <Sun className="h-2.5 w-2.5 shrink-0" />
+                                            {fmtMins(blkMins.pto)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                    {hasAnyBooking ? (
+                                      <CapacityBadge
+                                        utilizedMinutes={totalMins}
+                                        capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                        colorClass={palette.chip}
+                                        jobMinutes={jobMins > 0 ? jobMins : undefined}
+                                        driveTimeMinutes={blkMins.driveTime > 0 ? blkMins.driveTime : undefined}
+                                        ptoMinutes={blkMins.pto > 0 ? blkMins.pto : undefined}
+                                      />
+                                    ) : (
+                                      showIdleTechs && (
+                                        <IdleCapacityBadge
+                                          capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                          colorClass={palette.chip}
+                                        />
+                                      )
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                           {jobsByWeekday.map((jobs, i) => {
@@ -1887,7 +1982,7 @@ export default function ScheduleBoard() {
             if (techsInRegion.length === 0) return null;
             const regionJobCount = techsInRegion.reduce((s, t) => s + distinctJobCount(t.jobs), 0);
             const regionUtilMinutes = techsInRegion.reduce(
-              (s, t) => s + techUtilMinutes(t.technician_id),
+              (s, t) => s + techTotalUtilMinutes(t.technician_id),
               0,
             );
             const regionCapMinutes = techsInRegion.reduce(
@@ -1993,23 +2088,53 @@ export default function ScheduleBoard() {
                               <div className="text-sm font-medium text-foreground truncate">
                                 {tech.resource_name ?? "Unassigned"}
                               </div>
-                              <div className="text-[10px] text-muted-foreground">
-                                {distinctJobCount(tech.jobs)} job{distinctJobCount(tech.jobs) !== 1 ? "s" : ""}
-                              </div>
-                              {tech.jobs.length === 0
-                                ? showIdleTechs && (
-                                    <IdleCapacityBadge
-                                      capacityMinutes={idleCapMinutes(tech.technician_id)}
-                                      colorClass={palette.chip}
-                                    />
-                                  )
-                                : (
-                                    <CapacityBadge
-                                      utilizedMinutes={techUtilMinutes(tech.technician_id)}
-                                      capacityMinutes={idleCapMinutes(tech.technician_id)}
-                                      colorClass={palette.chip}
-                                    />
-                                  )}
+                              {(() => {
+                                const blkMins = techBlockMinutes(tech.technician_id);
+                                const jobMins = techUtilMinutes(tech.technician_id);
+                                const totalMins = jobMins + blkMins.driveTime + blkMins.pto;
+                                const hasAnyBooking = tech.jobs.length > 0 || blkMins.driveTime > 0 || blkMins.pto > 0;
+                                return (
+                                  <>
+                                    <div className="text-[10px] text-muted-foreground">
+                                      {distinctJobCount(tech.jobs)} job{distinctJobCount(tech.jobs) !== 1 ? "s" : ""}
+                                      {jobMins > 0 && ` · ${fmtMins(jobMins)}`}
+                                    </div>
+                                    {(blkMins.driveTime > 0 || blkMins.pto > 0) && (
+                                      <div className="flex items-center gap-1.5 text-[10px] mt-0.5 flex-wrap">
+                                        {blkMins.driveTime > 0 && (
+                                          <span className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
+                                            <Car className="h-2.5 w-2.5 shrink-0" />
+                                            {fmtMins(blkMins.driveTime)}
+                                          </span>
+                                        )}
+                                        {blkMins.pto > 0 && (
+                                          <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                                            <Sun className="h-2.5 w-2.5 shrink-0" />
+                                            {fmtMins(blkMins.pto)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                    {hasAnyBooking ? (
+                                      <CapacityBadge
+                                        utilizedMinutes={totalMins}
+                                        capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                        colorClass={palette.chip}
+                                        jobMinutes={jobMins > 0 ? jobMins : undefined}
+                                        driveTimeMinutes={blkMins.driveTime > 0 ? blkMins.driveTime : undefined}
+                                        ptoMinutes={blkMins.pto > 0 ? blkMins.pto : undefined}
+                                      />
+                                    ) : (
+                                      showIdleTechs && (
+                                        <IdleCapacityBadge
+                                          capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                          colorClass={palette.chip}
+                                        />
+                                      )
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                           {jobsByDay.map((jobs, i) => {
