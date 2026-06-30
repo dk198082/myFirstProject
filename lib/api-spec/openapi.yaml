@@ -210,6 +210,78 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /wb/schedule-blocks:
+    get:
+      operationId: listWbScheduleBlocks
+      tags: [writeback]
+      summary: List Drive Time / PTO blocks for the given date range
+      parameters:
+        - name: start_date
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD) — inclusive lower bound on start_time
+        - name: end_date
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD) — exclusive upper bound on start_time
+      responses:
+        "200":
+          description: Schedule blocks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScheduleBlock"
+    post:
+      operationId: createWbScheduleBlock
+      tags: [writeback]
+      summary: Create a Drive Time or PTO block for a technician
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduleBlock"
+      responses:
+        "201":
+          description: Block created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleBlock"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/schedule-blocks/{id}:
+    delete:
+      operationId: deleteWbScheduleBlock
+      tags: [writeback]
+      summary: Delete a Drive Time or PTO block
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Block not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /wb/writebacks:
     get:
       operationId: listWbWritebacks
@@ -747,6 +819,46 @@ components:
           nullable: true
       required:
         - work_order_id
+
+    ScheduleBlock:
+      type: object
+      required: [id, technician_id, block_type, start_time, end_time, created_at]
+      properties:
+        id:
+          type: integer
+        technician_id:
+          type: string
+        block_type:
+          type: string
+          enum: [drive_time, pto]
+        start_time:
+          type: string
+          description: ISO 8601 timestamp
+        end_time:
+          type: string
+          description: ISO 8601 timestamp
+        notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+
+    CreateScheduleBlock:
+      type: object
+      required: [technician_id, block_type, start_time, end_time]
+      properties:
+        technician_id:
+          type: string
+        block_type:
+          type: string
+          enum: [drive_time, pto]
+        start_time:
+          type: string
+          description: ISO 8601 timestamp
+        end_time:
+          type: string
+          description: ISO 8601 timestamp
+        notes:
+          type: ["string", "null"]
 
     WbSaveResult:
       type: object

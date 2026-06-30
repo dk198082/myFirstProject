@@ -4,12 +4,16 @@ import {
   useGetWbUnscheduledJobs,
   useGetWbResourceUtilization,
   useUpdateWbBooking,
+  useListWbScheduleBlocks,
+  useDeleteWbScheduleBlock,
   getListWbWorkOrdersQueryKey,
   getListWbWritebacksQueryKey,
   getGetWbScheduleBoardQueryKey,
   getGetWbResourceUtilizationQueryKey,
+  getListWbScheduleBlocksQueryKey,
   type WbWorkOrder,
   type UnscheduledJob,
+  type ScheduleBlock,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -38,8 +42,13 @@ import {
   Download,
   ExternalLink,
   RefreshCw,
+  Car,
+  Sun,
+  Plus,
+  X,
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
+import { AddBlockDialog } from "@/components/AddBlockDialog";
 import {
   timeToMins,
   conflictedIdsForTech,
@@ -250,6 +259,46 @@ function chipTimeLabel(job: ScheduleJob): string {
   if (job.day_index <= spanStart) return start ? `${start} →` : "→";
   if (job.day_index >= spanEnd) return end ? `→ ${end}` : "→";
   return "All day";
+}
+
+function BlockChip({
+  block,
+  onDelete,
+}: {
+  block: ScheduleBlock;
+  onDelete: () => void;
+}) {
+  const isDriveTime = block.block_type === "drive_time";
+  return (
+    <div
+      className={`flex items-center gap-1 rounded border text-[11px] px-1.5 py-0.5 leading-tight ${
+        isDriveTime
+          ? "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600"
+          : "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700"
+      }`}
+    >
+      {isDriveTime ? (
+        <Car className="h-3 w-3 shrink-0" />
+      ) : (
+        <Sun className="h-3 w-3 shrink-0" />
+      )}
+      <span className="truncate">{isDriveTime ? "Drive Time" : "PTO"}</span>
+      {block.notes && (
+        <span className="truncate opacity-60">· {block.notes}</span>
+      )}
+      <button
+        type="button"
+        className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        aria-label="Remove block"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
 }
 
 function JobChip({
@@ -828,6 +877,13 @@ export default function ScheduleBoard() {
   // "service-location" re-groups by work order state/city. Resets on page reload.
   const [groupBy, setGroupBy] = useState<GroupByMode>("tech-region");
 
+  // Drive Time / PTO block being added (or null when dialog is closed).
+  const [addingBlock, setAddingBlock] = useState<{
+    technicianId: string;
+    technicianName: string;
+    date: string;
+  } | null>(null);
+
   // Per-booking-id set of chips that are still syncing from CRM after a direct save.
   // Each id is removed individually after 22 s (matching the last follow-up refetch).
   const [pendingSyncIds, setPendingSyncIds] = useState<Set<string>>(new Set());
@@ -954,6 +1010,43 @@ export default function ScheduleBoard() {
 
   const { data: unscheduledData } = useGetWbUnscheduledJobs();
   const unscheduledJobs = unscheduledData?.jobs ?? [];
+
+  const rangeStartForBlocks = data?.range_start ?? start;
+  const endDateForBlocks = useMemo(
+    () => addDaysISO(rangeStartForBlocks, data?.day_count ?? 7),
+    [rangeStartForBlocks, data?.day_count],
+  );
+  const { data: blocksData, refetch: refetchBlocks } = useListWbScheduleBlocks({
+    start_date: rangeStartForBlocks,
+    end_date: endDateForBlocks,
+  });
+  const blocks: ScheduleBlock[] = blocksData ?? [];
+
+  const deleteBlockMutation = useDeleteWbScheduleBlock({
+    mutation: {
+      onSuccess: () => {
+        void refetchBlocks();
+        toast({ title: "Block removed" });
+      },
+      onError: () => {
+        toast({ title: "Failed to remove block", variant: "destructive" });
+      },
+    },
+  });
+
+  const blocksByTechAndDate = useMemo(() => {
+    const map = new Map<string, ScheduleBlock[]>();
+    for (const block of blocks) {
+      const date = block.start_time.slice(0, 10);
+      const key = `${block.technician_id}::${date}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(block);
+    }
+    return map;
+  }, [blocks]);
+
+  const blocksForCell = (techId: string, iso: string) =>
+    blocksByTechAndDate.get(`${techId}::${iso}`) ?? [];
 
   // Resource utilization — shares start date + view with the board
   const utilView = view === "week" ? "week" : "month";
@@ -1687,7 +1780,7 @@ export default function ScheduleBoard() {
                             return (
                               <div
                                 key={i}
-                                className={`border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""} ${dropCue}`}
+                                className={`group border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""} ${dropCue}`}
                                 data-testid={`tech-cell-${tech.technician_id}-${dh.dayIdx}`}
                                 aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
                                 onDragOver={(e) => {
@@ -1724,6 +1817,27 @@ export default function ScheduleBoard() {
                                     showDuration={false}
                                   />
                                 ))}
+                                {blocksForCell(tech.technician_id, dh.iso).map((blk) => (
+                                  <BlockChip
+                                    key={blk.id}
+                                    block={blk}
+                                    onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
+                                  />
+                                ))}
+                                <button
+                                  type="button"
+                                  className="w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
+                                  onClick={() =>
+                                    setAddingBlock({
+                                      technicianId: tech.technician_id,
+                                      technicianName: tech.resource_name ?? "Unknown",
+                                      date: dh.iso,
+                                    })
+                                  }
+                                >
+                                  <Plus className="h-2.5 w-2.5 shrink-0" />
+                                  Add block
+                                </button>
                               </div>
                             );
                           })}
@@ -1899,7 +2013,7 @@ export default function ScheduleBoard() {
                             return (
                               <div
                                 key={i}
-                                className={`border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dropCue}`}
+                                className={`group border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dropCue}`}
                                 data-testid={`cell-${tech.technician_id}-${i}`}
                                 aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
                                 onDragOver={(e) => {
@@ -1931,6 +2045,27 @@ export default function ScheduleBoard() {
                                     showEquipment={view === "week"}
                                   />
                                 ))}
+                                {blocksForCell(tech.technician_id, dayHeaders[i].iso).map((blk) => (
+                                  <BlockChip
+                                    key={blk.id}
+                                    block={blk}
+                                    onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
+                                  />
+                                ))}
+                                <button
+                                  type="button"
+                                  className="w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
+                                  onClick={() =>
+                                    setAddingBlock({
+                                      technicianId: tech.technician_id,
+                                      technicianName: tech.resource_name ?? "Unknown",
+                                      date: dayHeaders[i].iso,
+                                    })
+                                  }
+                                >
+                                  <Plus className="h-2.5 w-2.5 shrink-0" />
+                                  Add block
+                                </button>
                               </div>
                             );
                           })}
@@ -2225,6 +2360,14 @@ export default function ScheduleBoard() {
             setEditingDuration(null);
           }}
           onSaveSuccess={handleSaveSuccess}
+        />
+      )}
+      {addingBlock && (
+        <AddBlockDialog
+          technicianId={addingBlock.technicianId}
+          technicianName={addingBlock.technicianName}
+          date={addingBlock.date}
+          onClose={() => setAddingBlock(null)}
         />
       )}
     </div>

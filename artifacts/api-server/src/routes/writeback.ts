@@ -612,6 +612,101 @@ router.get("/wb/work-orders/:workOrderId/detail", async (req, res) => {
   }
 });
 
+// ── Schedule blocks (Drive Time / PTO) ────────────────────────────────────────
+
+const createScheduleBlockSchema = z.object({
+  technician_id: z.string().min(1),
+  block_type: z.enum(["drive_time", "pto"]),
+  start_time: z.string().min(1),
+  end_time: z.string().min(1),
+  notes: z.string().nullable().optional(),
+});
+
+router.get("/wb/schedule-blocks", async (req, res) => {
+  const { start_date, end_date } = req.query as Record<string, string | undefined>;
+  try {
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    if (start_date) {
+      params.push(start_date);
+      conditions.push(`start_time >= $${params.length}::date`);
+    }
+    if (end_date) {
+      params.push(end_date);
+      conditions.push(`start_time < $${params.length}::date`);
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const r = await localPool.query(
+      `SELECT id, technician_id, block_type, start_time, end_time, notes, created_at
+       FROM schedule_blocks ${where} ORDER BY start_time`,
+      params,
+    );
+    res.json(
+      r.rows.map((row) => ({
+        id: row.id,
+        technician_id: row.technician_id,
+        block_type: row.block_type,
+        start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
+        end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
+        notes: row.notes ?? null,
+        created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+      })),
+    );
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to list schedule blocks", "Failed to list schedule blocks");
+  }
+});
+
+router.post("/wb/schedule-blocks", async (req, res) => {
+  const parsed = createScheduleBlockSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
+    return;
+  }
+  const { technician_id, block_type, start_time, end_time, notes } = parsed.data;
+  try {
+    const r = await localPool.query(
+      `INSERT INTO schedule_blocks (technician_id, block_type, start_time, end_time, notes)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, technician_id, block_type, start_time, end_time, notes, created_at`,
+      [technician_id, block_type, start_time, end_time, notes ?? null],
+    );
+    const row = r.rows[0];
+    res.status(201).json({
+      id: row.id,
+      technician_id: row.technician_id,
+      block_type: row.block_type,
+      start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
+      end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
+      notes: row.notes ?? null,
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    });
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to create schedule block", "Failed to create schedule block");
+  }
+});
+
+router.delete("/wb/schedule-blocks/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid block id" });
+    return;
+  }
+  try {
+    const r = await localPool.query(
+      `DELETE FROM schedule_blocks WHERE id = $1 RETURNING id`,
+      [id],
+    );
+    if (r.rows.length === 0) {
+      res.status(404).json({ error: "Block not found" });
+      return;
+    }
+    res.status(204).send();
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to delete schedule block", "Failed to delete schedule block");
+  }
+});
+
 router.get("/wb/writebacks", async (req, res) => {
   try {
     const r = await localPool.query<WritebackRow>(

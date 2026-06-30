@@ -55,6 +55,46 @@ export interface WbWorkOrder {
   pending_writeback?: WbWriteback | null;
 }
 
+export type ScheduleBlockBlockType = typeof ScheduleBlockBlockType[keyof typeof ScheduleBlockBlockType];
+
+
+export const ScheduleBlockBlockType = {
+  drive_time: 'drive_time',
+  pto: 'pto',
+} as const;
+
+export interface ScheduleBlock {
+  id: number;
+  technician_id: string;
+  block_type: ScheduleBlockBlockType;
+  /** ISO 8601 timestamp */
+  start_time: string;
+  /** ISO 8601 timestamp */
+  end_time: string;
+  /** @nullable */
+  notes?: string | null;
+  created_at: string;
+}
+
+export type CreateScheduleBlockBlockType = typeof CreateScheduleBlockBlockType[keyof typeof CreateScheduleBlockBlockType];
+
+
+export const CreateScheduleBlockBlockType = {
+  drive_time: 'drive_time',
+  pto: 'pto',
+} as const;
+
+export interface CreateScheduleBlock {
+  technician_id: string;
+  block_type: CreateScheduleBlockBlockType;
+  /** ISO 8601 timestamp */
+  start_time: string;
+  /** ISO 8601 timestamp */
+  end_time: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
 export interface WbSaveResult {
   message: string;
 }
@@ -685,6 +725,17 @@ search?: string;
  * @maximum 500
  */
 limit?: number;
+};
+
+export type ListWbScheduleBlocksParams = {
+/**
+ * ISO date (YYYY-MM-DD) — inclusive lower bound on start_time
+ */
+start_date?: string;
+/**
+ * ISO date (YYYY-MM-DD) — exclusive upper bound on start_time
+ */
+end_date?: string;
 };
 
 export type GetTechnicianByEmailParams = {

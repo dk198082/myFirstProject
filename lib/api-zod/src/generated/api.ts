@@ -237,6 +237,46 @@ export const GetWbWorkOrderDetailResponse = zod.object({
 
 
 /**
+ * @summary List Drive Time / PTO blocks for the given date range
+ */
+export const ListWbScheduleBlocksQueryParams = zod.object({
+  "start_date": zod.coerce.string().optional().describe('ISO date (YYYY-MM-DD) — inclusive lower bound on start_time'),
+  "end_date": zod.coerce.string().optional().describe('ISO date (YYYY-MM-DD) — exclusive upper bound on start_time')
+})
+
+export const ListWbScheduleBlocksResponseItem = zod.object({
+  "id": zod.number(),
+  "technician_id": zod.string(),
+  "block_type": zod.enum(['drive_time', 'pto']),
+  "start_time": zod.string().describe('ISO 8601 timestamp'),
+  "end_time": zod.string().describe('ISO 8601 timestamp'),
+  "notes": zod.string().nullish(),
+  "created_at": zod.string()
+})
+export const ListWbScheduleBlocksResponse = zod.array(ListWbScheduleBlocksResponseItem)
+
+
+/**
+ * @summary Create a Drive Time or PTO block for a technician
+ */
+export const CreateWbScheduleBlockBody = zod.object({
+  "technician_id": zod.string(),
+  "block_type": zod.enum(['drive_time', 'pto']),
+  "start_time": zod.string().describe('ISO 8601 timestamp'),
+  "end_time": zod.string().describe('ISO 8601 timestamp'),
+  "notes": zod.string().nullish()
+})
+
+
+/**
+ * @summary Delete a Drive Time or PTO block
+ */
+export const DeleteWbScheduleBlockParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
  * @summary List all staged write-back entries (queued and synced), most recent first
  */
 export const ListWbWritebacksResponseItem = zod.object({

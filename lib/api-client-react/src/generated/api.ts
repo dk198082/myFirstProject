@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CreateScheduleBlock,
   DashboardSummary,
   ErrorResponse,
   GetJobsByRegionParams,
@@ -33,11 +34,13 @@ import type {
   GetWbResourceUtilizationParams,
   GetWbScheduleBoardParams,
   HealthStatus,
+  ListWbScheduleBlocksParams,
   ListWbWorkOrdersParams,
   RegionGroup,
   RegionJobGroup,
   ReportFilters,
   ResourceUtilizationResponse,
+  ScheduleBlock,
   ScheduleBoard,
   ServiceOrderReport,
   Technician,
@@ -515,6 +518,231 @@ export function useGetWbWorkOrderDetail<TData = Awaited<ReturnType<typeof getWbW
 
 
 
+
+export const getListWbScheduleBlocksUrl = (params?: ListWbScheduleBlocksParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/wb/schedule-blocks?${stringifiedParams}` : `/api/wb/schedule-blocks`
+}
+
+/**
+ * @summary List Drive Time / PTO blocks for the given date range
+ */
+export const listWbScheduleBlocks = async (params?: ListWbScheduleBlocksParams, options?: RequestInit): Promise<ScheduleBlock[]> => {
+
+  return customFetch<ScheduleBlock[]>(getListWbScheduleBlocksUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWbScheduleBlocksQueryKey = (params?: ListWbScheduleBlocksParams,) => {
+    return [
+    `/api/wb/schedule-blocks`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListWbScheduleBlocksQueryOptions = <TData = Awaited<ReturnType<typeof listWbScheduleBlocks>>, TError = ErrorType<unknown>>(params?: ListWbScheduleBlocksParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbScheduleBlocks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWbScheduleBlocksQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWbScheduleBlocks>>> = ({ signal }) => listWbScheduleBlocks(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWbScheduleBlocks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWbScheduleBlocksQueryResult = NonNullable<Awaited<ReturnType<typeof listWbScheduleBlocks>>>
+export type ListWbScheduleBlocksQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List Drive Time / PTO blocks for the given date range
+ */
+
+export function useListWbScheduleBlocks<TData = Awaited<ReturnType<typeof listWbScheduleBlocks>>, TError = ErrorType<unknown>>(
+ params?: ListWbScheduleBlocksParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbScheduleBlocks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWbScheduleBlocksQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateWbScheduleBlockUrl = () => {
+
+
+
+
+  return `/api/wb/schedule-blocks`
+}
+
+/**
+ * @summary Create a Drive Time or PTO block for a technician
+ */
+export const createWbScheduleBlock = async (createScheduleBlock: CreateScheduleBlock, options?: RequestInit): Promise<ScheduleBlock> => {
+
+  return customFetch<ScheduleBlock>(getCreateWbScheduleBlockUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      createScheduleBlock,)
+  }
+);}
+
+
+
+
+export const getCreateWbScheduleBlockMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWbScheduleBlock>>, TError,{data: BodyType<CreateScheduleBlock>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createWbScheduleBlock>>, TError,{data: BodyType<CreateScheduleBlock>}, TContext> => {
+
+const mutationKey = ['createWbScheduleBlock'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createWbScheduleBlock>>, {data: BodyType<CreateScheduleBlock>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createWbScheduleBlock(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateWbScheduleBlockMutationResult = NonNullable<Awaited<ReturnType<typeof createWbScheduleBlock>>>
+    export type CreateWbScheduleBlockMutationBody = BodyType<CreateScheduleBlock>
+    export type CreateWbScheduleBlockMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Create a Drive Time or PTO block for a technician
+ */
+export const useCreateWbScheduleBlock = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWbScheduleBlock>>, TError,{data: BodyType<CreateScheduleBlock>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createWbScheduleBlock>>,
+        TError,
+        {data: BodyType<CreateScheduleBlock>},
+        TContext
+      > => {
+      return useMutation(getCreateWbScheduleBlockMutationOptions(options));
+    }
+
+export const getDeleteWbScheduleBlockUrl = (id: number,) => {
+
+
+
+
+  return `/api/wb/schedule-blocks/${id}`
+}
+
+/**
+ * @summary Delete a Drive Time or PTO block
+ */
+export const deleteWbScheduleBlock = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteWbScheduleBlockUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteWbScheduleBlockMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWbScheduleBlock>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteWbScheduleBlock>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteWbScheduleBlock'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWbScheduleBlock>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteWbScheduleBlock(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteWbScheduleBlockMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWbScheduleBlock>>>
+
+    export type DeleteWbScheduleBlockMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Delete a Drive Time or PTO block
+ */
+export const useDeleteWbScheduleBlock = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWbScheduleBlock>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteWbScheduleBlock>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteWbScheduleBlockMutationOptions(options));
+    }
 
 export const getListWbWritebacksUrl = () => {
 
