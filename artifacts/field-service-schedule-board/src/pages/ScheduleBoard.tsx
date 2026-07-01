@@ -291,7 +291,7 @@ function BlockChip({
   const duration = fmtBlockDuration(block.start_time, block.end_time);
   return (
     <div
-      className={`flex items-center gap-1 rounded border text-[11px] px-1.5 py-0.5 leading-tight ${
+      className={`w-full flex items-center gap-1 rounded border text-[11px] px-1.5 py-1 leading-tight ${
         isDriveTime
           ? "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600"
           : "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700"
