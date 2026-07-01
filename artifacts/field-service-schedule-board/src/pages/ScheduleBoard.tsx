@@ -120,6 +120,28 @@ function fmtTime(t: string | null | undefined): string {
   return `${h12}:${mStr ?? "00"} ${period}`;
 }
 
+/**
+ * Convert a split UTC date ("2026-06-30") + time ("14:30:00") pair into a
+ * 12-hour local-time string ("10:30 AM"). Falls back to the raw UTC fmtTime
+ * when the date part is missing so single-field callers still work.
+ */
+function fmtLocalTime(
+  date: string | null | undefined,
+  time: string | null | undefined,
+): string {
+  if (!time) return "";
+  if (!date) return fmtTime(time); // no date → can't convert, show UTC
+  const iso = `${date}T${time.includes(":") && time.length >= 5 ? time : time + ":00"}`;
+  // Treat as UTC by appending Z only when the string has no zone info.
+  const d = new Date(iso.endsWith("Z") || iso.includes("+") ? iso : iso + "Z");
+  if (isNaN(d.getTime())) return fmtTime(time);
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = ((h + 11) % 12) + 1;
+  return `${h12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
 function fmtDuration(start: string | null | undefined, end: string | null | undefined): string {
   if (!start || !end) return "";
   const toMin = (s: string) => {
@@ -264,8 +286,8 @@ function distinctJobCount(jobs: { booking_id: string }[]): number {
 // the first day runs from its start time onward (→), interior days are full
 // days, and the last day runs until its end time.
 function chipTimeLabel(job: ScheduleJob): string {
-  const start = fmtTime(job.crmstarttime);
-  const end = fmtTime(job.crmendtime);
+  const start = fmtLocalTime(job.crmstart_time, job.crmstarttime);
+  const end = fmtLocalTime(job.crmend_time, job.crmendtime);
   const spanStart = job.span_start_day ?? job.day_index;
   const spanEnd = job.span_end_day ?? job.day_index;
   if (spanEnd <= spanStart) {
@@ -437,11 +459,11 @@ function JobChip({
           </div>
           <div>
             <span className="font-medium opacity-70">CRM Start:</span>{" "}
-            {job.crmstart_time ?? "—"} {fmtTime(job.crmstarttime)}
+            {job.crmstart_time ?? "—"} {fmtLocalTime(job.crmstart_time, job.crmstarttime)}
           </div>
           <div>
             <span className="font-medium opacity-70">CRM End:</span>{" "}
-            {job.crmend_time ?? "—"} {fmtTime(job.crmendtime)}
+            {job.crmend_time ?? "—"} {fmtLocalTime(job.crmend_time, job.crmendtime)}
           </div>
           {(job.city || job.state) && (
             <div>
