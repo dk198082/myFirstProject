@@ -1,7 +1,12 @@
 @import "tailwindcss";
+/* Explicitly tell Tailwind where to scan */
+@source "./";
+@source "./components";
+@source "./pages";
+@source "./hooks";
+
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

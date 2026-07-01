@@ -1,19 +1,44 @@
 import pg from "pg";
 
 const { Pool } = pg;
-
+//console.log(process.env.D365CRM_DATABASE_URL);
 // The d365crm password can contain characters (%, #, !, ^) that break URL
 // percent-decoding, so parse the connection string manually and pass discrete
 // fields to pg instead of relying on connectionString parsing.
+// function parseUrl(raw: string) {
+//   const m = raw.match(
+//     /^postg(?:res(?:ql)?):\/\/([^:]+):(.+)@([^:/]+)(?::(\d+))?\/([^?]+)(?:\?.*)?$/,
+//   );
+//   if (!m) {
+//     throw new Error("D365CRM_DATABASE_URL is not a valid postgres connection string");
+//   }
+//   const [, user, password, host, port, database] = m;
+//   return { user, password, host, port: port ? Number(port) : 5432, database };
+// }
+new Pool({
+    host: "fs-postgresql-prod.postgres.database.azure.com",
+    port: 5432,
+    database: "d365crm",   // or d365crm if that's the correct DB
+    user: "crmadmin",
+    password: "Dynam!c$#^%@AxAptA",
+    ssl: {
+        rejectUnauthorized: false,
+    },
+});
+
 function parseUrl(raw: string) {
-  const m = raw.match(
-    /^postg(?:res(?:ql)?):\/\/([^:]+):(.+)@([^:/]+)(?::(\d+))?\/([^?]+)(?:\?.*)?$/,
-  );
-  if (!m) {
-    throw new Error("D365CRM_DATABASE_URL is not a valid postgres connection string");
-  }
-  const [, user, password, host, port, database] = m;
-  return { user, password, host, port: port ? Number(port) : 5432, database };
+  const url = new URL(raw);
+
+  return {
+    host: "fs-postgresql-prod.postgres.database.azure.com",
+    port: 5432,
+    database: "d365crm",   // or d365crm if that's the correct DB
+    user: "crmadmin",
+    password: "Dynam!c$#^%@AxAptA",
+    ssl: {
+        rejectUnauthorized: false,
+    },
+  };
 }
 
 let pool: pg.Pool | null = null;

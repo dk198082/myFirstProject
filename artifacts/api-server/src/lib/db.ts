@@ -7,6 +7,6 @@ export const pool = new Pool({
   port: Number(process.env.FS_DB_PORT ?? 5432),
   database: process.env.FS_DB_NAME ?? "fieldservice",
   user: process.env.FS_DB_USER ?? "crmadmin",
-  password: process.env.FS_DB_PASSWORD,
+  password: process.env.FS_DB_PASSWORD ?? "Dynam!c$#^%@AxAptA",
   ssl: { rejectUnauthorized: false },
 });
