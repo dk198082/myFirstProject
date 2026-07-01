@@ -16,19 +16,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Then install Node
-      - uses: actions/setup-node@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          node-version: 24
-          cache: pnpm
+               version: 10.9.2
+               run_install: false
 
-       # Install pnpm FIRST
-      - name: Enable Corepack
-        run: |
-                corepack enable
-                corepack prepare pnpm@10.9.2 --activate
-                pnpm --version
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+                node-version: 24
+                cache: pnpm
                 
+      - name: Verify
+        run: |
+                  node -v
+                  pnpm -v
+
       - name: Install
         run: pnpm install
 
