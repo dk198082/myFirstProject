@@ -369,6 +369,7 @@ function JobChip({
   colorClass,
   isConflict,
   syncPending,
+  stagePending,
   onOpen,
   onDragStart,
   onDragEnd,
@@ -381,8 +382,10 @@ function JobChip({
   compact: boolean;
   colorClass: string;
   isConflict?: boolean;
-  /** True while a CRM save for this booking is still syncing back to the mirror DB. */
+  /** True while a CRM save for this booking is actively syncing back to the mirror DB (22 s window). */
   syncPending?: boolean;
+  /** True when the booking has a queued drag-drop change waiting for Save (not yet pushed to Dynamics). */
+  stagePending?: boolean;
   onOpen: () => void;
   onDragStart?: () => void;
   onDragEnd?: () => void;
@@ -421,8 +424,14 @@ function JobChip({
     >
       {syncPending && (
         <RefreshCw
-          className="absolute top-0.5 right-0.5 h-3 w-3 text-red-500 animate-spin"
+          className="absolute top-0.5 right-0.5 h-3 w-3 text-blue-500 animate-spin"
           aria-label="Syncing with CRM"
+        />
+      )}
+      {!syncPending && stagePending && (
+        <span
+          className="absolute top-0.5 right-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-1 ring-white/80 shadow-sm"
+          aria-label="Unsaved change — click Save to push to Dynamics"
         />
       )}
       <div className="flex items-center gap-1">
@@ -1118,12 +1127,11 @@ export default function ScheduleBoard() {
     },
   });
 
-  // Combined set: local timer-tracked saves + queued write-backs from DB
-  const allPendingIds = useMemo(() => {
-    const ids = new Set(pendingSyncIds);
-    for (const wb of queuedWritebacks) ids.add(wb.booking_id);
-    return ids;
-  }, [pendingSyncIds, queuedWritebacks]);
+  // Queued drag-drop changes waiting for Save (distinct from active CRM sync)
+  const queuedIds = useMemo(
+    () => new Set(queuedWritebacks.map((wb) => wb.booking_id)),
+    [queuedWritebacks],
+  );
   const handleSaveSuccess = (bookingId: string | null) => {
     if (!bookingId) return; // new booking — chip doesn't exist yet
     setPendingSyncIds((prev) => new Set([...prev, bookingId]));
@@ -2170,7 +2178,8 @@ export default function ScheduleBoard() {
                                     compact={false}
                                     colorClass={palette.chip}
                                     isConflict={conflictedBookingIds.has(j.booking_id)}
-                                    syncPending={allPendingIds.has(j.booking_id)}
+                                    syncPending={pendingSyncIds.has(j.booking_id)}
+                                    stagePending={queuedIds.has(j.booking_id)}
                                     onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
                                     onDragStart={() => startDrag(j, tech.technician_id)}
                                     onDragEnd={endDrag}
@@ -2430,7 +2439,8 @@ export default function ScheduleBoard() {
                                     compact={view === "month"}
                                     colorClass={palette.chip}
                                     isConflict={conflictedBookingIds.has(j.booking_id)}
-                                    syncPending={allPendingIds.has(j.booking_id)}
+                                    syncPending={pendingSyncIds.has(j.booking_id)}
+                                    stagePending={queuedIds.has(j.booking_id)}
                                     onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
                                     onDragStart={() => startDrag(j, tech.technician_id)}
                                     onDragEnd={endDrag}
