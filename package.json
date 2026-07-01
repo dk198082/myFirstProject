@@ -4,8 +4,6 @@
   "private": true,
   "license": "MIT",
 
-  "packageManager": "pnpm@10.9.2",
-
   "scripts": {
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
