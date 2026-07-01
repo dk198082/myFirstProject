@@ -430,9 +430,11 @@ function JobChip({
       )}
       {!syncPending && stagePending && (
         <span
-          className="absolute top-0.5 right-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-1 ring-white/80 shadow-sm"
+          className="absolute top-0 right-0.5 text-[11px] font-bold leading-none text-red-500 select-none"
           aria-label="Unsaved change — click Save to push to Dynamics"
-        />
+        >
+          *
+        </span>
       )}
       <div className="flex items-center gap-1">
         <span className="font-semibold truncate">{job.work_order_number ?? "WO"}</span>
