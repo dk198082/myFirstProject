@@ -120,17 +120,6 @@ function fmtTime(t: string | null | undefined): string {
   return `${h12}:${mStr ?? "00"} ${period}`;
 }
 
-/** Parses a UTC datetime string and formats the time in the browser's local timezone. */
-function fmtUtcAsLocal(dt: string | null | undefined): string {
-  if (!dt) return "";
-  // Normalise: ensure T separator and Z suffix so Date() treats it as UTC
-  const iso = dt.includes("T") ? dt : dt.replace(" ", "T");
-  const withZ = /[Zz]$|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + "Z";
-  const d = new Date(withZ);
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
-}
-
 function fmtDuration(start: string | null | undefined, end: string | null | undefined): string {
   if (!start || !end) return "";
   const toMin = (s: string) => {
@@ -275,8 +264,8 @@ function distinctJobCount(jobs: { booking_id: string }[]): number {
 // the first day runs from its start time onward (→), interior days are full
 // days, and the last day runs until its end time.
 function chipTimeLabel(job: ScheduleJob): string {
-  const start = fmtUtcAsLocal(job.crmstart_time);
-  const end = fmtUtcAsLocal(job.crmend_time);
+  const start = fmtTime(job.crmstarttime);
+  const end = fmtTime(job.crmendtime);
   const spanStart = job.span_start_day ?? job.day_index;
   const spanEnd = job.span_end_day ?? job.day_index;
   if (spanEnd <= spanStart) {
@@ -448,11 +437,11 @@ function JobChip({
           </div>
           <div>
             <span className="font-medium opacity-70">CRM Start:</span>{" "}
-            {fmtUtcAsLocal(job.crmstart_time) || "—"}
+            {job.crmstart_time ?? "—"} {fmtTime(job.crmstarttime)}
           </div>
           <div>
             <span className="font-medium opacity-70">CRM End:</span>{" "}
-            {fmtUtcAsLocal(job.crmend_time) || "—"}
+            {job.crmend_time ?? "—"} {fmtTime(job.crmendtime)}
           </div>
           {(job.city || job.state) && (
             <div>
