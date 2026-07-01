@@ -17,35 +17,24 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+
+      - uses: pnpm/action-setup@v4
         with:
-            version: 10.9.2
-            run_install: false
-            
-      - name: Set up Node.js version
-        uses: actions/setup-node@v3
+         version: 10.9.2
+         run_install: false
+
+      - uses: actions/setup-node@v4
         with:
-          node-version: '24.x'
+         node-version: 24
+         cache: 'pnpm'
 
-      - name: Verify
-        run: |
-            which pnpm
-            pnpm --version
-            node --version
+      - run: |
+         node -v
+         pnpm -v
 
-      - name: Install
-        run: pnpm install
+      - run: pnpm install --no-frozen-lockfile
 
-      - name: Build
-        run: pnpm run build 
-
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-app
-          path: .
+      - run: pnpm run build
 
   deploy:
     runs-on: ubuntu-latest
