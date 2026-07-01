@@ -291,35 +291,39 @@ function BlockChip({
   const duration = fmtBlockDuration(block.start_time, block.end_time);
   return (
     <div
-      className={`w-full flex items-center gap-1 rounded border text-[11px] px-1.5 py-1 leading-tight ${
+      className={`w-full rounded border text-[11px] px-1.5 py-1 leading-tight ${
         isDriveTime
           ? "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600"
           : "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700"
       }`}
     >
-      {isDriveTime ? (
-        <Car className="h-3 w-3 shrink-0" />
-      ) : (
-        <Sun className="h-3 w-3 shrink-0" />
-      )}
-      <span className="truncate">{isDriveTime ? "Drive Time" : "PTO"}</span>
+      <div className="flex items-center gap-1">
+        {isDriveTime ? (
+          <Car className="h-3 w-3 shrink-0" />
+        ) : (
+          <Sun className="h-3 w-3 shrink-0" />
+        )}
+        <span className="font-semibold truncate">
+          {isDriveTime ? "Drive Time" : "PTO"}
+        </span>
+        <button
+          type="button"
+          className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          aria-label="Remove block"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
       {duration && (
-        <span className="opacity-70 shrink-0">{duration}</span>
+        <div className="opacity-80 truncate">{duration}</div>
       )}
       {block.notes && (
-        <span className="truncate opacity-60">· {block.notes}</span>
+        <div className="opacity-60 truncate">{block.notes}</div>
       )}
-      <button
-        type="button"
-        className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        aria-label="Remove block"
-      >
-        <X className="h-3 w-3" />
-      </button>
     </div>
   );
 }
