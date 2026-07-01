@@ -16,23 +16,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      # Install pnpm FIRST
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.9.2
+
+      # Then install Node
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
+      - name: Install dependencies
+        run: pnpm install
 
-      - run: pnpm install --no-frozen-lockfile
-
-      - run: pnpm run build
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: node-app
-          path: .
+      - name: Build
+        run: pnpm run build
 
   deploy:
     runs-on: ubuntu-latest
