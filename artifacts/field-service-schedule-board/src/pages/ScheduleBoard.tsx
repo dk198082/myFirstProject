@@ -426,7 +426,7 @@ function JobChip({
     >
       {syncPending && (
         <RefreshCw
-          className="absolute top-0.5 right-0.5 h-3 w-3 text-blue-500 animate-spin"
+          className="absolute top-0.5 right-0.5 h-3 w-3 text-red-500 animate-spin"
           aria-label="Syncing with CRM"
         />
       )}
