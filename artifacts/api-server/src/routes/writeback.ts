@@ -722,6 +722,17 @@ router.get("/wb/writebacks", async (req, res) => {
   }
 });
 
+router.delete("/wb/writebacks/queued", async (req, res) => {
+  try {
+    const r = await localPool.query<{ count: string }>(
+      `DELETE FROM booking_writebacks WHERE status = 'queued' RETURNING id`,
+    );
+    res.json({ deleted: r.rowCount ?? 0 });
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to reset queued write-backs", "Failed to reset queued write-backs", { source: "mixed" });
+  }
+});
+
 router.get("/wb/technicians", async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });

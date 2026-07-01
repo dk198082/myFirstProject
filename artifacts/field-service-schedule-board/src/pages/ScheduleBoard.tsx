@@ -8,6 +8,7 @@ import {
   useDeleteWbScheduleBlock,
   useListWbWritebacks,
   useSyncWbWritebacks,
+  useDeleteWbQueuedWritebacks,
   getListWbWorkOrdersQueryKey,
   getListWbWritebacksQueryKey,
   getGetWbScheduleBoardQueryKey,
@@ -61,6 +62,7 @@ import {
   Save,
   UploadCloud,
   Loader2,
+  RotateCcw,
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 import { AddBlockDialog } from "@/components/AddBlockDialog";
@@ -430,7 +432,7 @@ function JobChip({
       )}
       {!syncPending && stagePending && (
         <span
-          className="absolute top-0 right-0.5 text-[11px] font-bold leading-none text-red-500 select-none"
+          className="absolute -top-0.5 right-0.5 text-[16px] font-bold leading-none text-red-500 select-none"
           aria-label="Unsaved change — click Save to push to Dynamics"
         >
           *
@@ -1129,6 +1131,21 @@ export default function ScheduleBoard() {
     },
   });
 
+  const resetMutation = useDeleteWbQueuedWritebacks({
+    mutation: {
+      onSuccess: (result: { deleted: number }) => {
+        queryClient.invalidateQueries({ queryKey: getListWbWritebacksQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetWbScheduleBoardQueryKey() });
+        if (result.deleted > 0) {
+          toast({ title: `Reverted ${result.deleted} queued change${result.deleted === 1 ? "" : "s"}.` });
+        }
+      },
+      onError: (err: unknown) => {
+        toast({ title: "Reset failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+      },
+    },
+  });
+
   // Queued drag-drop changes waiting for Save (distinct from active CRM sync)
   const queuedIds = useMemo(
     () => new Set(queuedWritebacks.map((wb) => wb.booking_id)),
@@ -1705,6 +1722,24 @@ export default function ScheduleBoard() {
               By Service Location
             </button>
           </div>
+          {/* Reset — revert all queued changes */}
+          {queuedWritebacks.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => resetMutation.mutate()}
+              data-testid="btn-reset-queued"
+              className="gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10"
+              disabled={resetMutation.isPending || syncMutation.isPending}
+            >
+              {resetMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-3.5 w-3.5" />
+              )}
+              Reset
+            </Button>
+          )}
           {/* Save / sync queued changes */}
           <Button
             variant={queuedWritebacks.length > 0 ? "default" : "outline"}

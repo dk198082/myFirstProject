@@ -297,6 +297,23 @@ paths:
                 items:
                   $ref: "#/components/schemas/WbWriteback"
 
+  /wb/writebacks/queued:
+    delete:
+      operationId: deleteWbQueuedWritebacks
+      tags: [writeback]
+      summary: Delete all queued (unsaved) write-back entries, reverting staged changes
+      responses:
+        "200":
+          description: Number of entries deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted:
+                    type: integer
+
   /wb/sync:
     post:
       operationId: syncWbWritebacks

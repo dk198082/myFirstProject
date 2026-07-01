@@ -2579,3 +2579,46 @@ export function useGetDashboardSummary<TData = Awaited<ReturnType<typeof getDash
 
 
 
+
+// ---------------------------------------------------------------------------
+// deleteWbQueuedWritebacks — DELETE /wb/writebacks/queued
+// Removes all queued (unsaved) write-back entries, reverting staged changes.
+// ---------------------------------------------------------------------------
+
+export const getDeleteWbQueuedWritebacksUrl = () => `/api/wb/writebacks/queued`;
+
+export const deleteWbQueuedWritebacks = async (options?: RequestInit): Promise<{ deleted: number }> => {
+  return customFetch<{ deleted: number }>(getDeleteWbQueuedWritebacksUrl(), {
+    ...options,
+    method: 'DELETE',
+  });
+};
+
+export const getDeleteWbQueuedWritebacksMutationOptions = <TError = ErrorType<ErrorResponse>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, TError, void, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, TError, void, TContext> => {
+  const mutationKey = ['deleteWbQueuedWritebacks'];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, void> = () => {
+    return deleteWbQueuedWritebacks(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteWbQueuedWritebacksMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>>;
+export type DeleteWbQueuedWritebacksMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete all queued (unsaved) write-back entries, reverting staged changes
+ */
+export const useDeleteWbQueuedWritebacks = <TError = ErrorType<ErrorResponse>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, TError, void, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationResult<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, TError, void, TContext> => {
+  return useMutation(getDeleteWbQueuedWritebacksMutationOptions(options));
+};
