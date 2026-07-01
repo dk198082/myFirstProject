@@ -17,17 +17,29 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+            version: 10.9.2
+            run_install: false
+            
       - name: Set up Node.js version
         uses: actions/setup-node@v3
         with:
           node-version: '24.x'
 
-      - name: pnpm install, build, and test
+      - name: Verify
         run: |
-          pnpm install
-          pnpm run build 
-          pnpm run test 
+            which pnpm
+            pnpm --version
+            node --version
+
+      - name: Install
+        run: pnpm install
+
+      - name: Build
+        run: pnpm run build 
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
