@@ -6,6 +6,8 @@ import {
   useUpdateWbBooking,
   useListWbScheduleBlocks,
   useDeleteWbScheduleBlock,
+  useListWbWritebacks,
+  useSyncWbWritebacks,
   getListWbWorkOrdersQueryKey,
   getListWbWritebacksQueryKey,
   getGetWbScheduleBoardQueryKey,
@@ -20,6 +22,14 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,6 +58,9 @@ import {
   Plus,
   X,
   Search,
+  Save,
+  UploadCloud,
+  Loader2,
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 import { AddBlockDialog } from "@/components/AddBlockDialog";
@@ -951,6 +964,101 @@ function UnscheduledJobCard({
   );
 }
 
+function fmtLocal(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+type QueuedRow = {
+  id: number;
+  booking_id: string;
+  work_order_number?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  technician_name?: string | null;
+};
+
+function QueuedChangesDialog({
+  open,
+  onClose,
+  queued,
+  onSync,
+  isSyncing,
+}: {
+  open: boolean;
+  onClose: () => void;
+  queued: QueuedRow[];
+  onSync: () => void;
+  isSyncing: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Queued Changes</DialogTitle>
+          <DialogDescription>
+            {queued.length === 0
+              ? "No pending changes."
+              : `${queued.length} change${queued.length !== 1 ? "s" : ""} ready to push to Dynamics. Click OK to sync all.`}
+          </DialogDescription>
+        </DialogHeader>
+
+        {queued.length > 0 && (
+          <div className="overflow-y-auto max-h-[380px] rounded-md border text-sm">
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)] text-xs font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 border-b px-3 py-2 gap-3">
+              <span>Booking</span>
+              <span>New Start</span>
+              <span>New End</span>
+              <span>Technician</span>
+            </div>
+            {queued.map((wb) => (
+              <div
+                key={wb.id}
+                className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)] px-3 py-2.5 gap-3 border-b last:border-b-0 hover:bg-muted/30 items-center"
+              >
+                <span className="font-mono text-xs text-muted-foreground truncate">
+                  {wb.booking_id.startsWith("new:")
+                    ? <span className="text-primary font-medium">New booking</span>
+                    : wb.booking_id.slice(0, 8) + "…"}
+                </span>
+                <span className="text-xs whitespace-nowrap">{fmtLocal(wb.start_time)}</span>
+                <span className="text-xs whitespace-nowrap">{fmtLocal(wb.end_time)}</span>
+                <span className="text-xs truncate">{wb.technician_name ?? "—"}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => { onSync(); onClose(); }}
+            disabled={queued.length === 0 || isSyncing}
+            className="gap-1.5"
+          >
+            {isSyncing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <UploadCloud className="h-4 w-4" />
+            )}
+            OK — Sync to Dynamics
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ScheduleBoard() {
   const [view, setView] = useState<ViewMode>("week");
   const [start, setStart] = useState<string>(() => startOfWeekISO(new Date()));
@@ -984,6 +1092,38 @@ export default function ScheduleBoard() {
   // Each id is removed individually after 22 s (matching the last follow-up refetch).
   const [pendingSyncIds, setPendingSyncIds] = useState<Set<string>>(new Set());
   const pendingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Save dialog + writeback sync
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const { data: allWritebacks } = useListWbWritebacks();
+  const queuedWritebacks = useMemo(
+    () => (allWritebacks ?? []).filter((wb) => wb.status === "queued"),
+    [allWritebacks],
+  );
+  const syncMutation = useSyncWbWritebacks({
+    mutation: {
+      onSuccess: (result) => {
+        queryClient.invalidateQueries({ queryKey: getListWbWritebacksQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListWbWorkOrdersQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetWbScheduleBoardQueryKey() });
+        if (result.failed > 0) {
+          toast({ title: `Synced ${result.synced}, ${result.failed} failed`, variant: "destructive" });
+        } else if (result.synced > 0) {
+          toast({ title: `Synced ${result.synced} change${result.synced === 1 ? "" : "s"} to Dynamics.` });
+        }
+      },
+      onError: (err) => {
+        toast({ title: "Sync failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+      },
+    },
+  });
+
+  // Combined set: local timer-tracked saves + queued write-backs from DB
+  const allPendingIds = useMemo(() => {
+    const ids = new Set(pendingSyncIds);
+    for (const wb of queuedWritebacks) ids.add(wb.booking_id);
+    return ids;
+  }, [pendingSyncIds, queuedWritebacks]);
   const handleSaveSuccess = (bookingId: string | null) => {
     if (!bookingId) return; // new booking — chip doesn't exist yet
     setPendingSyncIds((prev) => new Set([...prev, bookingId]));
@@ -1555,6 +1695,27 @@ export default function ScheduleBoard() {
               By Service Location
             </button>
           </div>
+          {/* Save / sync queued changes */}
+          <Button
+            variant={queuedWritebacks.length > 0 ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowSaveDialog(true)}
+            data-testid="btn-save-queued"
+            className="gap-1.5"
+            disabled={syncMutation.isPending}
+          >
+            {syncMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            Save
+            {queuedWritebacks.length > 0 && (
+              <Badge variant="secondary" className="ml-0.5 h-4 px-1.5 text-[10px]">
+                {queuedWritebacks.length}
+              </Badge>
+            )}
+          </Button>
           {view === "tech" && allTechs.length > 0 && (
             <Button
               variant="outline"
@@ -2009,7 +2170,7 @@ export default function ScheduleBoard() {
                                     compact={false}
                                     colorClass={palette.chip}
                                     isConflict={conflictedBookingIds.has(j.booking_id)}
-                                    syncPending={pendingSyncIds.has(j.booking_id)}
+                                    syncPending={allPendingIds.has(j.booking_id)}
                                     onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
                                     onDragStart={() => startDrag(j, tech.technician_id)}
                                     onDragEnd={endDrag}
@@ -2269,7 +2430,7 @@ export default function ScheduleBoard() {
                                     compact={view === "month"}
                                     colorClass={palette.chip}
                                     isConflict={conflictedBookingIds.has(j.booking_id)}
-                                    syncPending={pendingSyncIds.has(j.booking_id)}
+                                    syncPending={allPendingIds.has(j.booking_id)}
                                     onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
                                     onDragStart={() => startDrag(j, tech.technician_id)}
                                     onDragEnd={endDrag}
@@ -2603,6 +2764,13 @@ export default function ScheduleBoard() {
           onClose={() => setAddingBlock(null)}
         />
       )}
+      <QueuedChangesDialog
+        open={showSaveDialog}
+        onClose={() => setShowSaveDialog(false)}
+        queued={queuedWritebacks as QueuedRow[]}
+        onSync={() => syncMutation.mutate({ data: {} })}
+        isSyncing={syncMutation.isPending}
+      />
     </div>
   );
 }
