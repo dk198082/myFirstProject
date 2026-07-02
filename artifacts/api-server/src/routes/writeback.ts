@@ -638,7 +638,7 @@ router.get("/wb/schedule-blocks", async (req, res) => {
     }
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const r = await localPool.query(
-      `SELECT id, technician_id, block_type, start_time, end_time, notes, created_at
+      `SELECT id, technician_id, block_type, title, start_time, end_time, notes, created_at
        FROM schedule_blocks ${where} ORDER BY start_time`,
       params,
     );
@@ -647,6 +647,7 @@ router.get("/wb/schedule-blocks", async (req, res) => {
         id: row.id,
         technician_id: row.technician_id,
         block_type: row.block_type,
+        title: row.title ?? null,
         start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
         end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
         notes: row.notes ?? null,
