@@ -32,6 +32,8 @@ import {
   CalendarClock,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Globe,
   Phone,
   Briefcase,
@@ -2607,6 +2609,26 @@ export default function ScheduleBoard() {
           onClose={() => setAddingBlock(null)}
         />
       )}
+
+      {/* Floating scroll-to-top / scroll-to-bottom */}
+      <div className="fixed bottom-5 right-5 flex flex-col gap-1.5 z-50">
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          className="h-9 w-9 rounded-full bg-background border shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:shadow-lg transition-all"
+          aria-label="Scroll to top"
+        >
+          <ChevronUp className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" })}
+          className="h-9 w-9 rounded-full bg-background border shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:shadow-lg transition-all"
+          aria-label="Scroll to bottom"
+        >
+          <ChevronDown className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }
