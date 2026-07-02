@@ -1,0 +1,1852 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Technician Dashboard API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: technicians
+    description: Technician operations
+  - name: workOrders
+    description: Work order operations
+  - name: dashboard
+    description: Dashboard summary operations
+  - name: writeback
+    description: Dynamics write-back staging operations
+paths:
+  /wb/work-orders:
+    get:
+      operationId: listWbWorkOrders
+      tags: [writeback]
+      summary: List work orders with their primary booking for write-back UI
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Free-text filter on work order number, title, or customer
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+          description: Max rows to return (default 100)
+      responses:
+        "200":
+          description: List of work orders with bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WbWorkOrder"
+
+  /wb/bookings/{bookingId}:
+    patch:
+      operationId: updateWbBooking
+      tags: [writeback]
+      summary: Queue a write-back edit for a booking (staged locally, not pushed to Dynamics)
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WbBookingUpdate"
+      responses:
+        "200":
+          description: Write-back entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WbWriteback"
+        "404":
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/work-orders/{workOrderId}/booking:
+    post:
+      operationId: createWbBooking
+      tags: [writeback]
+      summary: Queue a write-back that schedules a new booking for an unscheduled work order (staged locally, not pushed to Dynamics)
+      parameters:
+        - name: workOrderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WbBookingUpdate"
+      responses:
+        "200":
+          description: Write-back entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WbWriteback"
+        "404":
+          description: Work order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/bookings/{bookingId}/save:
+    post:
+      operationId: saveWbBooking
+      tags: [writeback]
+      summary: Directly save a booking edit to Dynamics CRM (bypasses the local queue)
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WbBookingUpdate"
+      responses:
+        "200":
+          description: Booking updated in CRM
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WbSaveResult"
+        "404":
+          description: Booking not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Dataverse not configured or unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/work-orders/{workOrderId}/booking/save:
+    post:
+      operationId: saveNewWbBooking
+      tags: [writeback]
+      summary: Directly create a new booking in Dynamics CRM for an unscheduled work order (bypasses the local queue)
+      parameters:
+        - name: workOrderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WbBookingUpdate"
+      responses:
+        "200":
+          description: Booking created in CRM
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WbSaveResult"
+        "404":
+          description: Work order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Dataverse not configured or unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/work-orders/{workOrderId}/detail:
+    get:
+      operationId: getWbWorkOrderDetail
+      tags: [writeback]
+      summary: Get detailed info about a d365crm work order (view-only)
+      parameters:
+        - name: workOrderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Work order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkOrderDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/schedule-blocks:
+    get:
+      operationId: listWbScheduleBlocks
+      tags: [writeback]
+      summary: List Drive Time / PTO blocks for the given date range
+      parameters:
+        - name: start_date
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD) — inclusive lower bound on start_time
+        - name: end_date
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD) — exclusive upper bound on start_time
+      responses:
+        "200":
+          description: Schedule blocks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScheduleBlock"
+    post:
+      operationId: createWbScheduleBlock
+      tags: [writeback]
+      summary: Create a Drive Time or PTO block for a technician
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduleBlock"
+      responses:
+        "201":
+          description: Block created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleBlock"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/schedule-blocks/{id}:
+    delete:
+      operationId: deleteWbScheduleBlock
+      tags: [writeback]
+      summary: Delete a Drive Time or PTO block
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Block not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/writebacks:
+    get:
+      operationId: listWbWritebacks
+      tags: [writeback]
+      summary: List all staged write-back entries (queued and synced), most recent first
+      responses:
+        "200":
+          description: Queued write-backs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WbWriteback"
+
+  /wb/sync:
+    post:
+      operationId: syncWbWritebacks
+      tags: [writeback]
+      summary: Push queued (and previously failed) write-backs to Dynamics Dataverse
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WbSyncRequest"
+      responses:
+        "200":
+          description: Sync result summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WbSyncResult"
+        "503":
+          description: Dataverse not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/technicians:
+    get:
+      operationId: listWbTechnicians
+      tags: [writeback]
+      summary: List bookable resources (technicians) from the d365crm database
+      responses:
+        "200":
+          description: List of technicians
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WbTechnician"
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /technicians:
+    get:
+      operationId: listTechnicians
+      tags: [technicians]
+      summary: List all active technicians
+      responses:
+        "200":
+          description: List of technicians
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Technician"
+
+  /technicians/by-email:
+    get:
+      operationId: getTechnicianByEmail
+      tags: [technicians]
+      summary: Get technician work orders by email
+      parameters:
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Work orders for the technician
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicianJobsResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /technicians/{technicianId}/work-orders:
+    get:
+      operationId: getTechnicianWorkOrders
+      tags: [technicians]
+      summary: Get work orders assigned to a technician by ID
+      parameters:
+        - name: technicianId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of work orders for the technician
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicianJobsResponse"
+
+  /technicians/{technicianId}/summary:
+    get:
+      operationId: getTechnicianSummary
+      tags: [technicians]
+      summary: Get summary stats for a technician
+      parameters:
+        - name: technicianId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Technician summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicianSummary"
+
+  /work-orders/{workOrderId}:
+    get:
+      operationId: getWorkOrderDetail
+      tags: [workOrders]
+      summary: Get detailed info about a work order
+      parameters:
+        - name: workOrderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Work order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkOrderDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /jobs-by-region:
+    get:
+      operationId: getJobsByRegion
+      tags: [dashboard]
+      summary: Get all jobs grouped by region (from regions table) then by technician
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Filter by work order system_status (e.g. Scheduled, Completed)
+      responses:
+        "200":
+          description: Jobs grouped by region then technician
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegionJobGroup"
+
+  /scheduled-jobs:
+    get:
+      operationId: getScheduledJobs
+      tags: [dashboard]
+      summary: Get all scheduled jobs grouped by region and technician
+      responses:
+        "200":
+          description: Scheduled jobs grouped by region then technician
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegionGroup"
+
+  /unscheduled-jobs:
+    get:
+      operationId: getUnscheduledJobs
+      tags: [dashboard]
+      summary: List work orders with status "Unscheduled" enriched with due date, duration, contact, and best-fit techs
+      responses:
+        "200":
+          description: List of unscheduled work orders
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnscheduledJobsResponse"
+
+  /resource-utilization:
+    get:
+      operationId: getResourceUtilization
+      tags: [dashboard]
+      summary: Per-technician utilization for a week, month, or quarter grouped by region
+      parameters:
+        - name: start
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD) within the desired period
+        - name: view
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [week, month, quarter]
+          description: Period granularity — week (default), month, or quarter
+      responses:
+        "200":
+          description: Utilization grouped by region then technician
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceUtilizationResponse"
+
+  /schedule-board:
+    get:
+      operationId: getScheduleBoard
+      tags: [dashboard]
+      summary: Get the schedule board (weekly or monthly) grouped by region then technician
+      parameters:
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month. Falls back to legacy `weekStart` when absent.
+        - name: weekStart
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Legacy alias for `start` (week view only).
+        - name: view
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [week, month]
+          description: "Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`."
+        - name: groupBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [tech-region, service-location]
+          description: "Grouping mode: `tech-region` (default) groups by the technician's home region; `service-location` groups by the work order's state/city."
+      responses:
+        "200":
+          description: Schedule board grouped by region then technician for the given range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleBoard"
+
+  /wb/schedule-board:
+    get:
+      operationId: getWbScheduleBoard
+      tags: [writeback]
+      summary: Get the d365crm schedule board (weekly or monthly) grouped by region (territory) then technician (resource)
+      parameters:
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month.
+        - name: view
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [week, month]
+          description: "Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`."
+        - name: groupBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [tech-region, service-location]
+          description: "Grouping mode: `tech-region` (default) groups by the technician's CRM territory; `service-location` groups by the work order's state/city."
+      responses:
+        "200":
+          description: Schedule board (sourced from d365crm crm.* tables) grouped by region then technician for the given range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleBoard"
+
+  /wb/jobs-by-region:
+    get:
+      operationId: getWbJobsByRegion
+      tags: [writeback]
+      summary: Get d365crm bookings grouped by region (territory) then technician (resource)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Filter by work order system status (e.g. Scheduled, Completed)
+      responses:
+        "200":
+          description: Jobs grouped by region then technician (sourced from d365crm crm.* tables)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegionJobGroup"
+
+  /wb/unscheduled-jobs:
+    get:
+      operationId: getWbUnscheduledJobs
+      tags: [writeback]
+      summary: List d365crm work orders with status "Unscheduled" enriched with due date, duration, contact, and best-fit techs
+      responses:
+        "200":
+          description: List of unscheduled work orders (sourced from d365crm crm.* tables)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnscheduledJobsResponse"
+
+  /wb/resource-utilization:
+    get:
+      operationId: getWbResourceUtilization
+      tags: [writeback]
+      summary: Per-technician (resource) utilization for a week, month, or quarter grouped by region (territory), sourced from d365crm
+      parameters:
+        - name: start
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD) within the desired period
+        - name: view
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [week, month, quarter]
+          description: Period granularity — week (default), month, or quarter
+      responses:
+        "200":
+          description: Utilization grouped by region then technician (sourced from d365crm crm.* tables)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceUtilizationResponse"
+
+  /wb/reports/filters:
+    get:
+      operationId: getWbReportFilters
+      tags: [writeback]
+      summary: Filter dropdown options (regions, years, approvers) for the service-management reports
+      responses:
+        "200":
+          description: Available filter values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportFilters"
+
+  /wb/reports/completed-not-approved:
+    get:
+      operationId: getWbReportCompletedNotApproved
+      tags: [writeback]
+      summary: Service orders that are completed but not yet approved (PDF page 1)
+      parameters:
+        - name: region
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Service territory name, or "(Blank)" for work orders with no territory
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Filter by year of Completed On
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Filter by month (1-12) of Completed On
+      responses:
+        "200":
+          description: Completed-not-approved report (sourced from d365crm crm.* tables)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrderReport"
+
+  /wb/reports/approved-not-invoiced:
+    get:
+      operationId: getWbReportApprovedNotInvoiced
+      tags: [writeback]
+      summary: Service orders completed and approved but not yet invoiced (PDF page 2)
+      parameters:
+        - name: region
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Service territory name, or "(Blank)" for work orders with no territory
+      responses:
+        "200":
+          description: Approved-not-invoiced report (sourced from d365crm crm.* tables)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceOrderReport"
+
+  /wb/reports/weekly-approved:
+    get:
+      operationId: getWbReportWeeklyApproved
+      tags: [writeback]
+      summary: Weekly approved summary — counts by approver and ISO week of approval (PDF page 4)
+      parameters:
+        - name: region
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Service territory name, or "(Blank)" for work orders with no territory
+        - name: approved_by
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by approver name
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Filter by year of Approved On
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Filter by month (1-12) of Approved On
+      responses:
+        "200":
+          description: Weekly approved summary (sourced from d365crm crm.* tables)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyApprovedReport"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get overall dashboard summary stats
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    WbWorkOrder:
+      type: object
+      properties:
+        work_order_id:
+          type: string
+        work_order_number:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        system_status:
+          type: ["string", "null"]
+        customer_name:
+          type: ["string", "null"]
+        booking_id:
+          type: ["string", "null"]
+        booking_status:
+          type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+        end_time:
+          type: ["string", "null"]
+        technician_id:
+          type: ["string", "null"]
+        technician_name:
+          type: ["string", "null"]
+        pending_writeback:
+          $ref: "#/components/schemas/WbWriteback"
+          nullable: true
+      required:
+        - work_order_id
+
+    ScheduleBlock:
+      type: object
+      required: [id, technician_id, block_type, start_time, end_time, created_at]
+      properties:
+        id:
+          type: integer
+        technician_id:
+          type: string
+        block_type:
+          type: string
+          enum: [drive_time, pto]
+        start_time:
+          type: string
+          description: ISO 8601 timestamp
+        end_time:
+          type: string
+          description: ISO 8601 timestamp
+        notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+
+    CreateScheduleBlock:
+      type: object
+      required: [technician_id, block_type, start_time, end_time]
+      properties:
+        technician_id:
+          type: string
+        block_type:
+          type: string
+          enum: [drive_time, pto]
+        start_time:
+          type: string
+          description: ISO 8601 timestamp
+        end_time:
+          type: string
+          description: ISO 8601 timestamp
+        notes:
+          type: ["string", "null"]
+
+    WbSaveResult:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    WbBookingUpdate:
+      type: object
+      properties:
+        start_time:
+          type: ["string", "null"]
+          description: ISO 8601 timestamp
+        end_time:
+          type: ["string", "null"]
+          description: ISO 8601 timestamp
+        technician_id:
+          type: ["string", "null"]
+
+    WbWriteback:
+      type: object
+      properties:
+        id:
+          type: integer
+        booking_id:
+          type: string
+        work_order_id:
+          type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+        end_time:
+          type: ["string", "null"]
+        technician_id:
+          type: ["string", "null"]
+        technician_name:
+          type: ["string", "null"]
+        status:
+          type: string
+        created_at:
+          type: string
+        synced_at:
+          type: ["string", "null"]
+        error:
+          type: ["string", "null"]
+      required:
+        - id
+        - booking_id
+        - status
+        - created_at
+
+    WbSyncRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+          description: Specific write-back ids to sync. Omit to sync all queued and previously failed entries.
+
+    WbSyncResult:
+      type: object
+      properties:
+        processed:
+          type: integer
+        synced:
+          type: integer
+        failed:
+          type: integer
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              status:
+                type: string
+              error:
+                type: ["string", "null"]
+            required:
+              - id
+              - status
+      required:
+        - processed
+        - synced
+        - failed
+        - results
+
+    WbTechnician:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+      required:
+        - technician_id
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Technician:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        user_email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        resource_type:
+          type: ["string", "null"]
+        is_active:
+          type: ["boolean", "null"]
+      required:
+        - technician_id
+
+    Job:
+      type: object
+      properties:
+        booking_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        user_email:
+          type: ["string", "null"]
+        work_order_number:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        customer_name:
+          type: ["string", "null"]
+        service_address:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        system_status:
+          type: ["string", "null"]
+        booking_status:
+          type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+        end_time:
+          type: ["string", "null"]
+        duration_minutes:
+          type: ["integer", "null"]
+        work_order_id:
+          type: ["string", "null"]
+      required:
+        - booking_id
+
+    TechnicianJobsResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
+        technicianEmail:
+          type: ["string", "null"]
+        technicianName:
+          type: ["string", "null"]
+      required:
+        - jobs
+
+    WorkOrderDetail:
+      type: object
+      properties:
+        work_order_id:
+          type: string
+        work_order_number:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        service_address:
+          type: ["string", "null"]
+        serviceaddress:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        system_status:
+          type: ["string", "null"]
+        sub_status:
+          type: ["string", "null"]
+        incident_type:
+          type: ["string", "null"]
+        servicelocation:
+          type: ["string", "null"]
+        pricelistname:
+          type: ["string", "null"]
+        cf_projectname:
+          type: ["string", "null"]
+        cf_ponumber:
+          type: ["string", "null"]
+        cf_axserviceorderid:
+          type: ["string", "null"]
+        servicetype:
+          type: ["string", "null"]
+        created_on:
+          type: ["string", "null"]
+        modified_on:
+          type: ["string", "null"]
+        customer:
+          $ref: "#/components/schemas/Customer"
+          nullable: true
+        contact:
+          $ref: "#/components/schemas/Contact"
+          nullable: true
+        booking:
+          $ref: "#/components/schemas/Booking"
+          nullable: true
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkOrderProduct"
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkOrderService"
+        equipment:
+          type: array
+          items:
+            $ref: "#/components/schemas/Equipment"
+      required:
+        - work_order_id
+        - products
+        - services
+        - equipment
+
+    Equipment:
+      type: object
+      properties:
+        equipmentid:
+          type: string
+        name:
+          type: ["string", "null"]
+        serialnumber:
+          type: ["string", "null"]
+        lastcalibrationdate:
+          type: ["string", "null"]
+        nextcalibrationdate:
+          type: ["string", "null"]
+        calinterval:
+          type: ["integer", "null"]
+        machinecapacity:
+          type: ["string", "null"]
+        calibrationdate:
+          type: ["string", "null"]
+      required:
+        - equipmentid
+
+    Customer:
+      type: object
+      properties:
+        customer_id:
+          type: string
+        customer_name:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        postal_code:
+          type: ["string", "null"]
+      required:
+        - customer_id
+
+    Contact:
+      type: object
+      properties:
+        contact_id:
+          type: string
+        fullname:
+          type: ["string", "null"]
+        firstname:
+          type: ["string", "null"]
+        lastname:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        businessphone:
+          type: ["string", "null"]
+        homephone:
+          type: ["string", "null"]
+        mobilephone:
+          type: ["string", "null"]
+        street1:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+      required:
+        - contact_id
+
+    ScheduleBoard:
+      type: object
+      properties:
+        view:
+          type: string
+          enum: [week, month]
+        range_start:
+          type: string
+        range_end:
+          type: string
+        day_count:
+          type: integer
+        week_start:
+          type: string
+          description: Legacy alias for `range_start`
+        week_end:
+          type: string
+          description: Legacy alias for `range_end`
+        regions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleRegion"
+      required:
+        - view
+        - range_start
+        - range_end
+        - day_count
+        - week_start
+        - week_end
+        - regions
+
+    ScheduleRegion:
+      type: object
+      properties:
+        regionid_id:
+          type: string
+        region:
+          type: string
+        company:
+          type: ["string", "null"]
+        technicians:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleTechnician"
+      required:
+        - regionid_id
+        - region
+        - technicians
+
+    ScheduleTechnician:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        user_email:
+          type: ["string", "null"]
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleJob"
+      required:
+        - technician_id
+        - jobs
+
+    ScheduleJob:
+      type: object
+      properties:
+        booking_id:
+          type: string
+        work_order_id:
+          type: ["string", "null"]
+        work_order_number:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        system_status:
+          type: ["string", "null"]
+        booking_status:
+          type: ["string", "null"]
+        customer_name:
+          type: ["string", "null"]
+        technician_name:
+          type: ["string", "null"]
+        contact_name:
+          type: ["string", "null"]
+        contact_businessphone:
+          type: ["string", "null"]
+        crmstart_time:
+          type: ["string", "null"]
+        crmstarttime:
+          type: ["string", "null"]
+        crmend_time:
+          type: ["string", "null"]
+        crmendtime:
+          type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+          description: Full ISO 8601 booking start timestamp (used to seed the booking edit dialog).
+        end_time:
+          type: ["string", "null"]
+          description: Full ISO 8601 booking end timestamp (used to seed the booking edit dialog).
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        day_index:
+          type: integer
+          description: 0-based offset from `range_start` (0 = first day in range)
+        span_start_day:
+          type: ["integer", "null"]
+          description: First visible day index this booking spans. Multi-day bookings emit one chip per day from `span_start_day` to `span_end_day`.
+        span_end_day:
+          type: ["integer", "null"]
+          description: Last visible day index this booking spans (equals `span_start_day` for single-day bookings).
+        equipment_names:
+          type: array
+          items:
+            type: string
+          description: Up to 5 equipment names associated with the work order, sorted alphabetically.
+      required:
+        - booking_id
+        - day_index
+
+    Booking:
+      type: object
+      properties:
+        booking_id:
+          type: string
+        booking_status:
+          type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+        end_time:
+          type: ["string", "null"]
+        estimated_arrival_time:
+          type: ["string", "null"]
+        actual_arrival_time:
+          type: ["string", "null"]
+        actual_start_time:
+          type: ["string", "null"]
+        actual_end_time:
+          type: ["string", "null"]
+        duration_minutes:
+          type: ["integer", "null"]
+        technician_id:
+          type: ["string", "null"]
+        crmstart_time:
+          type: ["string", "null"]
+        crmstarttime:
+          type: ["string", "null"]
+        crmend_time:
+          type: ["string", "null"]
+        crmendtime:
+          type: ["string", "null"]
+        modifiedon:
+          type: ["string", "null"]
+        modifiedtime:
+          type: ["string", "null"]
+      required:
+        - booking_id
+
+    WorkOrderProduct:
+      type: object
+      properties:
+        id:
+          type: string
+        product_name:
+          type: ["string", "null"]
+        quantity:
+          type: ["number", "null"]
+        unit:
+          type: ["string", "null"]
+        line_status:
+          type: ["string", "null"]
+      required:
+        - id
+
+    WorkOrderService:
+      type: object
+      properties:
+        id:
+          type: string
+        service_name:
+          type: ["string", "null"]
+        duration_minutes:
+          type: ["integer", "null"]
+        line_status:
+          type: ["string", "null"]
+      required:
+        - id
+
+    TechnicianSummary:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        total:
+          type: integer
+        by_status:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountByLabel"
+        by_priority:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountByLabel"
+        upcoming_today:
+          type: integer
+      required:
+        - technician_id
+        - total
+        - by_status
+        - by_priority
+        - upcoming_today
+
+    DashboardSummary:
+      type: object
+      properties:
+        total_technicians:
+          type: integer
+        total_work_orders:
+          type: integer
+        by_status:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountByLabel"
+        by_priority:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountByLabel"
+        top_technicians:
+          type: array
+          items:
+            $ref: "#/components/schemas/TechnicianWorkOrderCount"
+      required:
+        - total_technicians
+        - total_work_orders
+        - by_status
+        - by_priority
+        - top_technicians
+
+    CountByLabel:
+      type: object
+      properties:
+        label:
+          type: string
+        count:
+          type: integer
+      required:
+        - label
+        - count
+
+    RegionJobGroup:
+      type: object
+      properties:
+        regionid_id:
+          type: string
+        region:
+          type: string
+        owner_name:
+          type: ["string", "null"]
+        owner_email:
+          type: ["string", "null"]
+        company:
+          type: ["string", "null"]
+        technicians:
+          type: array
+          items:
+            $ref: "#/components/schemas/TechnicianWithJobs"
+      required:
+        - regionid_id
+        - region
+        - technicians
+
+    TechnicianWithJobs:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        user_email:
+          type: ["string", "null"]
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegionJob"
+      required:
+        - technician_id
+        - jobs
+
+    RegionJob:
+      type: object
+      properties:
+        booking_id:
+          type: string
+        work_order_id:
+          type: ["string", "null"]
+        work_order_number:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        system_status:
+          type: ["string", "null"]
+        sub_status:
+          type: ["string", "null"]
+        booking_status:
+          type: ["string", "null"]
+        service_address:
+          type: ["string", "null"]
+        customer_name:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+        end_time:
+          type: ["string", "null"]
+        duration_minutes:
+          type: ["integer", "null"]
+      required:
+        - booking_id
+
+    ScheduledJob:
+      type: object
+      properties:
+        booking_id:
+          type: string
+        work_order_id:
+          type: ["string", "null"]
+        work_order_number:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        priority:
+          type: ["string", "null"]
+        system_status:
+          type: ["string", "null"]
+        booking_status:
+          type: ["string", "null"]
+        service_address:
+          type: ["string", "null"]
+        customer_name:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        start_time:
+          type: ["string", "null"]
+        end_time:
+          type: ["string", "null"]
+        duration_minutes:
+          type: ["integer", "null"]
+      required:
+        - booking_id
+
+    TechnicianJobGroup:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        user_email:
+          type: ["string", "null"]
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduledJob"
+      required:
+        - technician_id
+        - jobs
+
+    RegionGroup:
+      type: object
+      properties:
+        region:
+          type: string
+        technicians:
+          type: array
+          items:
+            $ref: "#/components/schemas/TechnicianJobGroup"
+      required:
+        - region
+        - technicians
+
+    TechnicianWorkOrderCount:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        count:
+          type: integer
+      required:
+        - technician_id
+        - count
+
+    BestFitTech:
+      type: object
+      description: Technician suggested for an unscheduled job. Ranked by region match and historical familiarity with the city/state (DB has no geo coordinates so distance can't be computed).
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        region:
+          type: ["string", "null"]
+        city_jobs:
+          type: integer
+          description: Past bookings this tech completed in the same city/state
+        region_jobs:
+          type: integer
+          description: Past bookings this tech completed in the same region
+        same_region:
+          type: boolean
+      required:
+        - technician_id
+        - city_jobs
+        - region_jobs
+        - same_region
+
+    UnscheduledJob:
+      type: object
+      properties:
+        work_order_id:
+          type: ["string", "null"]
+        work_order_number:
+          type: ["string", "null"]
+        work_order_type:
+          type: ["string", "null"]
+          description: e.g. "Calibration/Service" or "Install"
+        sales_order_number:
+          type: ["string", "null"]
+          description: Populated when work_order_type is Install
+        servicelocation:
+          type: ["string", "null"]
+        customer_name:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        region:
+          type: ["string", "null"]
+        po_number:
+          type: ["string", "null"]
+        contact_name:
+          type: ["string", "null"]
+        contact_phone:
+          type: ["string", "null"]
+        due_date:
+          type: ["string", "null"]
+          description: ISO date (YYYY-MM-DD); lowest equipment.nextcalibrationdate for the work order
+        duration_minutes:
+          type: ["integer", "null"]
+        best_fit_techs:
+          type: array
+          items:
+            $ref: "#/components/schemas/BestFitTech"
+
+    UnscheduledJobsResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/UnscheduledJob"
+      required:
+        - jobs
+
+    UtilizationTech:
+      type: object
+      properties:
+        technician_id:
+          type: string
+        resource_name:
+          type: ["string", "null"]
+        utilized_minutes:
+          type: integer
+        capacity_minutes:
+          type: integer
+        utilization_pct:
+          type: number
+        job_count:
+          type: integer
+      required:
+        - technician_id
+        - utilized_minutes
+        - capacity_minutes
+        - utilization_pct
+        - job_count
+
+    UtilizationRegion:
+      type: object
+      properties:
+        regionid_id:
+          type: string
+        region:
+          type: string
+        technicians:
+          type: array
+          items:
+            $ref: "#/components/schemas/UtilizationTech"
+      required:
+        - regionid_id
+        - region
+        - technicians
+
+    ResourceUtilizationResponse:
+      type: object
+      properties:
+        view:
+          type: string
+          description: week | month | quarter
+        range_start:
+          type: string
+        range_end:
+          type: string
+        period_weeks:
+          type: number
+          description: Number of weeks in the period (used to scale capacity display)
+        default_weekly_capacity_hours:
+          type: integer
+        regions:
+          type: array
+          items:
+            $ref: "#/components/schemas/UtilizationRegion"
+      required:
+        - view
+        - range_start
+        - range_end
+        - period_weeks
+        - default_weekly_capacity_hours
+        - regions
+
+    ReportFilters:
+      type: object
+      properties:
+        regions:
+          type: array
+          items:
+            type: string
+        years:
+          type: array
+          items:
+            type: integer
+        approvers:
+          type: array
+          items:
+            type: string
+      required:
+        - regions
+        - years
+        - approvers
+
+    ServiceOrderReportRow:
+      type: object
+      properties:
+        fsa_srv_num:
+          type: string
+          nullable: true
+        ax_srv_num:
+          type: string
+          nullable: true
+        company:
+          type: string
+          nullable: true
+        region:
+          type: string
+        location:
+          type: string
+          nullable: true
+        customer_name:
+          type: string
+          nullable: true
+        technician:
+          type: string
+          nullable: true
+        completed_on:
+          type: string
+          nullable: true
+        approved_on:
+          type: string
+          nullable: true
+        approved_by:
+          type: string
+          nullable: true
+        order_status:
+          type: string
+          nullable: true
+      required:
+        - fsa_srv_num
+        - ax_srv_num
+        - company
+        - region
+        - location
+        - customer_name
+        - technician
+        - completed_on
+        - approved_on
+        - approved_by
+        - order_status
+
+    ServiceOrderReport:
+      type: object
+      properties:
+        total:
+          type: integer
+        by_region:
+          type: array
+          items:
+            $ref: "#/components/schemas/CountByRegion"
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServiceOrderReportRow"
+      required:
+        - total
+        - by_region
+        - rows
+
+    CountByRegion:
+      type: object
+      properties:
+        region:
+          type: string
+        count:
+          type: integer
+      required:
+        - region
+        - count
+
+    WeeklyApprovedRow:
+      type: object
+      properties:
+        approved_by:
+          type: string
+        total:
+          type: integer
+        weeks:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+        - approved_by
+        - total
+        - weeks
+
+    WeeklyApprovedReport:
+      type: object
+      properties:
+        total:
+          type: integer
+        week_numbers:
+          type: array
+          items:
+            type: integer
+        approvers:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeeklyApprovedRow"
+      required:
+        - total
+        - week_numbers
+        - approvers
