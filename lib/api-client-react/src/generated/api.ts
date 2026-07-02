@@ -744,6 +744,52 @@ export const useDeleteWbScheduleBlock = <TError = ErrorType<ErrorResponse>,
       return useMutation(getDeleteWbScheduleBlockMutationOptions(options));
     }
 
+export type UpdateScheduleBlock = {
+  block_type?: 'drive_time' | 'pto';
+  start_time?: string;
+  end_time?: string;
+  notes?: string | null;
+};
+
+export const getUpdateWbScheduleBlockUrl = (id: number) => `/api/wb/schedule-blocks/${id}`;
+
+export const updateWbScheduleBlock = async (id: number, updateScheduleBlock: UpdateScheduleBlock, options?: RequestInit): Promise<ScheduleBlock> => {
+  return customFetch<ScheduleBlock>(getUpdateWbScheduleBlockUrl(id),
+    { method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateScheduleBlock),
+      ...options
+    }
+  );
+};
+
+export const getUpdateWbScheduleBlockMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWbScheduleBlock>>, TError,{id: number; data: UpdateScheduleBlock}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateWbScheduleBlock>>, TError,{id: number; data: UpdateScheduleBlock}, TContext> => {
+  const mutationKey = ['updateWbScheduleBlock'];
+  const {mutation: mutationOptions, request: requestOptions} = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWbScheduleBlock>>, {id: number; data: UpdateScheduleBlock}> = (props) => {
+    const {id, data} = props ?? {};
+    return updateWbScheduleBlock(id, data, requestOptions);
+  };
+  return { mutationKey, mutationFn, ...mutationOptions };
+};
+
+export type UpdateWbScheduleBlockMutationResult = NonNullable<Awaited<ReturnType<typeof updateWbScheduleBlock>>>
+export type UpdateWbScheduleBlockMutationBody = UpdateScheduleBlock
+export type UpdateWbScheduleBlockMutationError = ErrorType<ErrorResponse>
+
+export const useUpdateWbScheduleBlock = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWbScheduleBlock>>, TError,{id: number; data: UpdateScheduleBlock}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateWbScheduleBlock>>,
+        TError,
+        {id: number; data: UpdateScheduleBlock},
+        TContext
+      > => {
+      return useMutation(getUpdateWbScheduleBlockMutationOptions(options));
+    }
+
 export const getListWbWritebacksUrl = () => {
 
 

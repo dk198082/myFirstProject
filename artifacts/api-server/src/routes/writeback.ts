@@ -686,6 +686,44 @@ router.post("/wb/schedule-blocks", async (req, res) => {
   }
 });
 
+router.patch("/wb/schedule-blocks/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid block id" });
+    return;
+  }
+  const { block_type, start_time, end_time, notes } = req.body as {
+    block_type?: string;
+    start_time?: string;
+    end_time?: string;
+    notes?: string | null;
+  };
+  try {
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    if (block_type !== undefined) { sets.push(`block_type = $${vals.push(block_type)}`); }
+    if (start_time !== undefined) { sets.push(`start_time = $${vals.push(start_time)}`); }
+    if (end_time !== undefined) { sets.push(`end_time = $${vals.push(end_time)}`); }
+    if (notes !== undefined) { sets.push(`notes = $${vals.push(notes)}`); }
+    if (sets.length === 0) {
+      res.status(400).json({ error: "No fields to update" });
+      return;
+    }
+    vals.push(id);
+    const r = await localPool.query(
+      `UPDATE schedule_blocks SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, block_type, start_time, end_time, notes, created_at`,
+      vals,
+    );
+    if (r.rows.length === 0) {
+      res.status(404).json({ error: "Block not found" });
+      return;
+    }
+    res.json(r.rows[0]);
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to update schedule block", "Failed to update schedule block");
+  }
+});
+
 router.delete("/wb/schedule-blocks/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {

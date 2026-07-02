@@ -53,6 +53,7 @@ import {
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 import { AddBlockDialog } from "@/components/AddBlockDialog";
+import { EditBlockDialog } from "@/components/EditBlockDialog";
 import {
   timeToMins,
   conflictedIdsForTech,
@@ -306,16 +307,22 @@ function fmtBlockDuration(startIso: string, endIso: string): string {
 
 function BlockChip({
   block,
+  onEdit,
   onDelete,
 }: {
   block: ScheduleBlock;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const isDriveTime = block.block_type === "drive_time";
   const duration = fmtBlockDuration(block.start_time, block.end_time);
   return (
     <div
-      className={`w-full rounded border text-[11px] px-1.5 py-1 leading-tight ${
+      role="button"
+      tabIndex={0}
+      onClick={onEdit}
+      onKeyDown={(e) => e.key === "Enter" && onEdit()}
+      className={`w-full rounded border text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:brightness-95 transition-[filter] ${
         isDriveTime
           ? "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600"
           : "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700"
@@ -980,6 +987,12 @@ export default function ScheduleBoard() {
     technicianId: string;
     technicianName: string;
     date: string;
+  } | null>(null);
+
+  // Block being edited (or null when dialog is closed).
+  const [editingBlock, setEditingBlock] = useState<{
+    block: ScheduleBlock;
+    technicianName: string;
   } | null>(null);
 
   // Per-booking-id set of chips that are still syncing from CRM after a direct save.
@@ -2029,6 +2042,7 @@ export default function ScheduleBoard() {
                                   <BlockChip
                                     key={blk.id}
                                     block={blk}
+                                    onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
                                   />
                                 ))}
@@ -2288,6 +2302,7 @@ export default function ScheduleBoard() {
                                   <BlockChip
                                     key={blk.id}
                                     block={blk}
+                                    onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
                                   />
                                 ))}
@@ -2607,6 +2622,13 @@ export default function ScheduleBoard() {
           technicianName={addingBlock.technicianName}
           date={addingBlock.date}
           onClose={() => setAddingBlock(null)}
+        />
+      )}
+      {editingBlock && (
+        <EditBlockDialog
+          block={editingBlock.block}
+          technicianName={editingBlock.technicianName}
+          onClose={() => setEditingBlock(null)}
         />
       )}
 

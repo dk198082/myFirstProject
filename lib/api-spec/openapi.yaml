@@ -262,6 +262,41 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /wb/schedule-blocks/{id}:
+    patch:
+      operationId: updateWbScheduleBlock
+      tags: [writeback]
+      summary: Update a Drive Time or PTO block
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScheduleBlock"
+      responses:
+        "200":
+          description: Updated block
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleBlock"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Block not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       operationId: deleteWbScheduleBlock
       tags: [writeback]
@@ -865,6 +900,21 @@ components:
       properties:
         technician_id:
           type: string
+        block_type:
+          type: string
+          enum: [drive_time, pto]
+        start_time:
+          type: string
+          description: ISO 8601 timestamp
+        end_time:
+          type: string
+          description: ISO 8601 timestamp
+        notes:
+          type: ["string", "null"]
+
+    UpdateScheduleBlock:
+      type: object
+      properties:
         block_type:
           type: string
           enum: [drive_time, pto]
