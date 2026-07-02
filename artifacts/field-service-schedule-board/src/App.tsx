@@ -49,11 +49,6 @@ function Layout({ children }: { children: React.ReactNode }) {
               <CalendarRange className="h-4 w-4" /> Schedule Board
             </span>
           </NavLink>
-          <NavLink href="/writebacks">
-            <span className="inline-flex items-center gap-1.5">
-              <UploadCloud className="h-4 w-4" /> Queued Write-backs
-            </span>
-          </NavLink>
         </nav>
       </header>
       <main className="flex-1 min-w-0 px-6 py-6">{children}</main>
