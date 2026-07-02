@@ -47,6 +47,7 @@ import {
   RefreshCw,
   Car,
   Sun,
+  Pencil,
   Plus,
   X,
   Search,
@@ -315,28 +316,35 @@ function BlockChip({
   onDelete: () => void;
 }) {
   const isDriveTime = block.block_type === "drive_time";
+  const isPTO = block.block_type === "pto";
+  const isCustom = block.block_type === "custom";
   const duration = fmtBlockDuration(block.start_time, block.end_time);
+
+  const chipCls = isDriveTime
+    ? "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600"
+    : isPTO
+    ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700"
+    : "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700";
+
+  const label = isDriveTime ? "Drive Time" : isPTO ? "PTO" : (block.title?.trim() || "Custom");
+
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={onEdit}
       onKeyDown={(e) => e.key === "Enter" && onEdit()}
-      className={`w-full rounded border text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:brightness-95 transition-[filter] ${
-        isDriveTime
-          ? "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600"
-          : "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700"
-      }`}
+      className={`w-full rounded border text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:brightness-95 transition-[filter] ${chipCls}`}
     >
       <div className="flex items-center gap-1">
         {isDriveTime ? (
           <Car className="h-3 w-3 shrink-0" />
-        ) : (
+        ) : isPTO ? (
           <Sun className="h-3 w-3 shrink-0" />
+        ) : (
+          <Pencil className="h-3 w-3 shrink-0" />
         )}
-        <span className="font-semibold truncate">
-          {isDriveTime ? "Drive Time" : "PTO"}
-        </span>
+        <span className="font-semibold truncate">{label}</span>
         <button
           type="button"
           className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"

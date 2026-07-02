@@ -61,12 +61,15 @@ export type ScheduleBlockBlockType = typeof ScheduleBlockBlockType[keyof typeof 
 export const ScheduleBlockBlockType = {
   drive_time: 'drive_time',
   pto: 'pto',
+  custom: 'custom',
 } as const;
 
 export interface ScheduleBlock {
   id: number;
   technician_id: string;
   block_type: ScheduleBlockBlockType;
+  /** Custom title (only used when block_type is "custom") @nullable */
+  title?: string | null;
   /** ISO 8601 timestamp */
   start_time: string;
   /** ISO 8601 timestamp */
@@ -82,11 +85,14 @@ export type CreateScheduleBlockBlockType = typeof CreateScheduleBlockBlockType[k
 export const CreateScheduleBlockBlockType = {
   drive_time: 'drive_time',
   pto: 'pto',
+  custom: 'custom',
 } as const;
 
 export interface CreateScheduleBlock {
   technician_id: string;
   block_type: CreateScheduleBlockBlockType;
+  /** Custom title (only used when block_type is "custom") @nullable */
+  title?: string | null;
   /** ISO 8601 timestamp */
   start_time: string;
   /** ISO 8601 timestamp */

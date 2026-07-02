@@ -16,10 +16,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Car, Sun } from "lucide-react";
+import { Loader2, Car, Sun, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-type BlockType = "drive_time" | "pto";
+type BlockType = "drive_time" | "pto" | "custom";
 
 function fromLocalInput(local: string): string | null {
   if (!local) return null;
@@ -44,15 +44,19 @@ export function AddBlockDialog({
   const queryClient = useQueryClient();
 
   const [blockType, setBlockType] = useState<BlockType>("drive_time");
+  const [customTitle, setCustomTitle] = useState("");
   const [startTime, setStartTime] = useState(`${date}T09:00`);
   const [endTime, setEndTime] = useState(`${date}T17:00`);
   const [notes, setNotes] = useState("");
+
+  const blockLabel =
+    blockType === "drive_time" ? "Drive time" : blockType === "pto" ? "PTO" : customTitle.trim() || "Custom block";
 
   const createMutation = useCreateWbScheduleBlock({
     mutation: {
       onSuccess: () => {
         toast({
-          title: blockType === "drive_time" ? "Drive time added" : "PTO added",
+          title: `${blockLabel} added`,
           description: `Block added for ${technicianName}.`,
         });
         queryClient.invalidateQueries({ queryKey: getListWbScheduleBlocksQueryKey() });
@@ -69,6 +73,10 @@ export function AddBlockDialog({
   });
 
   const submit = () => {
+    if (blockType === "custom" && !customTitle.trim()) {
+      toast({ title: "Title required", description: "Please enter a title for the custom block.", variant: "destructive" });
+      return;
+    }
     const start = fromLocalInput(startTime);
     const end = fromLocalInput(endTime);
     if (!start || !end) {
@@ -79,6 +87,7 @@ export function AddBlockDialog({
       data: {
         technician_id: technicianId,
         block_type: blockType,
+        title: blockType === "custom" ? customTitle.trim() : null,
         start_time: start,
         end_time: end,
         notes: notes.trim() || null,
@@ -123,8 +132,37 @@ export function AddBlockDialog({
                 <Sun className="h-4 w-4" />
                 PTO
               </button>
+              <button
+                type="button"
+                onClick={() => setBlockType("custom")}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                  blockType === "custom"
+                    ? "bg-violet-600 text-white border-violet-600"
+                    : "bg-background text-muted-foreground border-border hover:bg-accent"
+                }`}
+              >
+                <Pencil className="h-4 w-4" />
+                Custom
+              </button>
             </div>
           </div>
+
+          {/* Custom title — only shown for custom blocks */}
+          {blockType === "custom" && (
+            <div className="space-y-1.5 min-w-0">
+              <Label htmlFor="block-title">
+                Title <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="block-title"
+                value={customTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+                placeholder="e.g. Training, Meeting, Sick leave"
+                className="w-full min-w-0"
+                autoFocus
+              />
+            </div>
+          )}
 
           <div className="space-y-1.5 min-w-0">
             <Label htmlFor="block-start">Start time</Label>

@@ -745,7 +745,8 @@ export const useDeleteWbScheduleBlock = <TError = ErrorType<ErrorResponse>,
     }
 
 export type UpdateScheduleBlock = {
-  block_type?: 'drive_time' | 'pto';
+  block_type?: 'drive_time' | 'pto' | 'custom';
+  title?: string | null;
   start_time?: string;
   end_time?: string;
   notes?: string | null;

@@ -616,7 +616,8 @@ router.get("/wb/work-orders/:workOrderId/detail", async (req, res) => {
 
 const createScheduleBlockSchema = z.object({
   technician_id: z.string().min(1),
-  block_type: z.enum(["drive_time", "pto"]),
+  block_type: z.enum(["drive_time", "pto", "custom"]),
+  title: z.string().nullable().optional(),
   start_time: z.string().min(1),
   end_time: z.string().min(1),
   notes: z.string().nullable().optional(),
@@ -663,19 +664,20 @@ router.post("/wb/schedule-blocks", async (req, res) => {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
     return;
   }
-  const { technician_id, block_type, start_time, end_time, notes } = parsed.data;
+  const { technician_id, block_type, title, start_time, end_time, notes } = parsed.data;
   try {
     const r = await localPool.query(
-      `INSERT INTO schedule_blocks (technician_id, block_type, start_time, end_time, notes)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, technician_id, block_type, start_time, end_time, notes, created_at`,
-      [technician_id, block_type, start_time, end_time, notes ?? null],
+      `INSERT INTO schedule_blocks (technician_id, block_type, title, start_time, end_time, notes)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, technician_id, block_type, title, start_time, end_time, notes, created_at`,
+      [technician_id, block_type, title ?? null, start_time, end_time, notes ?? null],
     );
     const row = r.rows[0];
     res.status(201).json({
       id: row.id,
       technician_id: row.technician_id,
       block_type: row.block_type,
+      title: row.title ?? null,
       start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
       end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
       notes: row.notes ?? null,
@@ -692,8 +694,9 @@ router.patch("/wb/schedule-blocks/:id", async (req, res) => {
     res.status(400).json({ error: "Invalid block id" });
     return;
   }
-  const { block_type, start_time, end_time, notes } = req.body as {
+  const { block_type, title, start_time, end_time, notes } = req.body as {
     block_type?: string;
+    title?: string | null;
     start_time?: string;
     end_time?: string;
     notes?: string | null;
@@ -702,6 +705,7 @@ router.patch("/wb/schedule-blocks/:id", async (req, res) => {
     const sets: string[] = [];
     const vals: unknown[] = [];
     if (block_type !== undefined) { sets.push(`block_type = $${vals.push(block_type)}`); }
+    if (title !== undefined) { sets.push(`title = $${vals.push(title)}`); }
     if (start_time !== undefined) { sets.push(`start_time = $${vals.push(start_time)}`); }
     if (end_time !== undefined) { sets.push(`end_time = $${vals.push(end_time)}`); }
     if (notes !== undefined) { sets.push(`notes = $${vals.push(notes)}`); }
@@ -711,7 +715,7 @@ router.patch("/wb/schedule-blocks/:id", async (req, res) => {
     }
     vals.push(id);
     const r = await localPool.query(
-      `UPDATE schedule_blocks SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, block_type, start_time, end_time, notes, created_at`,
+      `UPDATE schedule_blocks SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, block_type, title, start_time, end_time, notes, created_at`,
       vals,
     );
     if (r.rows.length === 0) {

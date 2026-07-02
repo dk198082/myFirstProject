@@ -882,7 +882,10 @@ components:
           type: string
         block_type:
           type: string
-          enum: [drive_time, pto]
+          enum: [drive_time, pto, custom]
+        title:
+          type: ["string", "null"]
+          description: Custom title (only used when block_type is "custom")
         start_time:
           type: string
           description: ISO 8601 timestamp
@@ -902,7 +905,10 @@ components:
           type: string
         block_type:
           type: string
-          enum: [drive_time, pto]
+          enum: [drive_time, pto, custom]
+        title:
+          type: ["string", "null"]
+          description: Custom title (only used when block_type is "custom")
         start_time:
           type: string
           description: ISO 8601 timestamp
@@ -917,7 +923,10 @@ components:
       properties:
         block_type:
           type: string
-          enum: [drive_time, pto]
+          enum: [drive_time, pto, custom]
+        title:
+          type: ["string", "null"]
+          description: Custom title (only used when block_type is "custom")
         start_time:
           type: string
           description: ISO 8601 timestamp
