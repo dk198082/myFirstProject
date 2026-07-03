@@ -26,8 +26,15 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Login to ACR
-        run: az acr login --name myfirstprojectacr
+        run: |
+          az acr login --name myfirstprojectacr
+          docker info
 
+      - name: Verify Azure Login
+        run: |
+           az account show
+           az acr list -o table
+   
       - name: Build Docker Image
         run: |
           docker build \
