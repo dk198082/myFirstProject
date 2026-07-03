@@ -27,9 +27,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.0e9c69f7-50b6-4e54-923a-aa78e271d09f }}
-          tenant-id: ${{ secrets.db892ef3-1711-48c5-a6a9-d4af49591b71 }}
-          subscription-id: ${{ secrets.c5295c2a-cf8b-4eba-9085-1ce7ddfeaf6d }}
+          client-id: ${{ '0e9c69f7-50b6-4e54-923a-aa78e271d09f' }}
+          tenant-id: ${{ 'db892ef3-1711-48c5-a6a9-d4af49591b71' }}
+          subscription-id: ${{ 'c5295c2a-cf8b-4eba-9085-1ce7ddfeaf6d' }}
 
       - name: Login to ACR
         run: |
