@@ -9,7 +9,7 @@ env:
   REGISTRY: myfirstprojectacr.azurecr.io
   IMAGE_NAME: myfirstproject
   WEBAPP_NAME: myFirstProject
-  RESOURCE_GROUP: Anu1982
+  RESOURCE_GROUP: dk1980
 
 jobs:
   build-and-deploy:
