@@ -1,0 +1,60 @@
+name: Build and Deploy Docker to Azure
+
+on:
+  push:
+    branches:
+      - toCrmFS
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  REGISTRY: myfirstprojectacr.azurecr.io
+  IMAGE_NAME: myfirstproject
+  WEBAPP_NAME: myFirstProject
+  RESOURCE_GROUP: Anu1982
+
+jobs:
+  build-and-deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        run: |
+          az acr login --name myfirstprojectacr
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t $REGISTRY/$IMAGE_NAME:${{ github.sha }} \
+            -t $REGISTRY/$IMAGE_NAME:latest .
+
+      - name: Push Docker Image
+        run: |
+          docker push $REGISTRY/$IMAGE_NAME:${{ github.sha }}
+          docker push $REGISTRY/$IMAGE_NAME:latest
+
+      - name: Configure Web App Container
+        run: |
+          az webapp config container set \
+            --resource-group $RESOURCE_GROUP \
+            --name $WEBAPP_NAME \
+            --container-image-name $REGISTRY/$IMAGE_NAME:latest
+
+      - name: Restart Web App
+        run: |
+          az webapp restart \
+            --resource-group $RESOURCE_GROUP \
+            --name $WEBAPP_NAME
