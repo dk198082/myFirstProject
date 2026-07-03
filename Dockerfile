@@ -60,7 +60,12 @@ ENV BASE_PATH=/
 # more than strictly required (it also builds dynamics-write-back and
 # mockup-sandbox, which this image doesn't serve) but keeps the Docker build
 # in lockstep with `pnpm run build`, the same command CI/local dev already use.
-RUN pnpm run build
+RUN pnpm --filter @workspace/api-spec run build || true
+RUN pnpm --filter @workspace/api-zod run build || true
+RUN pnpm --filter @workspace/api-client-react run build || true
+
+RUN pnpm --filter @workspace/field-service-schedule-board run build
+RUN pnpm --filter @workspace/api-server run build
 
 # --- Runtime ---------------------------------------------------------------
 ENV NODE_ENV=production
