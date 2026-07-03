@@ -7,8 +7,8 @@ on:
 
 env:
   REGISTRY: myfirstprojectacr.azurecr.io
-  IMAGE_NAME: myfirstproject
-  WEBAPP_NAME: myFirstProject
+  IMAGE_NAME: myfirstproject-durgesh
+  WEBAPP_NAME: myfirstproject-durgesh
   RESOURCE_GROUP: dk1980
 
 jobs:
