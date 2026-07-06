@@ -457,6 +457,24 @@ const catalog = [
       { n: 'expire', t: 'timestamp', r: 'calc', null: 'NO', biz: '<strong>TTL field:</strong> connect-pg-simple uses this to purge expired sessions. Indexed (<code>IDX_session_expire</code>) for efficient sweep queries.' },
     ]
   },
+  {
+    id: 'schedule_blocks',
+    name: 'schedule_blocks',
+    schema: 'public',
+    desc: 'Non-job time blocks placed directly on a technician\'s row on the schedule board — Drive Time, PTO, or free-form Custom blocks. These are application-owned (not sourced from Dynamics) and render alongside CRM bookings. Declared in the Drizzle schema so the Publish flow manages it in production.',
+    refs: ['crm.bookableresource.bookableresourceid via technician_id (cross-db, text)'],
+    refdBy: [],
+    attrs: [
+      { n: 'id', t: 'integer', r: 'pk', null: 'NO', biz: 'Auto-increment serial primary key.' },
+      { n: 'technician_id', t: 'text', r: 'fk', null: 'NO', biz: 'Text representation of <code>crm.bookableresource.bookableresourceid</code> the block belongs to. No FK constraint — cross-database reference. Technicians with any schedule block stay visible on the board even when they have no jobs.' },
+      { n: 'block_type', t: 'text', r: 'calc', null: 'NO', biz: '<strong>Block category (CHECK constraint):</strong> <code>drive_time</code>, <code>pto</code>, or <code>custom</code>. <em>Production must allow <code>custom</code> — the table was originally created with a constraint permitting only drive_time/pto, which made Custom blocks fail with a 500.</em>' },
+      { n: 'title', t: 'text', r: '', null: 'YES', biz: 'Free-text label shown on the block chip. Primarily used by <code>custom</code> blocks; drive_time / pto derive their label from the type.' },
+      { n: 'start_time', t: 'timestamptz', r: '', null: 'NO', biz: 'Block start. Determines placement and width on the schedule board timeline.' },
+      { n: 'end_time', t: 'timestamptz', r: '', null: 'NO', biz: 'Block end. Must be after start_time.' },
+      { n: 'notes', t: 'text', r: '', null: 'YES', biz: 'Optional free-text notes about the block.' },
+      { n: 'created_at', t: 'timestamptz', r: 'sys', null: 'NO', biz: 'Row creation timestamp. Default: <code>now()</code>.' },
+    ]
+  },
 ];
 
 // ── DOM helpers ────────────────────────────────────────────────────────────────
