@@ -5,3 +5,4 @@
 - [Azure auth in api-server](api-server-azure-auth.md) — MSAL login mounted under /api; session in Postgres; existing /api routes intentionally NOT yet gated (frontends have no login).
 - [Archiving/removing an artifact](archiving-artifacts.md) — no archive callback; move dir out of artifacts/* glob, pnpm install, typecheck. Managed workflow can't be removeWorkflow'd; canvas frame auto-clears.
 - [/wb/* CRM-DB-unavailable handling](wb-crm-db-unavailable.md) — disabled/suspended Neon CRM endpoint → 503 {code:"CRM_DB_UNAVAILABLE"} via handleWbError; mixed handlers pass source:"mixed".
+- [Schedule block visibility on the board](schedule-board-block-visibility.md) — blocks are globally shared; board hides idle techs (no jobs) by default, so keep techs with blocks visible too.
