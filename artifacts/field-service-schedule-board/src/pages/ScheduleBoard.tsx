@@ -1195,6 +1195,10 @@ export default function ScheduleBoard() {
   // technicians. When `showIdleTechs` is on (capacity planning), show the full
   // roster including idle technicians. The API response is left untouched for
   // other consumers.
+  const techIdsWithBlocks = useMemo(
+    () => new Set(blocks.map((b) => b.technician_id)),
+    [blocks],
+  );
   const allRegions = useMemo(
     () =>
       showIdleTechs
@@ -1202,10 +1206,12 @@ export default function ScheduleBoard() {
         : (data?.regions ?? [])
             .map((r) => ({
               ...r,
-              technicians: r.technicians.filter((t) => (t.jobs?.length ?? 0) > 0),
+              technicians: r.technicians.filter(
+                (t) => (t.jobs?.length ?? 0) > 0 || techIdsWithBlocks.has(t.technician_id),
+              ),
             }))
             .filter((r) => r.technicians.length > 0),
-    [data, showIdleTechs],
+    [data, showIdleTechs, techIdsWithBlocks],
   );
   const regions = useMemo(
     () =>
