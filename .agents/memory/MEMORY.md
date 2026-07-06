@@ -6,3 +6,4 @@
 - [Archiving/removing an artifact](archiving-artifacts.md) — no archive callback; move dir out of artifacts/* glob, pnpm install, typecheck. Managed workflow can't be removeWorkflow'd; canvas frame auto-clears.
 - [/wb/* CRM-DB-unavailable handling](wb-crm-db-unavailable.md) — disabled/suspended Neon CRM endpoint → 503 {code:"CRM_DB_UNAVAILABLE"} via handleWbError; mixed handlers pass source:"mixed".
 - [Schedule block visibility on the board](schedule-board-block-visibility.md) — blocks are globally shared; board hides idle techs (no jobs) by default, so keep techs with blocks visible too.
+- [Drizzle schema NOT source of truth](drizzle-schema-out-of-band.md) — most tables created out-of-band via psql; `push`/`push-force` DROPS undeclared tables. Declare a table in Drizzle so Publish manages it in prod.
