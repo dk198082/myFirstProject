@@ -496,6 +496,24 @@
             { n: "expire", t: "timestamp", r: "" },
           ],
         },
+        {
+          id: "schedule_blocks",
+          label: "schedule_blocks",
+          schema: "public",
+          desc: "Non-job time blocks placed on a technician's schedule (Drive Time / PTO / Custom)",
+          x: 1134,
+          y: 1040,
+          attrs: [
+            { n: "id", t: "integer", r: "pk" },
+            { n: "technician_id", t: "text", r: "fk" },
+            { n: "block_type", t: "text", r: "calc" },
+            { n: "title", t: "text", r: "" },
+            { n: "start_time", t: "timestamptz", r: "" },
+            { n: "end_time", t: "timestamptz", r: "" },
+            { n: "notes", t: "text", r: "" },
+            { n: "created_at", t: "timestamptz", r: "sys" },
+          ],
+        },
       ];
 
       // ── Relationships ─────────────────────────────────────────────────────────────
@@ -524,6 +542,12 @@
         ["booking_writebacks", "booking", "booking_id → (cross-db)", true],
         [
           "booking_writebacks",
+          "bookableresource",
+          "technician_id → (cross-db)",
+          true,
+        ],
+        [
+          "schedule_blocks",
           "bookableresource",
           "technician_id → (cross-db)",
           true,
