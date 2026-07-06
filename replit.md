@@ -64,6 +64,26 @@ Notes: the store was consolidated from a stray singular `session` table to `sess
 (plural); `jsonb` is compatible with `connect-pg-simple`. Production DB is read-only to the
 agent and may be frozen when the app isn't actively deployed — the user runs the SQL above.
 
+### Drizzle schema is not the source of truth for most tables — never `push`/`push-force`
+
+Almost every table in this project (`booking_writebacks`, `sessions`, the CRM tables,
+and originally `schedule_blocks`) was created **out of band via psql**, not declared in
+the Drizzle schema. As a result, `drizzle-kit push` / `push-force` computes a diff that
+**drops** those undeclared tables (plain `push` errors at the non-interactive data-loss
+prompt; `push-force` would drop silently). **Do not run push/push-force to "sync" dev.**
+
+- `scripts/post-merge.sh` runs `pnpm --filter db push`; on a task merge it will fail the
+  non-interactive prompt rather than drop data, so post-merge DB reconciliation is
+  effectively inert until the real tables are declared in Drizzle.
+- The Publish flow only manages tables that are **declared** in the Drizzle schema
+  (undeclared tables are neither created nor dropped in prod). So to get a schema change
+  into production, the table must be declared in Drizzle first — then re-publish.
+- `schedule_blocks` is now declared in `lib/db/src/schema/scheduleBlocks.ts` (matching the
+  live dev table exactly, incl. the `block_type` CHECK for `drive_time`/`pto`/`custom` and
+  the `title` column). This was added so Publish can migrate its `custom` CHECK constraint
+  to production — production was created with the old constraint (`drive_time`/`pto` only),
+  which made Custom blocks fail with a 500 in the deployed app.
+
 ### `pg` sslmode deprecation warning
 
 `pg` (v8.16+) prints a one-time `SECURITY WARNING: The SSL modes 'prefer',
