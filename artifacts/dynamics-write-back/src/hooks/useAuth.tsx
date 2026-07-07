@@ -60,10 +60,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   function login() {
-    // Full-page navigation into the OAuth authorization-code flow. Bring the
-    // user back to their current location within this app after login.
+    // Bring the user back to their current location within this app after login.
     const returnTo = window.location.pathname + window.location.search;
-    window.location.href = `${LOGIN_URL}?returnTo=${encodeURIComponent(returnTo)}`;
+    const url = `${LOGIN_URL}?returnTo=${encodeURIComponent(returnTo)}`;
+
+    // Microsoft's login page cannot be displayed inside an iframe (it sends
+    // X-Frame-Options / frame-ancestors that block framing). When this app is
+    // embedded — e.g. the Replit preview/canvas, or any iframe host — a normal
+    // in-frame navigation loads login.microsoftonline.com inside the frame and
+    // the browser shows "refused to connect". Run the OAuth flow at the top
+    // level instead.
+    const embedded = window.top !== window.self;
+    if (embedded) {
+      // Prefer a new top-level tab so we don't navigate the host (e.g. the
+      // Replit workspace) away. Cookies are set on this app's own origin, so
+      // after signing in there the embedded view is authenticated on refresh.
+      const opened = window.open(url, "_blank", "noopener");
+      if (opened) return;
+      // Popup blocked — fall back to breaking out of the frame entirely.
+      try {
+        if (window.top) {
+          window.top.location.href = url;
+          return;
+        }
+      } catch {
+        // Top navigation blocked by sandboxing; fall through to in-frame nav.
+      }
+    }
+    window.location.href = url;
   }
 
   function logout() {
