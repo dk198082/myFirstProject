@@ -91,6 +91,13 @@ router.get("/auth/callback", async (req, res) => {
     const email = claims.preferred_username ?? claims.email ?? claims.upn;
     const displayName = claims.name;
 
+    // Log the authenticated identity so an admin can authorize a new user by
+    // inserting their Entra object id into app.app_user.
+    req.log.info(
+      { entraOid, email, displayName },
+      "Entra callback: authenticated user",
+    );
+
     const result = await localPool.query<{
       entra_oid: string;
       email: string;
