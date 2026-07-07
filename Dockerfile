@@ -26,10 +26,9 @@ FROM node:24-bookworm-slim
 WORKDIR /repo
 
 RUN corepack enable
-RUN corepack prepare pnpm@10.17.1 --activate
+RUN corepack prepare pnpm@11.10.1 --activate
 
-RUN pnpm --version
-RUN pnpm config list
+
 
 # Copy just the manifests first so `pnpm install` is cached across builds that
 # only change application source.
@@ -64,7 +63,16 @@ ENV BASE_PATH=/
 # more than strictly required (it also builds dynamics-write-back and
 # mockup-sandbox, which this image doesn't serve) but keeps the Docker build
 # in lockstep with `pnpm run build`, the same command CI/local dev already use.
-RUN pnpm run build
+# Build only the libraries required by the deployed applications
+RUN pnpm --filter @workspace/api-spec run build || true
+RUN pnpm --filter @workspace/api-zod run build || true
+RUN pnpm --filter @workspace/api-client-react run build || true
+
+# Build the frontend
+RUN pnpm --filter @workspace/field-service-schedule-board run build
+
+# Build the API
+RUN pnpm --filter @workspace/api-server run build
 
 # --- Runtime ---------------------------------------------------------------
 ENV NODE_ENV=production
