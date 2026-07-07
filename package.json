@@ -8,7 +8,7 @@
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
   "private": true,
-  "packageManager": "pnpm@11.x.x",
+  "packageManager": "pnpm@11.10.0",
   "devDependencies": {
     "prettier": "^3.8.3",
     "typescript": "~5.9.3"
