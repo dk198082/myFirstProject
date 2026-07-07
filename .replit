@@ -51,5 +51,8 @@ FS_DB_PORT = "5432"
 FS_DB_NAME = "fieldservice"
 FS_DB_USER = "crmadmin"
 
+[userenv.development]
+ENTRA_CLIENT_ID = "21d8a84f-e59e-48b7-a27f-fc2f29933058"
+
 [nix]
 channel = "stable-25_05"
