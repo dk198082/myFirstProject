@@ -45,7 +45,7 @@ COPY lib/auth-react/package.json lib/auth-react/package.json
 COPY lib/db/package.json lib/db/package.json
 COPY scripts/package.json scripts/package.json
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # Now copy the rest of the source and build everything.
 COPY . .
