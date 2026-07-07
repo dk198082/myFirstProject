@@ -45,11 +45,6 @@ router.get("/login", async (req, res) => {
     state,
   });
 
-  req.log.info(
-    { host: req.headers.host, sid: req.sessionID, statePrefix: state.slice(0, 8) },
-    "auth/login: issued state",
-  );
-
   res.redirect(authUrl);
 });
 
@@ -64,14 +59,7 @@ router.get("/auth/callback", async (req, res) => {
     const returnedState = req.query.state;
     if (typeof returnedState !== "string" || returnedState !== req.session.authState) {
       req.log.warn(
-        {
-          host: req.headers.host,
-          hasCookieHeader: Boolean(req.headers.cookie),
-          sid: req.sessionID,
-          hasAuthState: Boolean(req.session.authState),
-          returnedStatePrefix:
-            typeof returnedState === "string" ? returnedState.slice(0, 8) : null,
-        },
+        { hasCookieHeader: Boolean(req.headers.cookie), hasAuthState: Boolean(req.session.authState) },
         "auth/callback: invalid state (session cookie likely not returned)",
       );
       res.status(403).send("Invalid state parameter");

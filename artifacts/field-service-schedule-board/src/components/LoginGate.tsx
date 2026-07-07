@@ -21,7 +21,7 @@ function MicrosoftLogo() {
 }
 
 export function LoginGate({ children }: { children: ReactNode }) {
-  const { status, login } = useAuth();
+  const { status, login, popupBlocked } = useAuth();
 
   if (status === "loading") {
     return (
@@ -62,6 +62,22 @@ export function LoginGate({ children }: { children: ReactNode }) {
             <MicrosoftLogo />
             Sign in with Microsoft
           </Button>
+
+          {popupBlocked && (
+            <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-center text-xs text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+              Your browser blocked the sign-in tab. Microsoft sign-in can't run
+              inside an embedded preview.{" "}
+              <a
+                href={window.location.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium underline"
+              >
+                Open this app in a new tab
+              </a>{" "}
+              and sign in there.
+            </p>
+          )}
 
           <p className="mt-4 text-center text-xs text-muted-foreground">
             Protected by Microsoft Entra ID

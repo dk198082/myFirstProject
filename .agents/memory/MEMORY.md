@@ -3,6 +3,7 @@
 - [Installing deps for a workspace-root file](pnpm-root-deps.md) — package tool can't add to pnpm workspace root; edit root package.json then `pnpm install`.
 - [api-server esbuild bundling gotchas](api-server-esbuild-bundling.md) — externalized deps must be runtime deps; packages that read their own files at runtime (e.g. connect-pg-simple table.sql) break when bundled.
 - [Azure auth in api-server](api-server-azure-auth.md) — MSAL login mounted under /api; session in Postgres; existing /api routes intentionally NOT yet gated (frontends have no login).
+- [Entra login inside iframes](entra-login-iframe.md) — MS login can't be iframed; embedded Replit preview → "refused to connect". login() opens new tab when embedded, never in-frame; dev fix = open app in own tab.
 - [Archiving/removing an artifact](archiving-artifacts.md) — no archive callback; move dir out of artifacts/* glob, pnpm install, typecheck. Managed workflow can't be removeWorkflow'd; canvas frame auto-clears.
 - [/wb/* CRM-DB-unavailable handling](wb-crm-db-unavailable.md) — disabled/suspended Neon CRM endpoint → 503 {code:"CRM_DB_UNAVAILABLE"} via handleWbError; mixed handlers pass source:"mixed".
 - [Schedule block visibility on the board](schedule-board-block-visibility.md) — blocks are globally shared; board hides idle techs (no jobs) by default, so keep techs with blocks visible too.
