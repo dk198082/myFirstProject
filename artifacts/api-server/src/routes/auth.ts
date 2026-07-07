@@ -12,11 +12,27 @@ import {
 
 const router = Router();
 
+// Only allow local, same-origin relative paths as a post-login destination.
+// This prevents open-redirect abuse (protocol-relative `//evil.com`, absolute
+// URLs, or backslash tricks). Falls back to "/" when the value is unsafe.
+function sanitizeReturnTo(value: unknown): string {
+  if (typeof value !== "string") return "/";
+  if (!value.startsWith("/")) return "/";
+  // Reject protocol-relative ("//host") and backslash-escaped variants.
+  if (value.startsWith("//") || value.startsWith("/\\")) return "/";
+  return value;
+}
+
 router.get("/login", async (req, res) => {
   if (!isAuthConfigured()) {
     res.status(503).send("Azure auth is not configured");
     return;
   }
+
+  // Remember where to send the user back to after a successful login so that
+  // path-based frontends (e.g. /dynamics-write-back/) land back in their app
+  // instead of the root.
+  req.session.returnTo = sanitizeReturnTo(req.query.returnTo);
 
   // Bind the request to the session with a random state value to defend against
   // login CSRF / authorization-response injection.
@@ -102,7 +118,9 @@ router.get("/auth/callback", async (req, res) => {
       role: result.rows[0].role,
     };
 
-    res.redirect("/");
+    const returnTo = sanitizeReturnTo(req.session.returnTo);
+    delete req.session.returnTo;
+    res.redirect(returnTo);
   } catch (err) {
     req.log.error({ err }, "Azure login failed");
     res.status(500).send("Login failed");

@@ -92,5 +92,6 @@ declare module "express-session" {
   interface SessionData {
     user?: SessionUser;
     authState?: string;
+    returnTo?: string;
   }
 }
