@@ -26,6 +26,10 @@ FROM node:24-bookworm-slim
 WORKDIR /repo
 
 RUN corepack enable
+RUN corepack prepare pnpm@10.17.1 --activate
+
+RUN pnpm --version
+RUN pnpm config list
 
 # Copy just the manifests first so `pnpm install` is cached across builds that
 # only change application source.
