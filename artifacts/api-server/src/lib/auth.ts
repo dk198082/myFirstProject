@@ -13,13 +13,39 @@ const TENANT_ID = process.env.ENTRA_TENANT_ID ?? process.env.TENANT_ID;
 const CLIENT_SECRET = process.env.ENTRA_CLIENT_SECRET ?? process.env.CLIENT_SECRET;
 
 // The redirect URI must exactly match one registered on the Azure app
-// registration. Auth routes are mounted under /api, so the callback lives at
-// /api/auth/callback. Falls back to the current Replit domain.
-export const REDIRECT_URI =
-  process.env.ENTRA_REDIRECT_URI ??
-  (process.env.REPLIT_DOMAINS
-    ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}/api/auth/callback`
-    : "http://localhost:8080/api/auth/callback");
+// registration. Auth routes are mounted under /api, so the callback ALWAYS
+// lives at the "/api/auth/callback" path — a bare "/auth/callback" can never
+// work because the shared proxy only routes "/api/*" to this server.
+//
+// We derive the *origin* from (in priority order): an explicit
+// ENTRA_REDIRECT_URI override, else the current Replit domain, else localhost —
+// but we always force the "/api/auth/callback" path onto it. This makes the
+// value robust against a stale/legacy ENTRA_REDIRECT_URI (e.g. one left over
+// from the original standalone server that pointed at ".../auth/callback"
+// without the "/api" segment), which would otherwise silently break login.
+const CALLBACK_PATH = "/api/auth/callback";
+
+function resolveRedirectUri(): string {
+  const override = process.env.ENTRA_REDIRECT_URI;
+  if (override) {
+    try {
+      // Keep only the origin from the override; the path is fixed by routing.
+      return new URL(override).origin + CALLBACK_PATH;
+    } catch {
+      logger.warn(
+        "ENTRA_REDIRECT_URI is not a valid URL; ignoring it and deriving the redirect URI from REPLIT_DOMAINS",
+      );
+    }
+  }
+  const domain = process.env.REPLIT_DOMAINS?.split(",")[0];
+  return domain
+    ? `https://${domain}${CALLBACK_PATH}`
+    : `http://localhost:8080${CALLBACK_PATH}`;
+}
+
+export const REDIRECT_URI = resolveRedirectUri();
+
+logger.info({ redirectUri: REDIRECT_URI }, "Entra OAuth redirect URI resolved");
 
 export const LOGIN_SCOPES = ["openid", "profile", "email"];
 
