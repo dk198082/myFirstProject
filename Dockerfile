@@ -26,7 +26,7 @@ FROM node:24-bookworm-slim
 WORKDIR /repo
 
 RUN corepack enable
-RUN corepack prepare pnpm@11.10.1 --activate
+RUN corepack prepare pnpm@11.10.0 --activate
 
 
 
