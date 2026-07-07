@@ -2,7 +2,10 @@ import { Switch, Route, Router as WouterRouter, Link, useLocation } from "wouter
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Database, ClipboardList, CalendarRange, Globe, CalendarClock, FileBarChart } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Database, ClipboardList, CalendarRange, Globe, CalendarClock, FileBarChart, LogOut } from "lucide-react";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { LoginGate } from "@/components/LoginGate";
 import Dashboard from "@/pages/Dashboard";
 import ServiceReports from "@/pages/ServiceReports";
 import WorkOrders from "@/pages/WorkOrders";
@@ -38,6 +41,48 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
     >
       {children}
     </Link>
+  );
+}
+
+function SidebarUser() {
+  const { user, logout } = useAuth();
+
+  const displayName = user?.displayName ?? user?.email ?? "Signed in";
+  const initials = (user?.displayName ?? user?.email ?? "?")
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
+  return (
+    <div className="border-t border-sidebar-border p-3">
+      <div className="flex items-center gap-2.5 px-1 py-1.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary/15 text-xs font-semibold text-sidebar-primary">
+          {initials || "?"}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium text-sidebar-foreground">
+            {displayName}
+          </div>
+          {user?.email && user.email !== displayName ? (
+            <div className="truncate text-xs text-sidebar-foreground/60">{user.email}</div>
+          ) : (
+            <div className="truncate text-xs text-sidebar-foreground/60 capitalize">
+              {user?.role}
+            </div>
+          )}
+        </div>
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="mt-1 w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+        onClick={logout}
+      >
+        <LogOut className="h-4 w-4" /> Sign out
+      </Button>
+    </div>
   );
 }
 
@@ -77,9 +122,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           </NavLink>
           <NavLink href="/writebacks">Queued Write-backs</NavLink>
         </nav>
-        <div className="px-4 py-3 text-xs text-sidebar-foreground/60 border-t border-sidebar-border">
-          Reads <span className="text-sidebar-foreground/80">d365crm</span> · Stages locally
-        </div>
+        <SidebarUser />
       </aside>
       <main className="flex-1 min-w-0 px-6 py-6">{children}</main>
     </div>
@@ -110,10 +153,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
+        <AuthProvider>
+          <LoginGate>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Router />
+            </WouterRouter>
+          </LoginGate>
+          <Toaster />
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
