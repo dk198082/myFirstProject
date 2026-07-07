@@ -91,13 +91,6 @@ router.get("/auth/callback", async (req, res) => {
     const email = claims.preferred_username ?? claims.email ?? claims.upn;
     const displayName = claims.name;
 
-    // Log the authenticated identity so an admin can authorize a new user by
-    // inserting their Entra object id into app.app_user.
-    req.log.info(
-      { entraOid, email, displayName },
-      "Entra callback: authenticated user",
-    );
-
     const result = await localPool.query<{
       entra_oid: string;
       email: string;
@@ -114,6 +107,12 @@ router.get("/auth/callback", async (req, res) => {
     );
 
     if (result.rowCount === 0) {
+      // Log the identity of an authenticated-but-unauthorized user so an admin
+      // can onboard them by inserting their Entra object id into app.app_user.
+      req.log.warn(
+        { entraOid, email, displayName },
+        "Authenticated user is not authorized (no app.app_user row)",
+      );
       res.status(403).send("User is authenticated but not authorized.");
       return;
     }
