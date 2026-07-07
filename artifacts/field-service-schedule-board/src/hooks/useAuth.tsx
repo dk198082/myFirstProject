@@ -14,6 +14,12 @@ interface AuthContextValue {
   user: AuthUser | null;
   login: () => void;
   logout: () => void;
+  /**
+   * True when a sign-in attempt from inside an embedded preview could not open
+   * a new tab (pop-up blocked by the iframe sandbox). The UI should then ask
+   * the user to open the app in its own browser tab.
+   */
+  popupBlocked: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -27,6 +33,7 @@ const LOGOUT_URL = "/api/logout";
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [popupBlocked, setPopupBlocked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,30 +71,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const returnTo = window.location.pathname + window.location.search;
     const url = `${LOGIN_URL}?returnTo=${encodeURIComponent(returnTo)}`;
 
-    // Microsoft's login page cannot be displayed inside an iframe (it sends
-    // X-Frame-Options / frame-ancestors that block framing). When this app is
-    // embedded — e.g. the Replit preview/canvas, or any iframe host — a normal
-    // in-frame navigation loads login.microsoftonline.com inside the frame and
-    // the browser shows "refused to connect". Run the OAuth flow at the top
-    // level instead.
+    // When the app is NOT embedded (its own browser tab, incl. production), a
+    // normal same-tab navigation runs the whole OAuth flow first-party, which
+    // is the most reliable path.
     const embedded = window.top !== window.self;
-    if (embedded) {
-      // Prefer a new top-level tab so we don't navigate the host (e.g. the
-      // Replit workspace) away. Cookies are set on this app's own origin, so
-      // after signing in there the embedded view is authenticated on refresh.
-      const opened = window.open(url, "_blank", "noopener");
-      if (opened) return;
-      // Popup blocked — fall back to breaking out of the frame entirely.
-      try {
-        if (window.top) {
-          window.top.location.href = url;
-          return;
-        }
-      } catch {
-        // Top navigation blocked by sandboxing; fall through to in-frame nav.
-      }
+    if (!embedded) {
+      window.location.href = url;
+      return;
     }
-    window.location.href = url;
+
+    // Embedded (Replit preview/canvas, or any iframe host): Microsoft's login
+    // page cannot be displayed inside an iframe (it sends X-Frame-Options /
+    // frame-ancestors that block framing), so open the flow in a new top-level
+    // tab where cookies are first-party on this app's own origin.
+    const opened = window.open(url, "_blank", "noopener");
+    if (opened) {
+      setPopupBlocked(false);
+      return;
+    }
+
+    // Pop-up blocked (e.g. a sandboxed canvas iframe without allow-popups). Do
+    // NOT navigate in-frame — that loads login.microsoftonline.com inside the
+    // iframe and shows "refused to connect". Ask the user to open the app in
+    // its own tab instead.
+    setPopupBlocked(true);
   }
 
   function logout() {
@@ -101,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ status, user, login, logout }}>
+    <AuthContext.Provider value={{ status, user, login, logout, popupBlocked }}>
       {children}
     </AuthContext.Provider>
   );
