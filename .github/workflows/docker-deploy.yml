@@ -1,9 +1,20 @@
-name: Build and Deploy
+name: Build and Deploy Docker to Azure
 
 on:
   push:
     branches:
       - tocrmfsLive
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ACR_NAME: fsacrprod
+  REGISTRY: fsacrprod-gvc3dsbwbgbqdgd3.azurecr.io
+  IMAGE_NAME: fieldservicecalendar
+  WEBAPP_NAME: fieldservicecalendar
+  RESOURCE_GROUP: TOAXRGP
 
 jobs:
   build:
@@ -12,20 +23,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: docker/login-action@v3
+      - uses: azure/login@v2
         with:
-          registry: fsacrprod.azurecr.io
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        run: az acr login --name $ACR_NAME
 
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: fsacrprod.azurecr.io/fieldservicecalendar:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
       - uses: azure/webapps-deploy@v3
         with:
-          app-name: fieldservicecalendar
+          app-name: ${{ env.WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          images: fsacrprod.azurecr.io/fieldservicecalendar:latest
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
