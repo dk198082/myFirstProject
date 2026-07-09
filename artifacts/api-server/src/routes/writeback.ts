@@ -1117,6 +1117,7 @@ router.get("/wb/schedule-board", async (req, res) => {
           AND b.starttime <  $2::date
           AND COALESCE(b.is_deleted, false) = false
           AND b.resource IN (SELECT bookableresourceid FROM active_res)
+          AND COALESCE(b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue', '') NOT ILIKE 'cancel%'
         ORDER BY ter.name ASC, resource_name ASC, b.starttime ASC NULLS LAST
         `,
         [rangeStart, rangeEnd],
@@ -1422,6 +1423,7 @@ router.get("/wb/schedule-board", async (req, res) => {
           AND b.starttime <  $2::date
           AND COALESCE(b.is_deleted, false) = false
           AND b.resource IN (SELECT bookableresourceid FROM active_res)
+          AND COALESCE(b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue', '') NOT ILIKE 'cancel%'
       )
       SELECT
         ter.territoryid::text                        AS regionid_id,
