@@ -6,12 +6,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "lucide-react"
-import {
-  DayButton,
-  DayPicker,
-  Dropdown as RdpDropdown,
-  getDefaultClassNames,
-} from "react-day-picker"
+import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -161,19 +156,6 @@ function Calendar({
           )
         },
         DayButton: CalendarDayButton,
-        // The month/year dropdown options should always come from react-day-picker
-        // already sorted ascending, but guard against any ordering regression
-        // (e.g. month 12 sorting above month 1) by explicitly re-sorting here.
-        Dropdown: ({ options, ...dropdownProps }) => (
-          <RdpDropdown
-            options={
-              options
-                ? [...options].sort((a, b) => a.value - b.value)
-                : options
-            }
-            {...dropdownProps}
-          />
-        ),
         WeekNumber: ({ children, ...props }) => {
           return (
             <td {...props}>

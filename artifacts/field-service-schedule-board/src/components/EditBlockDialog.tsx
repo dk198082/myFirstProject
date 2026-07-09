@@ -134,7 +134,7 @@ function DateTimePicker({
         <Select value={String(hours12)} onValueChange={handleHour}>
           <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((h) => (
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((h) => (
               <SelectItem key={h} value={String(h)}>{h}</SelectItem>
             ))}
           </SelectContent>
