@@ -60,7 +60,6 @@ import {
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 import { AddBlockDialog } from "@/components/AddBlockDialog";
 import { EditBlockDialog } from "@/components/EditBlockDialog";
-import { AddPlaceholderJobDialog } from "@/components/AddPlaceholderJobDialog";
 import { EditPlaceholderJobDialog } from "@/components/EditPlaceholderJobDialog";
 import {
   timeToMins,
@@ -1047,13 +1046,6 @@ export default function ScheduleBoard() {
   const [editingBlock, setEditingBlock] = useState<{
     block: ScheduleBlock;
     technicianName: string;
-  } | null>(null);
-
-  // Placeholder job being added (or null when dialog is closed).
-  const [addingPlaceholder, setAddingPlaceholder] = useState<{
-    technicianId: string;
-    technicianName: string;
-    date: string;
   } | null>(null);
 
   // Placeholder job being edited (or null when dialog is closed).
@@ -2111,36 +2103,20 @@ export default function ScheduleBoard() {
                                     onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
                                   />
                                 ))}
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                                  <button
-                                    type="button"
-                                    className="flex-1 flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors"
-                                    onClick={() =>
-                                      setAddingBlock({
-                                        technicianId: tech.technician_id,
-                                        technicianName: tech.resource_name ?? "Unknown",
-                                        date: dh.iso,
-                                      })
-                                    }
-                                  >
-                                    <Plus className="h-2.5 w-2.5 shrink-0" />
-                                    Add block
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="flex-1 flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors"
-                                    onClick={() =>
-                                      setAddingPlaceholder({
-                                        technicianId: tech.technician_id,
-                                        technicianName: tech.resource_name ?? "Unknown",
-                                        date: dh.iso,
-                                      })
-                                    }
-                                  >
-                                    <CircleDashed className="h-2.5 w-2.5 shrink-0" />
-                                    Add placeholder
-                                  </button>
-                                </div>
+                                <button
+                                  type="button"
+                                  className="w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
+                                  onClick={() =>
+                                    setAddingBlock({
+                                      technicianId: tech.technician_id,
+                                      technicianName: tech.resource_name ?? "Unknown",
+                                      date: dh.iso,
+                                    })
+                                  }
+                                >
+                                  <Plus className="h-2.5 w-2.5 shrink-0" />
+                                  Add
+                                </button>
                               </div>
                             );
                           })}
@@ -2393,36 +2369,20 @@ export default function ScheduleBoard() {
                                     onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
                                   />
                                 ))}
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                                  <button
-                                    type="button"
-                                    className="flex-1 flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors"
-                                    onClick={() =>
-                                      setAddingBlock({
-                                        technicianId: tech.technician_id,
-                                        technicianName: tech.resource_name ?? "Unknown",
-                                        date: dayHeaders[i].iso,
-                                      })
-                                    }
-                                  >
-                                    <Plus className="h-2.5 w-2.5 shrink-0" />
-                                    Add block
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="flex-1 flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors"
-                                    onClick={() =>
-                                      setAddingPlaceholder({
-                                        technicianId: tech.technician_id,
-                                        technicianName: tech.resource_name ?? "Unknown",
-                                        date: dayHeaders[i].iso,
-                                      })
-                                    }
-                                  >
-                                    <CircleDashed className="h-2.5 w-2.5 shrink-0" />
-                                    Add placeholder
-                                  </button>
-                                </div>
+                                <button
+                                  type="button"
+                                  className="w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
+                                  onClick={() =>
+                                    setAddingBlock({
+                                      technicianId: tech.technician_id,
+                                      technicianName: tech.resource_name ?? "Unknown",
+                                      date: dayHeaders[i].iso,
+                                    })
+                                  }
+                                >
+                                  <Plus className="h-2.5 w-2.5 shrink-0" />
+                                  Add
+                                </button>
                               </div>
                             );
                           })}
@@ -2732,14 +2692,6 @@ export default function ScheduleBoard() {
           block={editingBlock.block}
           technicianName={editingBlock.technicianName}
           onClose={() => setEditingBlock(null)}
-        />
-      )}
-      {addingPlaceholder && (
-        <AddPlaceholderJobDialog
-          technicianId={addingPlaceholder.technicianId}
-          technicianName={addingPlaceholder.technicianName}
-          date={addingPlaceholder.date}
-          onClose={() => setAddingPlaceholder(null)}
         />
       )}
       {editingPlaceholder && (
