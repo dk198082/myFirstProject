@@ -1097,6 +1097,78 @@ router.get("/wb/schedule-board", async (req, res) => {
         }
       }
 
+      // Idle technicians (no bookings anywhere in the current range) cannot be
+      // placed by job location, since there is no job to derive one from. Fall
+      // back to their home region — the territory on their own Technician
+      // record (crm.msdyn_resourceterritory) — so they still render an empty
+      // swimlane instead of disappearing from this view (parity with the
+      // tech-region mode's idle-row behavior).
+      const idleLocResult = await getCrmPool().query(
+        `
+        WITH active_res AS (
+          SELECT br.bookableresourceid
+          FROM crm.bookableresource br
+          JOIN crm.systemuser su ON su.systemuserid = br.userid
+          WHERE COALESCE(br.is_deleted, false) = false
+            AND COALESCE(su.is_deleted, false) = false
+            AND COALESCE(su.isdisabled, false) = false
+            AND COALESCE(br.msdyn_displayonscheduleassistant, false) = true
+        ),
+        res_terr AS (
+          SELECT DISTINCT ON (rt.msdyn_resource)
+                 rt.msdyn_resource AS resource_id,
+                 rt.msdyn_territory AS territory_id
+          FROM crm.msdyn_resourceterritory rt
+          WHERE rt.msdyn_resource IS NOT NULL
+            AND rt.msdyn_territory IS NOT NULL
+            AND COALESCE(rt.is_deleted, false) = false
+          ORDER BY rt.msdyn_resource, rt.msdyn_territory
+        )
+        SELECT
+          ter.territoryid::text AS region_id,
+          ter.name              AS region,
+          br.bookableresourceid::text AS technician_id,
+          br.name               AS resource_name,
+          br.msdyn_primaryemail AS user_email
+        FROM res_terr rt
+        JOIN crm.territory ter ON ter.territoryid = rt.territory_id
+        JOIN crm.bookableresource br
+          ON br.bookableresourceid = rt.resource_id
+         AND COALESCE(br.is_deleted, false) = false
+        WHERE rt.resource_id IN (SELECT bookableresourceid FROM active_res)
+          AND NOT EXISTS (
+            SELECT 1 FROM crm.booking b
+            WHERE b.resource = rt.resource_id
+              AND b.starttime >= $1::date
+              AND b.starttime <  $2::date
+              AND COALESCE(b.is_deleted, false) = false
+          )
+        `,
+        [rangeStart, rangeEnd],
+      );
+
+      for (const row of idleLocResult.rows) {
+        const regionId = row.region_id as string;
+        const techId = row.technician_id as string;
+        if (!locMap.has(regionId)) {
+          locMap.set(regionId, {
+            regionid_id: regionId,
+            region: row.region as string,
+            company: null,
+            technicians: new Map(),
+          });
+        }
+        const loc = locMap.get(regionId)!;
+        if (!loc.technicians.has(techId)) {
+          loc.technicians.set(techId, {
+            technician_id: techId,
+            resource_name: row.resource_name as string | null,
+            user_email: row.user_email as string | null,
+            jobs: [],
+          });
+        }
+      }
+
       const locRegions = Array.from(locMap.values())
         .sort((a, b) => a.region.localeCompare(b.region))
         .map((loc) => ({

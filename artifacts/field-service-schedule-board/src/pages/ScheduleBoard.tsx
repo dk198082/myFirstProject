@@ -979,10 +979,6 @@ export default function ScheduleBoard() {
   // an unscheduled job, so the dialog can auto-fill the end time.
   const [editingDuration, setEditingDuration] = useState<number | null>(null);
   const [utilRegions, setUtilRegions] = useState<Set<string> | null>(null); // null = all
-  // Capacity-planning toggle. When false (default) the board hides technicians
-  // with no jobs in the current range to keep the view focused on scheduled
-  // work. When true, idle technicians are shown across all views and counts.
-  const [showIdleTechs, setShowIdleTechs] = useState(true);
   // Calendar (tech) view weekend visibility. Default off — the calendar shows
   // Mon–Fri only; when true, Saturday and Sunday columns are included.
   const [showWeekends, setShowWeekends] = useState(false);
@@ -1190,29 +1186,10 @@ export default function ScheduleBoard() {
     [rangeStart, dayCount, view],
   );
 
-  // Display-only filter: by default only show technicians that have at least one
-  // job in the current range, and drop regions that end up with no such
-  // technicians. When `showIdleTechs` is on (capacity planning), show the full
-  // roster including idle technicians. The API response is left untouched for
-  // other consumers.
-  const techIdsWithBlocks = useMemo(
-    () => new Set(blocks.map((b) => b.technician_id)),
-    [blocks],
-  );
-  const allRegions = useMemo(
-    () =>
-      showIdleTechs
-        ? (data?.regions ?? [])
-        : (data?.regions ?? [])
-            .map((r) => ({
-              ...r,
-              technicians: r.technicians.filter(
-                (t) => (t.jobs?.length ?? 0) > 0 || techIdsWithBlocks.has(t.technician_id),
-              ),
-            }))
-            .filter((r) => r.technicians.length > 0),
-    [data, showIdleTechs, techIdsWithBlocks],
-  );
+  // The board always shows the full technician roster, including idle
+  // technicians with no jobs in the current range, so coordinators can see
+  // capacity at a glance without an extra toggle.
+  const allRegions = useMemo(() => data?.regions ?? [], [data]);
   const regions = useMemo(
     () =>
       selectedRegions === null
@@ -1674,33 +1651,6 @@ export default function ScheduleBoard() {
           </div>
             </>
           )}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={showIdleTechs}
-            onClick={() => setShowIdleTechs((v) => !v)}
-            data-testid="toggle-show-idle-techs"
-            title="Show technicians with no jobs in the current range"
-            className={`ml-auto inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
-              showIdleTechs
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-card text-muted-foreground border-border hover:bg-accent"
-            }`}
-          >
-            <span
-              className={`relative inline-flex h-3.5 w-6 items-center rounded-full transition-colors ${
-                showIdleTechs ? "bg-primary-foreground/40" : "bg-muted-foreground/30"
-              }`}
-              aria-hidden
-            >
-              <span
-                className={`inline-block h-2.5 w-2.5 rounded-full bg-white shadow transition-transform ${
-                  showIdleTechs ? "translate-x-3" : "translate-x-0.5"
-                }`}
-              />
-            </span>
-            Show idle techs
-          </button>
           {view === "tech" && (
             <button
               type="button"
@@ -1709,7 +1659,7 @@ export default function ScheduleBoard() {
               onClick={() => setShowWeekends((v) => !v)}
               data-testid="toggle-show-weekends"
               title="Show Saturday and Sunday columns in the calendar"
-              className={`inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+              className={`ml-auto inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
                 showWeekends
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-card text-muted-foreground border-border hover:bg-accent"
@@ -1985,12 +1935,10 @@ export default function ScheduleBoard() {
                                         ptoMinutes={blkMins.pto > 0 ? blkMins.pto : undefined}
                                       />
                                     ) : (
-                                      showIdleTechs && (
-                                        <IdleCapacityBadge
-                                          capacityMinutes={idleCapMinutes(tech.technician_id)}
-                                          colorClass={palette.chip}
-                                        />
-                                      )
+                                      <IdleCapacityBadge
+                                        capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                        colorClass={palette.chip}
+                                      />
                                     )}
                                   </>
                                 );
@@ -2252,12 +2200,10 @@ export default function ScheduleBoard() {
                                         ptoMinutes={blkMins.pto > 0 ? blkMins.pto : undefined}
                                       />
                                     ) : (
-                                      showIdleTechs && (
-                                        <IdleCapacityBadge
-                                          capacityMinutes={idleCapMinutes(tech.technician_id)}
-                                          colorClass={palette.chip}
-                                        />
-                                      )
+                                      <IdleCapacityBadge
+                                        capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                        colorClass={palette.chip}
+                                      />
                                     )}
                                   </>
                                 );
