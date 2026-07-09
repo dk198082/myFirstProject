@@ -55,7 +55,7 @@ import {
   Plus,
   X,
   Search,
-  CircleDashed,
+  HardHat,
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 import { AddBlockDialog } from "@/components/AddBlockDialog";
@@ -391,12 +391,11 @@ function PlaceholderJobChip({
       tabIndex={0}
       onClick={onEdit}
       onKeyDown={(e) => e.key === "Enter" && onEdit()}
-      className="w-full rounded border border-dashed border-muted-foreground/50 bg-muted/50 text-muted-foreground text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:bg-muted/70 transition-colors"
+      className="w-full rounded border border-dashed border-red-300/70 bg-red-50/60 text-red-800/80 text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:bg-red-50 transition-colors"
     >
       <div className="flex items-center gap-1">
-        <CircleDashed className="h-3 w-3 shrink-0" />
+        <HardHat className="h-3 w-3 shrink-0" />
         <span className="font-semibold truncate">{job.title}</span>
-        <span className="shrink-0 text-[9px] uppercase tracking-wide opacity-70">Unconfirmed</span>
         <button
           type="button"
           className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
