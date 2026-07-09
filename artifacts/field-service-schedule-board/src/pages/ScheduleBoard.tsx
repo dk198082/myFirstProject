@@ -2044,12 +2044,26 @@ export default function ScheduleBoard() {
                               : isDropTarget
                                 ? "bg-primary/10 ring-2 ring-inset ring-primary"
                                 : "";
+                            const isEmptyCell =
+                              jobs.length === 0 &&
+                              blocksForCell(tech.technician_id, dh.iso).length === 0 &&
+                              placeholderJobsForCell(tech.technician_id, dh.iso).length === 0;
                             return (
                               <div
                                 key={i}
-                                className={`group border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""} ${dropCue}`}
+                                className={`group border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""} ${dropCue} ${isEmptyCell ? "cursor-pointer" : ""}`}
                                 data-testid={`tech-cell-${tech.technician_id}-${dh.dayIdx}`}
                                 aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
+                                onClick={
+                                  isEmptyCell
+                                    ? () =>
+                                        setAddingBlock({
+                                          technicianId: tech.technician_id,
+                                          technicianName: tech.resource_name ?? "Unknown",
+                                          date: dh.iso,
+                                        })
+                                    : undefined
+                                }
                                 onDragOver={(e) => {
                                   if (!dragJobRef.current) return;
                                   e.preventDefault();
@@ -2315,12 +2329,26 @@ export default function ScheduleBoard() {
                               : isDropTarget
                                 ? "bg-primary/10 ring-2 ring-inset ring-primary"
                                 : "";
+                            const isEmptyCell =
+                              jobs.length === 0 &&
+                              blocksForCell(tech.technician_id, dayHeaders[i].iso).length === 0 &&
+                              placeholderJobsForCell(tech.technician_id, dayHeaders[i].iso).length === 0;
                             return (
                               <div
                                 key={i}
-                                className={`group border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dropCue}`}
+                                className={`group border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dropCue} ${isEmptyCell ? "cursor-pointer" : ""}`}
                                 data-testid={`cell-${tech.technician_id}-${i}`}
                                 aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
+                                onClick={
+                                  isEmptyCell
+                                    ? () =>
+                                        setAddingBlock({
+                                          technicianId: tech.technician_id,
+                                          technicianName: tech.resource_name ?? "Unknown",
+                                          date: dayHeaders[i].iso,
+                                        })
+                                    : undefined
+                                }
                                 onDragOver={(e) => {
                                   if (!dragJobRef.current) return;
                                   e.preventDefault();
