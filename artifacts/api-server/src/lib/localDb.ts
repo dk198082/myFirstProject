@@ -8,3 +8,8 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const localPool = new Pool(buildPoolConfig(process.env.DATABASE_URL));
+
+// import { pool } from "./db.js";
+
+// // Temporarily use the same database
+// export const localPool = pool;
