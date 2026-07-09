@@ -55,7 +55,6 @@ import {
   Plus,
   X,
   Search,
-  HardHat,
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 import { AddBlockDialog } from "@/components/AddBlockDialog";
@@ -394,7 +393,7 @@ function PlaceholderJobChip({
       className="w-full rounded border border-dashed border-red-300/70 bg-red-50/60 text-red-800/80 text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:bg-red-50 transition-colors"
     >
       <div className="flex items-center gap-1">
-        <HardHat className="h-3 w-3 shrink-0" />
+        <User className="h-3 w-3 shrink-0" />
         <span className="font-semibold truncate">{job.title}</span>
         <button
           type="button"

@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Car, Sun, Pencil, CircleDashed } from "lucide-react";
+import { Loader2, Car, Sun, Pencil, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type EntryType = "drive_time" | "pto" | "custom" | "potential_job";
@@ -213,7 +213,7 @@ export function AddBlockDialog({
                     : "bg-background text-muted-foreground border-border hover:bg-accent"
                 }`}
               >
-                <CircleDashed className="h-4 w-4" />
+                <User className="h-4 w-4" />
                 Potential Job
               </button>
             </div>
