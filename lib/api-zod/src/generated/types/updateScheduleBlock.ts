@@ -5,22 +5,19 @@
  * Technician Dashboard API
  * OpenAPI spec version: 0.1.0
  */
-import type { ScheduleBlockBlockType } from './scheduleBlockBlockType';
+import type { UpdateScheduleBlockBlockType } from './updateScheduleBlockBlockType';
 
-export interface ScheduleBlock {
-  id: number;
-  technician_id: string;
-  block_type: ScheduleBlockBlockType;
+export interface UpdateScheduleBlock {
+  block_type?: UpdateScheduleBlockBlockType;
   /**
      * Custom title (only used when block_type is "custom")
      * @nullable
      */
   title?: string | null;
   /** ISO 8601 timestamp */
-  start_time: string;
+  start_time?: string;
   /** ISO 8601 timestamp */
-  end_time: string;
+  end_time?: string;
   /** @nullable */
   notes?: string | null;
-  created_at: string;
 }

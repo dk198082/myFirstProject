@@ -20,8 +20,10 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CreatePlaceholderJob,
   CreateScheduleBlock,
   DashboardSummary,
+  DeleteWbQueuedWritebacks200,
   ErrorResponse,
   GetJobsByRegionParams,
   GetResourceUtilizationParams,
@@ -34,8 +36,10 @@ import type {
   GetWbResourceUtilizationParams,
   GetWbScheduleBoardParams,
   HealthStatus,
+  ListWbPlaceholderJobsParams,
   ListWbScheduleBlocksParams,
   ListWbWorkOrdersParams,
+  PlaceholderJob,
   RegionGroup,
   RegionJobGroup,
   ReportFilters,
@@ -47,6 +51,8 @@ import type {
   TechnicianJobsResponse,
   TechnicianSummary,
   UnscheduledJobsResponse,
+  UpdatePlaceholderJob,
+  UpdateScheduleBlock,
   WbBookingUpdate,
   WbSaveResult,
   WbSyncRequest,
@@ -674,6 +680,78 @@ export const useCreateWbScheduleBlock = <TError = ErrorType<ErrorResponse>,
       return useMutation(getCreateWbScheduleBlockMutationOptions(options));
     }
 
+export const getUpdateWbScheduleBlockUrl = (id: number,) => {
+
+
+
+
+  return `/api/wb/schedule-blocks/${id}`
+}
+
+/**
+ * @summary Update a Drive Time or PTO block
+ */
+export const updateWbScheduleBlock = async (id: number,
+    updateScheduleBlock: UpdateScheduleBlock, options?: RequestInit): Promise<ScheduleBlock> => {
+
+  return customFetch<ScheduleBlock>(getUpdateWbScheduleBlockUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updateScheduleBlock,)
+  }
+);}
+
+
+
+
+export const getUpdateWbScheduleBlockMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWbScheduleBlock>>, TError,{id: number;data: BodyType<UpdateScheduleBlock>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateWbScheduleBlock>>, TError,{id: number;data: BodyType<UpdateScheduleBlock>}, TContext> => {
+
+const mutationKey = ['updateWbScheduleBlock'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWbScheduleBlock>>, {id: number;data: BodyType<UpdateScheduleBlock>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateWbScheduleBlock(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateWbScheduleBlockMutationResult = NonNullable<Awaited<ReturnType<typeof updateWbScheduleBlock>>>
+    export type UpdateWbScheduleBlockMutationBody = BodyType<UpdateScheduleBlock>
+    export type UpdateWbScheduleBlockMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Update a Drive Time or PTO block
+ */
+export const useUpdateWbScheduleBlock = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWbScheduleBlock>>, TError,{id: number;data: BodyType<UpdateScheduleBlock>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateWbScheduleBlock>>,
+        TError,
+        {id: number;data: BodyType<UpdateScheduleBlock>},
+        TContext
+      > => {
+      return useMutation(getUpdateWbScheduleBlockMutationOptions(options));
+    }
+
 export const getDeleteWbScheduleBlockUrl = (id: number,) => {
 
 
@@ -744,51 +822,301 @@ export const useDeleteWbScheduleBlock = <TError = ErrorType<ErrorResponse>,
       return useMutation(getDeleteWbScheduleBlockMutationOptions(options));
     }
 
-export type UpdateScheduleBlock = {
-  block_type?: 'drive_time' | 'pto' | 'custom';
-  title?: string | null;
-  start_time?: string;
-  end_time?: string;
-  notes?: string | null;
-};
+export const getListWbPlaceholderJobsUrl = (params?: ListWbPlaceholderJobsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
-export const getUpdateWbScheduleBlockUrl = (id: number) => `/api/wb/schedule-blocks/${id}`;
+  Object.entries(params || {}).forEach(([key, value]) => {
 
-export const updateWbScheduleBlock = async (id: number, updateScheduleBlock: UpdateScheduleBlock, options?: RequestInit): Promise<ScheduleBlock> => {
-  return customFetch<ScheduleBlock>(getUpdateWbScheduleBlockUrl(id),
-    { method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updateScheduleBlock),
-      ...options
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
     }
-  );
-};
+  });
 
-export const getUpdateWbScheduleBlockMutationOptions = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWbScheduleBlock>>, TError,{id: number; data: UpdateScheduleBlock}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateWbScheduleBlock>>, TError,{id: number; data: UpdateScheduleBlock}, TContext> => {
-  const mutationKey = ['updateWbScheduleBlock'];
-  const {mutation: mutationOptions, request: requestOptions} = options ?? {};
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWbScheduleBlock>>, {id: number; data: UpdateScheduleBlock}> = (props) => {
-    const {id, data} = props ?? {};
-    return updateWbScheduleBlock(id, data, requestOptions);
-  };
-  return { mutationKey, mutationFn, ...mutationOptions };
-};
+  const stringifiedParams = normalizedParams.toString();
 
-export type UpdateWbScheduleBlockMutationResult = NonNullable<Awaited<ReturnType<typeof updateWbScheduleBlock>>>
-export type UpdateWbScheduleBlockMutationBody = UpdateScheduleBlock
-export type UpdateWbScheduleBlockMutationError = ErrorType<ErrorResponse>
+  return stringifiedParams.length > 0 ? `/api/wb/placeholder-jobs?${stringifiedParams}` : `/api/wb/placeholder-jobs`
+}
 
-export const useUpdateWbScheduleBlock = <TError = ErrorType<ErrorResponse>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWbScheduleBlock>>, TError,{id: number; data: UpdateScheduleBlock}, TContext>, request?: SecondParameter<typeof customFetch>}
+/**
+ * @summary List speculative/unconfirmed placeholder jobs for the given date range
+ */
+export const listWbPlaceholderJobs = async (params?: ListWbPlaceholderJobsParams, options?: RequestInit): Promise<PlaceholderJob[]> => {
+
+  return customFetch<PlaceholderJob[]>(getListWbPlaceholderJobsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWbPlaceholderJobsQueryKey = (params?: ListWbPlaceholderJobsParams,) => {
+    return [
+    `/api/wb/placeholder-jobs`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListWbPlaceholderJobsQueryOptions = <TData = Awaited<ReturnType<typeof listWbPlaceholderJobs>>, TError = ErrorType<unknown>>(params?: ListWbPlaceholderJobsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbPlaceholderJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWbPlaceholderJobsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWbPlaceholderJobs>>> = ({ signal }) => listWbPlaceholderJobs(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWbPlaceholderJobs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWbPlaceholderJobsQueryResult = NonNullable<Awaited<ReturnType<typeof listWbPlaceholderJobs>>>
+export type ListWbPlaceholderJobsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List speculative/unconfirmed placeholder jobs for the given date range
+ */
+
+export function useListWbPlaceholderJobs<TData = Awaited<ReturnType<typeof listWbPlaceholderJobs>>, TError = ErrorType<unknown>>(
+ params?: ListWbPlaceholderJobsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbPlaceholderJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWbPlaceholderJobsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateWbPlaceholderJobUrl = () => {
+
+
+
+
+  return `/api/wb/placeholder-jobs`
+}
+
+/**
+ * @summary Create a placeholder job for a technician
+ */
+export const createWbPlaceholderJob = async (createPlaceholderJob: CreatePlaceholderJob, options?: RequestInit): Promise<PlaceholderJob> => {
+
+  return customFetch<PlaceholderJob>(getCreateWbPlaceholderJobUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      createPlaceholderJob,)
+  }
+);}
+
+
+
+
+export const getCreateWbPlaceholderJobMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWbPlaceholderJob>>, TError,{data: BodyType<CreatePlaceholderJob>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createWbPlaceholderJob>>, TError,{data: BodyType<CreatePlaceholderJob>}, TContext> => {
+
+const mutationKey = ['createWbPlaceholderJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createWbPlaceholderJob>>, {data: BodyType<CreatePlaceholderJob>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createWbPlaceholderJob(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateWbPlaceholderJobMutationResult = NonNullable<Awaited<ReturnType<typeof createWbPlaceholderJob>>>
+    export type CreateWbPlaceholderJobMutationBody = BodyType<CreatePlaceholderJob>
+    export type CreateWbPlaceholderJobMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Create a placeholder job for a technician
+ */
+export const useCreateWbPlaceholderJob = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWbPlaceholderJob>>, TError,{data: BodyType<CreatePlaceholderJob>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof updateWbScheduleBlock>>,
+        Awaited<ReturnType<typeof createWbPlaceholderJob>>,
         TError,
-        {id: number; data: UpdateScheduleBlock},
+        {data: BodyType<CreatePlaceholderJob>},
         TContext
       > => {
-      return useMutation(getUpdateWbScheduleBlockMutationOptions(options));
+      return useMutation(getCreateWbPlaceholderJobMutationOptions(options));
+    }
+
+export const getUpdateWbPlaceholderJobUrl = (id: number,) => {
+
+
+
+
+  return `/api/wb/placeholder-jobs/${id}`
+}
+
+/**
+ * @summary Update a placeholder job
+ */
+export const updateWbPlaceholderJob = async (id: number,
+    updatePlaceholderJob: UpdatePlaceholderJob, options?: RequestInit): Promise<PlaceholderJob> => {
+
+  return customFetch<PlaceholderJob>(getUpdateWbPlaceholderJobUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updatePlaceholderJob,)
+  }
+);}
+
+
+
+
+export const getUpdateWbPlaceholderJobMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWbPlaceholderJob>>, TError,{id: number;data: BodyType<UpdatePlaceholderJob>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateWbPlaceholderJob>>, TError,{id: number;data: BodyType<UpdatePlaceholderJob>}, TContext> => {
+
+const mutationKey = ['updateWbPlaceholderJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWbPlaceholderJob>>, {id: number;data: BodyType<UpdatePlaceholderJob>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateWbPlaceholderJob(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateWbPlaceholderJobMutationResult = NonNullable<Awaited<ReturnType<typeof updateWbPlaceholderJob>>>
+    export type UpdateWbPlaceholderJobMutationBody = BodyType<UpdatePlaceholderJob>
+    export type UpdateWbPlaceholderJobMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Update a placeholder job
+ */
+export const useUpdateWbPlaceholderJob = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWbPlaceholderJob>>, TError,{id: number;data: BodyType<UpdatePlaceholderJob>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateWbPlaceholderJob>>,
+        TError,
+        {id: number;data: BodyType<UpdatePlaceholderJob>},
+        TContext
+      > => {
+      return useMutation(getUpdateWbPlaceholderJobMutationOptions(options));
+    }
+
+export const getDeleteWbPlaceholderJobUrl = (id: number,) => {
+
+
+
+
+  return `/api/wb/placeholder-jobs/${id}`
+}
+
+/**
+ * @summary Delete a placeholder job
+ */
+export const deleteWbPlaceholderJob = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteWbPlaceholderJobUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteWbPlaceholderJobMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWbPlaceholderJob>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteWbPlaceholderJob>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteWbPlaceholderJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWbPlaceholderJob>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteWbPlaceholderJob(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteWbPlaceholderJobMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWbPlaceholderJob>>>
+
+    export type DeleteWbPlaceholderJobMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Delete a placeholder job
+ */
+export const useDeleteWbPlaceholderJob = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWbPlaceholderJob>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteWbPlaceholderJob>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteWbPlaceholderJobMutationOptions(options));
     }
 
 export const getListWbWritebacksUrl = () => {
@@ -867,6 +1195,76 @@ export function useListWbWritebacks<TData = Awaited<ReturnType<typeof listWbWrit
 
 
 
+
+export const getDeleteWbQueuedWritebacksUrl = () => {
+
+
+
+
+  return `/api/wb/writebacks/queued`
+}
+
+/**
+ * @summary Delete all queued (unsaved) write-back entries, reverting staged changes
+ */
+export const deleteWbQueuedWritebacks = async ( options?: RequestInit): Promise<DeleteWbQueuedWritebacks200> => {
+
+  return customFetch<DeleteWbQueuedWritebacks200>(getDeleteWbQueuedWritebacksUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteWbQueuedWritebacksMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteWbQueuedWritebacks'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, void> = () => {
+
+
+          return  deleteWbQueuedWritebacks(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteWbQueuedWritebacksMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>>
+
+    export type DeleteWbQueuedWritebacksMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete all queued (unsaved) write-back entries, reverting staged changes
+ */
+export const useDeleteWbQueuedWritebacks = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDeleteWbQueuedWritebacksMutationOptions(options));
+    }
 
 export const getSyncWbWritebacksUrl = () => {
 
@@ -2626,46 +3024,3 @@ export function useGetDashboardSummary<TData = Awaited<ReturnType<typeof getDash
 
 
 
-
-// ---------------------------------------------------------------------------
-// deleteWbQueuedWritebacks — DELETE /wb/writebacks/queued
-// Removes all queued (unsaved) write-back entries, reverting staged changes.
-// ---------------------------------------------------------------------------
-
-export const getDeleteWbQueuedWritebacksUrl = () => `/api/wb/writebacks/queued`;
-
-export const deleteWbQueuedWritebacks = async (options?: RequestInit): Promise<{ deleted: number }> => {
-  return customFetch<{ deleted: number }>(getDeleteWbQueuedWritebacksUrl(), {
-    ...options,
-    method: 'DELETE',
-  });
-};
-
-export const getDeleteWbQueuedWritebacksMutationOptions = <TError = ErrorType<ErrorResponse>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, TError, void, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationOptions<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, TError, void, TContext> => {
-  const mutationKey = ['deleteWbQueuedWritebacks'];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, void> = () => {
-    return deleteWbQueuedWritebacks(requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type DeleteWbQueuedWritebacksMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>>;
-export type DeleteWbQueuedWritebacksMutationError = ErrorType<ErrorResponse>;
-
-/**
- * @summary Delete all queued (unsaved) write-back entries, reverting staged changes
- */
-export const useDeleteWbQueuedWritebacks = <TError = ErrorType<ErrorResponse>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, TError, void, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationResult<Awaited<ReturnType<typeof deleteWbQueuedWritebacks>>, TError, void, TContext> => {
-  return useMutation(getDeleteWbQueuedWritebacksMutationOptions(options));
-};

@@ -750,6 +750,166 @@ router.delete("/wb/schedule-blocks/:id", async (req, res) => {
   }
 });
 
+// ── Placeholder jobs (speculative / unconfirmed work, not yet in CRM) ─────────
+
+const createPlaceholderJobSchema = z.object({
+  technician_id: z.string().min(1),
+  title: z.string().min(1),
+  customer_name: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  state: z.string().nullable().optional(),
+  start_time: z.string().min(1),
+  end_time: z.string().min(1),
+  notes: z.string().nullable().optional(),
+});
+
+router.get("/wb/placeholder-jobs", async (req, res) => {
+  const { start_date, end_date } = req.query as Record<string, string | undefined>;
+  try {
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    if (start_date) {
+      params.push(start_date);
+      conditions.push(`start_time >= $${params.length}::date`);
+    }
+    if (end_date) {
+      params.push(end_date);
+      conditions.push(`start_time < $${params.length}::date`);
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    const r = await localPool.query(
+      `SELECT id, technician_id, title, customer_name, city, state, start_time, end_time, notes, created_at
+       FROM placeholder_jobs ${where} ORDER BY start_time`,
+      params,
+    );
+    res.json(
+      r.rows.map((row) => ({
+        id: row.id,
+        technician_id: row.technician_id,
+        title: row.title,
+        customer_name: row.customer_name ?? null,
+        city: row.city ?? null,
+        state: row.state ?? null,
+        start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
+        end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
+        notes: row.notes ?? null,
+        created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+      })),
+    );
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to list placeholder jobs", "Failed to list placeholder jobs");
+  }
+});
+
+router.post("/wb/placeholder-jobs", async (req, res) => {
+  const parsed = createPlaceholderJobSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
+    return;
+  }
+  const { technician_id, title, customer_name, city, state, start_time, end_time, notes } = parsed.data;
+  try {
+    const r = await localPool.query(
+      `INSERT INTO placeholder_jobs (technician_id, title, customer_name, city, state, start_time, end_time, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, technician_id, title, customer_name, city, state, start_time, end_time, notes, created_at`,
+      [technician_id, title, customer_name ?? null, city ?? null, state ?? null, start_time, end_time, notes ?? null],
+    );
+    const row = r.rows[0];
+    res.status(201).json({
+      id: row.id,
+      technician_id: row.technician_id,
+      title: row.title,
+      customer_name: row.customer_name ?? null,
+      city: row.city ?? null,
+      state: row.state ?? null,
+      start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
+      end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
+      notes: row.notes ?? null,
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    });
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to create placeholder job", "Failed to create placeholder job");
+  }
+});
+
+router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid placeholder job id" });
+    return;
+  }
+  const { title, customer_name, city, state, start_time, end_time, notes } = req.body as {
+    title?: string;
+    customer_name?: string | null;
+    city?: string | null;
+    state?: string | null;
+    start_time?: string;
+    end_time?: string;
+    notes?: string | null;
+  };
+  try {
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    if (title !== undefined) { sets.push(`title = $${vals.push(title)}`); }
+    if (customer_name !== undefined) { sets.push(`customer_name = $${vals.push(customer_name)}`); }
+    if (city !== undefined) { sets.push(`city = $${vals.push(city)}`); }
+    if (state !== undefined) { sets.push(`state = $${vals.push(state)}`); }
+    if (start_time !== undefined) { sets.push(`start_time = $${vals.push(start_time)}`); }
+    if (end_time !== undefined) { sets.push(`end_time = $${vals.push(end_time)}`); }
+    if (notes !== undefined) { sets.push(`notes = $${vals.push(notes)}`); }
+    if (sets.length === 0) {
+      res.status(400).json({ error: "No fields to update" });
+      return;
+    }
+    vals.push(id);
+    const r = await localPool.query(
+      `UPDATE placeholder_jobs SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, title, customer_name, city, state, start_time, end_time, notes, created_at`,
+      vals,
+    );
+    if (r.rows.length === 0) {
+      res.status(404).json({ error: "Placeholder job not found" });
+      return;
+    }
+    const row = r.rows[0];
+    res.json({
+      id: row.id,
+      technician_id: row.technician_id,
+      title: row.title,
+      customer_name: row.customer_name ?? null,
+      city: row.city ?? null,
+      state: row.state ?? null,
+      start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
+      end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
+      notes: row.notes ?? null,
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    });
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to update placeholder job", "Failed to update placeholder job");
+  }
+});
+
+router.delete("/wb/placeholder-jobs/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid placeholder job id" });
+    return;
+  }
+  try {
+    const r = await localPool.query(
+      `DELETE FROM placeholder_jobs WHERE id = $1 RETURNING id`,
+      [id],
+    );
+    if (r.rows.length === 0) {
+      res.status(404).json({ error: "Placeholder job not found" });
+      return;
+    }
+    res.status(204).send();
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to delete placeholder job", "Failed to delete placeholder job");
+  }
+});
+
 router.get("/wb/writebacks", async (req, res) => {
   try {
     const r = await localPool.query<WritebackRow>(
@@ -1943,6 +2103,55 @@ router.get("/wb/resource-utilization", async (req, res) => {
           : 0,
         job_count: row.job_count,
       });
+    }
+
+    // Placeholder (speculative, not-yet-confirmed) jobs count toward capacity
+    // just like real bookings, using the same per-day 8h cap. They live in the
+    // local Postgres DB (not CRM), so they're merged in here after the CRM query.
+    const placeholderResult = await localPool.query(
+      `SELECT technician_id, start_time, end_time FROM placeholder_jobs
+       WHERE start_time < $2::date AND end_time > $1::date`,
+      [rangeStart, rangeEnd],
+    );
+    const placeholderMinutesByTech = new Map<string, { minutes: number; count: number }>();
+    for (const row of placeholderResult.rows) {
+      const techId = row.technician_id as string;
+      const jobStart = row.start_time instanceof Date ? row.start_time : new Date(row.start_time);
+      const jobEnd = row.end_time instanceof Date ? row.end_time : new Date(row.end_time);
+      const winStart = new Date(rangeStart + "T00:00:00Z");
+      const winEnd = new Date(rangeEnd + "T00:00:00Z");
+      let minutes = 0;
+      // Iterate each calendar day the placeholder job spans within the window.
+      const clampedStart = new Date(Math.max(jobStart.getTime(), winStart.getTime()));
+      const clampedEndExclusive = new Date(Math.min(jobEnd.getTime(), winEnd.getTime()));
+      let cursor = new Date(
+        Date.UTC(clampedStart.getUTCFullYear(), clampedStart.getUTCMonth(), clampedStart.getUTCDate()),
+      );
+      while (cursor.getTime() < clampedEndExclusive.getTime()) {
+        const dayEnd = new Date(cursor.getTime() + 86_400_000);
+        const segStart = Math.max(cursor.getTime(), clampedStart.getTime());
+        const segEnd = Math.min(dayEnd.getTime(), clampedEndExclusive.getTime());
+        const segMinutes = Math.max(0, (segEnd - segStart) / 60000);
+        minutes += Math.min(segMinutes, WB_WORKING_MINUTES_PER_DAY);
+        cursor = dayEnd;
+      }
+      const cur = placeholderMinutesByTech.get(techId) ?? { minutes: 0, count: 0 };
+      cur.minutes += minutes;
+      cur.count += 1;
+      placeholderMinutesByTech.set(techId, cur);
+    }
+    if (placeholderMinutesByTech.size > 0) {
+      for (const rg of regionMap.values()) {
+        for (const tech of rg.technicians) {
+          const ph = placeholderMinutesByTech.get(tech.technician_id);
+          if (!ph) continue;
+          tech.utilized_minutes += Math.round(ph.minutes);
+          tech.job_count += ph.count;
+          tech.utilization_pct = tech.capacity_minutes
+            ? Math.round((tech.utilized_minutes / tech.capacity_minutes) * 1000) / 10
+            : 0;
+        }
+      }
     }
 
     res.json({

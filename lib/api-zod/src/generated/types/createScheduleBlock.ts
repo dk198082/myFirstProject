@@ -10,6 +10,11 @@ import type { CreateScheduleBlockBlockType } from './createScheduleBlockBlockTyp
 export interface CreateScheduleBlock {
   technician_id: string;
   block_type: CreateScheduleBlockBlockType;
+  /**
+     * Custom title (only used when block_type is "custom")
+     * @nullable
+     */
+  title?: string | null;
   /** ISO 8601 timestamp */
   start_time: string;
   /** ISO 8601 timestamp */

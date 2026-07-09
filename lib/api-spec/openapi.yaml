@@ -317,6 +317,113 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /wb/placeholder-jobs:
+    get:
+      operationId: listWbPlaceholderJobs
+      tags: [writeback]
+      summary: List speculative/unconfirmed placeholder jobs for the given date range
+      parameters:
+        - name: start_date
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD) — inclusive lower bound on start_time
+        - name: end_date
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO date (YYYY-MM-DD) — exclusive upper bound on start_time
+      responses:
+        "200":
+          description: Placeholder jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlaceholderJob"
+    post:
+      operationId: createWbPlaceholderJob
+      tags: [writeback]
+      summary: Create a placeholder job for a technician
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlaceholderJob"
+      responses:
+        "201":
+          description: Placeholder job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaceholderJob"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/placeholder-jobs/{id}:
+    patch:
+      operationId: updateWbPlaceholderJob
+      tags: [writeback]
+      summary: Update a placeholder job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlaceholderJob"
+      responses:
+        "200":
+          description: Updated placeholder job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaceholderJob"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Placeholder job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteWbPlaceholderJob
+      tags: [writeback]
+      summary: Delete a placeholder job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Placeholder job not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /wb/writebacks:
     get:
       operationId: listWbWritebacks
@@ -927,6 +1034,76 @@ components:
         title:
           type: ["string", "null"]
           description: Custom title (only used when block_type is "custom")
+        start_time:
+          type: string
+          description: ISO 8601 timestamp
+        end_time:
+          type: string
+          description: ISO 8601 timestamp
+        notes:
+          type: ["string", "null"]
+
+    PlaceholderJob:
+      type: object
+      required: [id, technician_id, title, start_time, end_time, created_at]
+      properties:
+        id:
+          type: integer
+        technician_id:
+          type: string
+        title:
+          type: string
+        customer_name:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        start_time:
+          type: string
+          description: ISO 8601 timestamp
+        end_time:
+          type: string
+          description: ISO 8601 timestamp
+        notes:
+          type: ["string", "null"]
+        created_at:
+          type: string
+
+    CreatePlaceholderJob:
+      type: object
+      required: [technician_id, title, start_time, end_time]
+      properties:
+        technician_id:
+          type: string
+        title:
+          type: string
+        customer_name:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        start_time:
+          type: string
+          description: ISO 8601 timestamp
+        end_time:
+          type: string
+          description: ISO 8601 timestamp
+        notes:
+          type: ["string", "null"]
+
+    UpdatePlaceholderJob:
+      type: object
+      properties:
+        title:
+          type: string
+        customer_name:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
         start_time:
           type: string
           description: ISO 8601 timestamp

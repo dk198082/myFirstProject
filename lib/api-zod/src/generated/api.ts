@@ -247,7 +247,8 @@ export const ListWbScheduleBlocksQueryParams = zod.object({
 export const ListWbScheduleBlocksResponseItem = zod.object({
   "id": zod.number(),
   "technician_id": zod.string(),
-  "block_type": zod.enum(['drive_time', 'pto']),
+  "block_type": zod.enum(['drive_time', 'pto', 'custom']),
+  "title": zod.string().nullish().describe('Custom title (only used when block_type is \"custom\")'),
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
@@ -261,7 +262,8 @@ export const ListWbScheduleBlocksResponse = zod.array(ListWbScheduleBlocksRespon
  */
 export const CreateWbScheduleBlockBody = zod.object({
   "technician_id": zod.string(),
-  "block_type": zod.enum(['drive_time', 'pto']),
+  "block_type": zod.enum(['drive_time', 'pto', 'custom']),
+  "title": zod.string().nullish().describe('Custom title (only used when block_type is \"custom\")'),
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish()
@@ -269,9 +271,113 @@ export const CreateWbScheduleBlockBody = zod.object({
 
 
 /**
+ * @summary Update a Drive Time or PTO block
+ */
+export const UpdateWbScheduleBlockParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateWbScheduleBlockBody = zod.object({
+  "block_type": zod.enum(['drive_time', 'pto', 'custom']).optional(),
+  "title": zod.string().nullish().describe('Custom title (only used when block_type is \"custom\")'),
+  "start_time": zod.string().optional().describe('ISO 8601 timestamp'),
+  "end_time": zod.string().optional().describe('ISO 8601 timestamp'),
+  "notes": zod.string().nullish()
+})
+
+export const UpdateWbScheduleBlockResponse = zod.object({
+  "id": zod.number(),
+  "technician_id": zod.string(),
+  "block_type": zod.enum(['drive_time', 'pto', 'custom']),
+  "title": zod.string().nullish().describe('Custom title (only used when block_type is \"custom\")'),
+  "start_time": zod.string().describe('ISO 8601 timestamp'),
+  "end_time": zod.string().describe('ISO 8601 timestamp'),
+  "notes": zod.string().nullish(),
+  "created_at": zod.string()
+})
+
+
+/**
  * @summary Delete a Drive Time or PTO block
  */
 export const DeleteWbScheduleBlockParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List speculative/unconfirmed placeholder jobs for the given date range
+ */
+export const ListWbPlaceholderJobsQueryParams = zod.object({
+  "start_date": zod.coerce.string().optional().describe('ISO date (YYYY-MM-DD) — inclusive lower bound on start_time'),
+  "end_date": zod.coerce.string().optional().describe('ISO date (YYYY-MM-DD) — exclusive upper bound on start_time')
+})
+
+export const ListWbPlaceholderJobsResponseItem = zod.object({
+  "id": zod.number(),
+  "technician_id": zod.string(),
+  "title": zod.string(),
+  "customer_name": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "start_time": zod.string().describe('ISO 8601 timestamp'),
+  "end_time": zod.string().describe('ISO 8601 timestamp'),
+  "notes": zod.string().nullish(),
+  "created_at": zod.string()
+})
+export const ListWbPlaceholderJobsResponse = zod.array(ListWbPlaceholderJobsResponseItem)
+
+
+/**
+ * @summary Create a placeholder job for a technician
+ */
+export const CreateWbPlaceholderJobBody = zod.object({
+  "technician_id": zod.string(),
+  "title": zod.string(),
+  "customer_name": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "start_time": zod.string().describe('ISO 8601 timestamp'),
+  "end_time": zod.string().describe('ISO 8601 timestamp'),
+  "notes": zod.string().nullish()
+})
+
+
+/**
+ * @summary Update a placeholder job
+ */
+export const UpdateWbPlaceholderJobParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateWbPlaceholderJobBody = zod.object({
+  "title": zod.string().optional(),
+  "customer_name": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "start_time": zod.string().optional().describe('ISO 8601 timestamp'),
+  "end_time": zod.string().optional().describe('ISO 8601 timestamp'),
+  "notes": zod.string().nullish()
+})
+
+export const UpdateWbPlaceholderJobResponse = zod.object({
+  "id": zod.number(),
+  "technician_id": zod.string(),
+  "title": zod.string(),
+  "customer_name": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "start_time": zod.string().describe('ISO 8601 timestamp'),
+  "end_time": zod.string().describe('ISO 8601 timestamp'),
+  "notes": zod.string().nullish(),
+  "created_at": zod.string()
+})
+
+
+/**
+ * @summary Delete a placeholder job
+ */
+export const DeleteWbPlaceholderJobParams = zod.object({
   "id": zod.coerce.number()
 })
 
@@ -293,6 +399,14 @@ export const ListWbWritebacksResponseItem = zod.object({
   "error": zod.string().nullish()
 })
 export const ListWbWritebacksResponse = zod.array(ListWbWritebacksResponseItem)
+
+
+/**
+ * @summary Delete all queued (unsaved) write-back entries, reverting staged changes
+ */
+export const DeleteWbQueuedWritebacksResponse = zod.object({
+  "deleted": zod.number()
+})
 
 
 /**

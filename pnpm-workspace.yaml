@@ -44,7 +44,7 @@ onlyBuiltDependencies:
 
 overrides:
   '@babel/core': '>=7.29.6'
-  'js-yaml': '>=4.2.0'
+  'js-yaml': '^4.2.0'
   'linkify-it': '>=5.0.1'
   'markdown-it': '>=14.2.0'
   'qs': '>=6.15.2'

@@ -18,4 +18,5 @@
 //   export type Post = typeof postsTable.$inferSelect;
 
 export * from "./scheduleBlocks";
+export * from "./placeholderJobs";
 export * from "./appUser";

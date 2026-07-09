@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ScheduleBlockBlockType = typeof ScheduleBlockBlockType[keyof typeof ScheduleBlockBlockType];
+export type UpdateScheduleBlockBlockType = typeof UpdateScheduleBlockBlockType[keyof typeof UpdateScheduleBlockBlockType];
 
 
-export const ScheduleBlockBlockType = {
+export const UpdateScheduleBlockBlockType = {
   drive_time: 'drive_time',
   pto: 'pto',
   custom: 'custom',

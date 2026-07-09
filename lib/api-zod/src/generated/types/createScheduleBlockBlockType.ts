@@ -12,4 +12,5 @@ export type CreateScheduleBlockBlockType = typeof CreateScheduleBlockBlockType[k
 export const CreateScheduleBlockBlockType = {
   drive_time: 'drive_time',
   pto: 'pto',
+  custom: 'custom',
 } as const;

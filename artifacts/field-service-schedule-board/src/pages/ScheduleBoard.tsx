@@ -6,14 +6,18 @@ import {
   useSaveWbBooking,
   useListWbScheduleBlocks,
   useDeleteWbScheduleBlock,
+  useListWbPlaceholderJobs,
+  useDeleteWbPlaceholderJob,
   getListWbWorkOrdersQueryKey,
   getGetWbScheduleBoardQueryKey,
   getGetWbResourceUtilizationQueryKey,
   getGetWbUnscheduledJobsQueryKey,
   getListWbScheduleBlocksQueryKey,
+  getListWbPlaceholderJobsQueryKey,
   type WbWorkOrder,
   type UnscheduledJob,
   type ScheduleBlock,
+  type PlaceholderJob,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -51,10 +55,13 @@ import {
   Plus,
   X,
   Search,
+  CircleDashed,
 } from "lucide-react";
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 import { AddBlockDialog } from "@/components/AddBlockDialog";
 import { EditBlockDialog } from "@/components/EditBlockDialog";
+import { AddPlaceholderJobDialog } from "@/components/AddPlaceholderJobDialog";
+import { EditPlaceholderJobDialog } from "@/components/EditPlaceholderJobDialog";
 import {
   timeToMins,
   conflictedIdsForTech,
@@ -363,6 +370,49 @@ function BlockChip({
       {block.notes && (
         <div className="opacity-60 truncate">{block.notes}</div>
       )}
+    </div>
+  );
+}
+
+function PlaceholderJobChip({
+  job,
+  onEdit,
+  onDelete,
+}: {
+  job: PlaceholderJob;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const duration = fmtBlockDuration(job.start_time, job.end_time);
+  const location = [job.city, job.state].filter(Boolean).join(", ");
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onEdit}
+      onKeyDown={(e) => e.key === "Enter" && onEdit()}
+      className="w-full rounded border border-dashed border-muted-foreground/50 bg-muted/50 text-muted-foreground text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:bg-muted/70 transition-colors"
+    >
+      <div className="flex items-center gap-1">
+        <CircleDashed className="h-3 w-3 shrink-0" />
+        <span className="font-semibold truncate">{job.title}</span>
+        <span className="shrink-0 text-[9px] uppercase tracking-wide opacity-70">Unconfirmed</span>
+        <button
+          type="button"
+          className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          aria-label="Remove placeholder job"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+      {job.customer_name && <div className="opacity-80 truncate">{job.customer_name}</div>}
+      {location && <div className="opacity-60 truncate">{location}</div>}
+      {duration && <div className="opacity-60 truncate">{duration}</div>}
     </div>
   );
 }
@@ -999,6 +1049,19 @@ export default function ScheduleBoard() {
     technicianName: string;
   } | null>(null);
 
+  // Placeholder job being added (or null when dialog is closed).
+  const [addingPlaceholder, setAddingPlaceholder] = useState<{
+    technicianId: string;
+    technicianName: string;
+    date: string;
+  } | null>(null);
+
+  // Placeholder job being edited (or null when dialog is closed).
+  const [editingPlaceholder, setEditingPlaceholder] = useState<{
+    job: PlaceholderJob;
+    technicianName: string;
+  } | null>(null);
+
   // Per-booking-id set of chips that are still syncing from CRM after a direct save.
   // Each id is removed individually after 22 s (matching the last follow-up refetch).
   const [pendingSyncIds, setPendingSyncIds] = useState<Set<string>>(new Set());
@@ -1166,6 +1229,38 @@ export default function ScheduleBoard() {
 
   const blocksForCell = (techId: string, iso: string) =>
     blocksByTechAndDate.get(`${techId}::${iso}`) ?? [];
+
+  const { data: placeholderJobsData, refetch: refetchPlaceholderJobs } = useListWbPlaceholderJobs({
+    start_date: rangeStartForBlocks,
+    end_date: endDateForBlocks,
+  });
+  const placeholderJobs: PlaceholderJob[] = placeholderJobsData ?? [];
+
+  const deletePlaceholderMutation = useDeleteWbPlaceholderJob({
+    mutation: {
+      onSuccess: () => {
+        void refetchPlaceholderJobs();
+        toast({ title: "Placeholder job removed" });
+      },
+      onError: () => {
+        toast({ title: "Failed to remove placeholder job", variant: "destructive" });
+      },
+    },
+  });
+
+  const placeholderJobsByTechAndDate = useMemo(() => {
+    const map = new Map<string, PlaceholderJob[]>();
+    for (const job of placeholderJobs) {
+      const date = job.start_time.slice(0, 10);
+      const key = `${job.technician_id}::${date}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(job);
+    }
+    return map;
+  }, [placeholderJobs]);
+
+  const placeholderJobsForCell = (techId: string, iso: string) =>
+    placeholderJobsByTechAndDate.get(`${techId}::${iso}`) ?? [];
 
   // Resource utilization — shares start date + view with the board
   const utilView = view === "week" ? "week" : "month";
@@ -2008,20 +2103,44 @@ export default function ScheduleBoard() {
                                     onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
                                   />
                                 ))}
-                                <button
-                                  type="button"
-                                  className="w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
-                                  onClick={() =>
-                                    setAddingBlock({
-                                      technicianId: tech.technician_id,
-                                      technicianName: tech.resource_name ?? "Unknown",
-                                      date: dh.iso,
-                                    })
-                                  }
-                                >
-                                  <Plus className="h-2.5 w-2.5 shrink-0" />
-                                  Add block
-                                </button>
+                                {placeholderJobsForCell(tech.technician_id, dh.iso).map((phj) => (
+                                  <PlaceholderJobChip
+                                    key={phj.id}
+                                    job={phj}
+                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
+                                    onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
+                                  />
+                                ))}
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                                  <button
+                                    type="button"
+                                    className="flex-1 flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors"
+                                    onClick={() =>
+                                      setAddingBlock({
+                                        technicianId: tech.technician_id,
+                                        technicianName: tech.resource_name ?? "Unknown",
+                                        date: dh.iso,
+                                      })
+                                    }
+                                  >
+                                    <Plus className="h-2.5 w-2.5 shrink-0" />
+                                    Add block
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="flex-1 flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors"
+                                    onClick={() =>
+                                      setAddingPlaceholder({
+                                        technicianId: tech.technician_id,
+                                        technicianName: tech.resource_name ?? "Unknown",
+                                        date: dh.iso,
+                                      })
+                                    }
+                                  >
+                                    <CircleDashed className="h-2.5 w-2.5 shrink-0" />
+                                    Add placeholder
+                                  </button>
+                                </div>
                               </div>
                             );
                           })}
@@ -2266,20 +2385,44 @@ export default function ScheduleBoard() {
                                     onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
                                   />
                                 ))}
-                                <button
-                                  type="button"
-                                  className="w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
-                                  onClick={() =>
-                                    setAddingBlock({
-                                      technicianId: tech.technician_id,
-                                      technicianName: tech.resource_name ?? "Unknown",
-                                      date: dayHeaders[i].iso,
-                                    })
-                                  }
-                                >
-                                  <Plus className="h-2.5 w-2.5 shrink-0" />
-                                  Add block
-                                </button>
+                                {placeholderJobsForCell(tech.technician_id, dayHeaders[i].iso).map((phj) => (
+                                  <PlaceholderJobChip
+                                    key={phj.id}
+                                    job={phj}
+                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
+                                    onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
+                                  />
+                                ))}
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                                  <button
+                                    type="button"
+                                    className="flex-1 flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors"
+                                    onClick={() =>
+                                      setAddingBlock({
+                                        technicianId: tech.technician_id,
+                                        technicianName: tech.resource_name ?? "Unknown",
+                                        date: dayHeaders[i].iso,
+                                      })
+                                    }
+                                  >
+                                    <Plus className="h-2.5 w-2.5 shrink-0" />
+                                    Add block
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="flex-1 flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors"
+                                    onClick={() =>
+                                      setAddingPlaceholder({
+                                        technicianId: tech.technician_id,
+                                        technicianName: tech.resource_name ?? "Unknown",
+                                        date: dayHeaders[i].iso,
+                                      })
+                                    }
+                                  >
+                                    <CircleDashed className="h-2.5 w-2.5 shrink-0" />
+                                    Add placeholder
+                                  </button>
+                                </div>
                               </div>
                             );
                           })}
@@ -2589,6 +2732,21 @@ export default function ScheduleBoard() {
           block={editingBlock.block}
           technicianName={editingBlock.technicianName}
           onClose={() => setEditingBlock(null)}
+        />
+      )}
+      {addingPlaceholder && (
+        <AddPlaceholderJobDialog
+          technicianId={addingPlaceholder.technicianId}
+          technicianName={addingPlaceholder.technicianName}
+          date={addingPlaceholder.date}
+          onClose={() => setAddingPlaceholder(null)}
+        />
+      )}
+      {editingPlaceholder && (
+        <EditPlaceholderJobDialog
+          job={editingPlaceholder.job}
+          technicianName={editingPlaceholder.technicianName}
+          onClose={() => setEditingPlaceholder(null)}
         />
       )}
 
