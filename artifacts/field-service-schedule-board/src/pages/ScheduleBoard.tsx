@@ -2051,7 +2051,7 @@ export default function ScheduleBoard() {
                             return (
                               <div
                                 key={i}
-                                className={`group border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""} ${dropCue} ${isEmptyCell ? "cursor-pointer" : ""}`}
+                                className={`group relative border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""} ${dropCue} ${isEmptyCell ? "cursor-pointer" : ""}`}
                                 data-testid={`tech-cell-${tech.technician_id}-${dh.dayIdx}`}
                                 aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
                                 onClick={
@@ -2117,16 +2117,21 @@ export default function ScheduleBoard() {
                                 ))}
                                 <button
                                   type="button"
-                                  className="w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
-                                  onClick={() =>
+                                  className={
+                                    isEmptyCell
+                                      ? "absolute inset-0 flex items-center justify-center gap-1 text-xs font-bold text-muted-foreground/40 hover:text-foreground hover:bg-accent/70 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                      : "w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
+                                  }
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setAddingBlock({
                                       technicianId: tech.technician_id,
                                       technicianName: tech.resource_name ?? "Unknown",
                                       date: dh.iso,
-                                    })
-                                  }
+                                    });
+                                  }}
                                 >
-                                  <Plus className="h-2.5 w-2.5 shrink-0" />
+                                  <Plus className={isEmptyCell ? "h-4 w-4 shrink-0" : "h-2.5 w-2.5 shrink-0"} />
                                   Add
                                 </button>
                               </div>
@@ -2336,7 +2341,7 @@ export default function ScheduleBoard() {
                             return (
                               <div
                                 key={i}
-                                className={`group border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dropCue} ${isEmptyCell ? "cursor-pointer" : ""}`}
+                                className={`group relative border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dropCue} ${isEmptyCell ? "cursor-pointer" : ""}`}
                                 data-testid={`cell-${tech.technician_id}-${i}`}
                                 aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
                                 onClick={
@@ -2397,16 +2402,21 @@ export default function ScheduleBoard() {
                                 ))}
                                 <button
                                   type="button"
-                                  className="w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
-                                  onClick={() =>
+                                  className={
+                                    isEmptyCell
+                                      ? "absolute inset-0 flex items-center justify-center gap-1 text-xs font-bold text-muted-foreground/40 hover:text-foreground hover:bg-accent/70 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                      : "w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
+                                  }
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setAddingBlock({
                                       technicianId: tech.technician_id,
                                       technicianName: tech.resource_name ?? "Unknown",
                                       date: dayHeaders[i].iso,
-                                    })
-                                  }
+                                    });
+                                  }}
                                 >
-                                  <Plus className="h-2.5 w-2.5 shrink-0" />
+                                  <Plus className={isEmptyCell ? "h-4 w-4 shrink-0" : "h-2.5 w-2.5 shrink-0"} />
                                   Add
                                 </button>
                               </div>
