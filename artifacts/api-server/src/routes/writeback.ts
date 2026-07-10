@@ -630,9 +630,10 @@ router.get("/wb/schedule-blocks", async (req, res) => {
     const params: unknown[] = [];
     // Overlap semantics: return any block that intersects [start_date, end_date),
     // so multi-day blocks that started before the window are still included.
+    // Strict > so a block ending exactly at midnight on start_date is excluded.
     if (start_date) {
       params.push(start_date);
-      conditions.push(`end_time >= $${params.length}::date`);
+      conditions.push(`end_time > $${params.length}::date`);
     }
     if (end_date) {
       params.push(end_date);
@@ -770,9 +771,12 @@ router.get("/wb/placeholder-jobs", async (req, res) => {
   try {
     const conditions: string[] = [];
     const params: unknown[] = [];
+    // Overlap semantics: return any placeholder that intersects [start_date, end_date),
+    // so multi-day placeholders that started before the window are still included.
+    // Strict > so a placeholder ending exactly at midnight on start_date is excluded.
     if (start_date) {
       params.push(start_date);
-      conditions.push(`start_time >= $${params.length}::date`);
+      conditions.push(`end_time > $${params.length}::date`);
     }
     if (end_date) {
       params.push(end_date);

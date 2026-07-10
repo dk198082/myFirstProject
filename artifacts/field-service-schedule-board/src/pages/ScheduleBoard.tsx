@@ -311,6 +311,19 @@ function fmtBlockDuration(startIso: string, endIso: string): string {
   return fmtMins(Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000));
 }
 
+/**
+ * Day (YYYY-MM-DD) an item's end time falls on for display purposes.
+ * An end exactly at midnight belongs to the previous day, so e.g. a block
+ * ending at 00:00 on the 12th doesn't render an extra chip on the 12th.
+ */
+function effectiveEndDay(endIso: string): string {
+  const endDay = endIso.slice(0, 10);
+  if (endIso.slice(11, 19) === "00:00:00") {
+    return addDaysISO(endDay, -1);
+  }
+  return endDay;
+}
+
 function fmtBlockDay(isoDay: string): string {
   return new Date(`${isoDay}T00:00:00`).toLocaleDateString(undefined, {
     weekday: "short",
@@ -341,7 +354,7 @@ function BlockChip({
   const duration = fmtBlockDuration(block.start_time, block.end_time);
 
   const startDay = block.start_time.slice(0, 10);
-  const endDay = block.end_time.slice(0, 10);
+  const endDay = effectiveEndDay(block.end_time);
   const isMultiDay = endDay > startDay;
   const dayCount = isMultiDay
     ? Math.round(
@@ -434,33 +447,67 @@ function PlaceholderJobChip({
   const duration = fmtBlockDuration(job.start_time, job.end_time);
   const location = [job.city, job.state].filter(Boolean).join(", ");
 
+  const startDay = job.start_time.slice(0, 10);
+  const endDay = effectiveEndDay(job.end_time);
+  const isMultiDay = endDay > startDay;
+  const dayCount = isMultiDay
+    ? Math.round(
+        (new Date(`${endDay}T00:00:00`).getTime() - new Date(`${startDay}T00:00:00`).getTime()) /
+          86_400_000,
+      ) + 1
+    : 1;
+
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onEdit}
-      onKeyDown={(e) => e.key === "Enter" && onEdit()}
-      className="w-full rounded border border-dashed border-red-300/70 bg-red-50/60 text-red-800/80 text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:bg-red-50 transition-colors"
-    >
-      <div className="flex items-center gap-1">
-        <User className="h-3 w-3 shrink-0" />
-        <span className="font-semibold truncate">{job.title}</span>
-        <button
-          type="button"
-          className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          aria-label="Remove placeholder job"
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={onEdit}
+          onKeyDown={(e) => e.key === "Enter" && onEdit()}
+          className="w-full rounded border border-dashed border-red-300/70 bg-red-50/60 text-red-800/80 text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:bg-red-50 transition-colors"
         >
-          <X className="h-3 w-3" />
-        </button>
-      </div>
-      {job.customer_name && <div className="opacity-80 truncate">{job.customer_name}</div>}
-      {location && <div className="opacity-60 truncate">{location}</div>}
-      {duration && <div className="opacity-60 truncate">{duration}</div>}
-    </div>
+          <div className="flex items-center gap-1">
+            <User className="h-3 w-3 shrink-0" />
+            <span className="font-semibold truncate">{job.title}</span>
+            <button
+              type="button"
+              className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              aria-label="Remove placeholder job"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+          {job.customer_name && <div className="opacity-80 truncate">{job.customer_name}</div>}
+          {location && <div className="opacity-60 truncate">{location}</div>}
+          <div className="opacity-60 truncate">{isMultiDay ? `${dayCount} days` : duration}</div>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[260px]">
+        <div className="space-y-0.5">
+          <div className="font-semibold">{job.title}</div>
+          <div className="text-xs opacity-80">Potential Job</div>
+          {job.customer_name && <div className="text-xs">{job.customer_name}</div>}
+          {location && <div className="text-xs">{location}</div>}
+          {isMultiDay ? (
+            <div className="text-xs">
+              {fmtBlockDay(startDay)} → {fmtBlockDay(endDay)} ({dayCount} days)
+            </div>
+          ) : (
+            <div className="text-xs">{fmtBlockDay(startDay)}</div>
+          )}
+          <div className="text-xs">
+            {fmtBlockTime(job.start_time)} – {fmtBlockTime(job.end_time)}
+            {!isMultiDay && duration ? ` (${duration})` : ""}
+          </div>
+          {job.notes && <div className="text-xs opacity-80">{job.notes}</div>}
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -1260,7 +1307,7 @@ export default function ScheduleBoard() {
     const map = new Map<string, ScheduleBlock[]>();
     for (const block of blocks) {
       const startDate = block.start_time.slice(0, 10);
-      const endDate = block.end_time.slice(0, 10);
+      const endDate = effectiveEndDay(block.end_time);
       // Expand multi-day blocks onto every day they span (capped at 62 days as a guard).
       let date = startDate;
       let guard = 0;
@@ -1299,10 +1346,18 @@ export default function ScheduleBoard() {
   const placeholderJobsByTechAndDate = useMemo(() => {
     const map = new Map<string, PlaceholderJob[]>();
     for (const job of placeholderJobs) {
-      const date = job.start_time.slice(0, 10);
-      const key = `${job.technician_id}::${date}`;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(job);
+      const startDate = job.start_time.slice(0, 10);
+      const endDate = effectiveEndDay(job.end_time);
+      // Expand multi-day placeholder jobs onto every day they span (capped at 62 days).
+      let date = startDate;
+      let guard = 0;
+      do {
+        const key = `${job.technician_id}::${date}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(job);
+        date = addDaysISO(date, 1);
+        guard += 1;
+      } while (date <= endDate && guard < 62);
     }
     return map;
   }, [placeholderJobs]);
