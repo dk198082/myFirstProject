@@ -311,12 +311,47 @@ function fmtBlockDuration(startIso: string, endIso: string): string {
   return fmtMins(Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000));
 }
 
+/** Format a full ISO timestamp as a local date + 12-hour time string, e.g. "Jun 30, 10:30 AM". */
+function fmtLocalDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  const datePart = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = ((h + 11) % 12) + 1;
+  return `${datePart}, ${h12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+/** Enumerate every ISO date ("YYYY-MM-DD") from startIso's date through endIso's date, inclusive. */
+function enumerateIsoDates(startIso: string, endIso: string): string[] {
+  const startDate = startIso.slice(0, 10);
+  const endDateStr = endIso.slice(0, 10);
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDateStr}T00:00:00Z`);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return [startDate];
+  const dates: string[] = [];
+  const cur = new Date(start);
+  while (cur <= end) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+/** A ScheduleBlock enriched with which day (of a possibly multi-day span) this chip instance represents. */
+type BlockWithSpan = ScheduleBlock & {
+  _dayIso?: string;
+  _spanPos?: number;
+  _spanTotal?: number;
+};
+
 function BlockChip({
   block,
   onEdit,
   onDelete,
 }: {
-  block: ScheduleBlock;
+  block: BlockWithSpan;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -324,6 +359,9 @@ function BlockChip({
   const isPTO = block.block_type === "pto";
   const isCustom = block.block_type === "custom";
   const duration = fmtBlockDuration(block.start_time, block.end_time);
+  const spanTotal = block._spanTotal ?? 1;
+  const spanPos = block._spanPos ?? 1;
+  const isMultiDay = spanTotal > 1;
 
   const chipCls = isDriveTime
     ? "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600"
@@ -332,8 +370,9 @@ function BlockChip({
     : "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700";
 
   const label = isDriveTime ? "Drive Time" : isPTO ? "PTO" : (block.title?.trim() || "Custom");
+  const typeLabel = isDriveTime ? "Drive Time" : isPTO ? "PTO" : "Custom";
 
-  return (
+  const chip = (
     <div
       role="button"
       tabIndex={0}
@@ -350,6 +389,11 @@ function BlockChip({
           <Pencil className="h-3 w-3 shrink-0" />
         )}
         <span className="font-semibold truncate">{label}</span>
+        {isMultiDay && (
+          <span className="shrink-0 rounded bg-black/10 px-1 text-[9px] font-semibold tabular-nums">
+            D{spanPos}/{spanTotal}
+          </span>
+        )}
         <button
           type="button"
           className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
@@ -369,6 +413,39 @@ function BlockChip({
         <div className="opacity-60 truncate">{block.notes}</div>
       )}
     </div>
+  );
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{chip}</TooltipTrigger>
+      <TooltipContent side="top" className={`max-w-xs p-3 space-y-1.5 text-xs border ${chipCls}`}>
+        <div className="font-bold text-sm">{label}</div>
+        <div className="border-t border-current/20 pt-1.5 space-y-1">
+          <div>
+            <span className="font-medium opacity-70">Type:</span> {typeLabel}
+          </div>
+          <div>
+            <span className="font-medium opacity-70">Start:</span> {fmtLocalDateTime(block.start_time)}
+          </div>
+          <div>
+            <span className="font-medium opacity-70">End:</span> {fmtLocalDateTime(block.end_time)}
+          </div>
+          {duration && (
+            <div>
+              <span className="font-medium opacity-70">Duration:</span> {duration}
+            </div>
+          )}
+          {isMultiDay && (
+            <div>
+              <span className="font-medium opacity-70">Spans:</span> {spanTotal} days (day {spanPos} of {spanTotal})
+            </div>
+          )}
+          <div>
+            <span className="font-medium opacity-70">Notes:</span> {block.notes?.trim() || "—"}
+          </div>
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -1207,12 +1284,20 @@ export default function ScheduleBoard() {
   });
 
   const blocksByTechAndDate = useMemo(() => {
-    const map = new Map<string, ScheduleBlock[]>();
+    const map = new Map<string, BlockWithSpan[]>();
     for (const block of blocks) {
-      const date = block.start_time.slice(0, 10);
-      const key = `${block.technician_id}::${date}`;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(block);
+      const spanDates = enumerateIsoDates(block.start_time, block.end_time);
+      const spanTotal = spanDates.length;
+      spanDates.forEach((date, idx) => {
+        const key = `${block.technician_id}::${date}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push({
+          ...block,
+          _dayIso: date,
+          _spanPos: idx + 1,
+          _spanTotal: spanTotal,
+        });
+      });
     }
     return map;
   }, [blocks]);
@@ -2101,7 +2186,7 @@ export default function ScheduleBoard() {
                                 ))}
                                 {blocksForCell(tech.technician_id, dh.iso).map((blk) => (
                                   <BlockChip
-                                    key={blk.id}
+                                    key={`${blk.id}-${blk._dayIso ?? dh.iso}`}
                                     block={blk}
                                     onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
@@ -2386,7 +2471,7 @@ export default function ScheduleBoard() {
                                 ))}
                                 {blocksForCell(tech.technician_id, dayHeaders[i].iso).map((blk) => (
                                   <BlockChip
-                                    key={blk.id}
+                                    key={`${blk.id}-${blk._dayIso ?? dayHeaders[i].iso}`}
                                     block={blk}
                                     onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
