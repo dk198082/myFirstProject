@@ -311,6 +311,21 @@ function fmtBlockDuration(startIso: string, endIso: string): string {
   return fmtMins(Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000));
 }
 
+function fmtBlockDay(isoDay: string): string {
+  return new Date(`${isoDay}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function fmtBlockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function BlockChip({
   block,
   onEdit,
@@ -325,50 +340,85 @@ function BlockChip({
   const isCustom = block.block_type === "custom";
   const duration = fmtBlockDuration(block.start_time, block.end_time);
 
+  const startDay = block.start_time.slice(0, 10);
+  const endDay = block.end_time.slice(0, 10);
+  const isMultiDay = endDay > startDay;
+  const dayCount = isMultiDay
+    ? Math.round(
+        (new Date(`${endDay}T00:00:00`).getTime() - new Date(`${startDay}T00:00:00`).getTime()) /
+          86_400_000,
+      ) + 1
+    : 1;
+
   const chipCls = isDriveTime
     ? "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600"
     : isPTO
     ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700"
     : "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700";
 
+  const typeLabel = isDriveTime ? "Drive Time" : isPTO ? "PTO" : "Custom";
   const label = isDriveTime ? "Drive Time" : isPTO ? "PTO" : (block.title?.trim() || "Custom");
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onEdit}
-      onKeyDown={(e) => e.key === "Enter" && onEdit()}
-      className={`w-full rounded border text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:brightness-95 transition-[filter] ${chipCls}`}
-    >
-      <div className="flex items-center gap-1">
-        {isDriveTime ? (
-          <Car className="h-3 w-3 shrink-0" />
-        ) : isPTO ? (
-          <Sun className="h-3 w-3 shrink-0" />
-        ) : (
-          <Pencil className="h-3 w-3 shrink-0" />
-        )}
-        <span className="font-semibold truncate">{label}</span>
-        <button
-          type="button"
-          className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          aria-label="Remove block"
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={onEdit}
+          onKeyDown={(e) => e.key === "Enter" && onEdit()}
+          className={`w-full rounded border text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:brightness-95 transition-[filter] ${chipCls}`}
         >
-          <X className="h-3 w-3" />
-        </button>
-      </div>
-      {duration && (
-        <div className="opacity-80 truncate">{duration}</div>
-      )}
-      {block.notes && (
-        <div className="opacity-60 truncate">{block.notes}</div>
-      )}
-    </div>
+          <div className="flex items-center gap-1">
+            {isDriveTime ? (
+              <Car className="h-3 w-3 shrink-0" />
+            ) : isPTO ? (
+              <Sun className="h-3 w-3 shrink-0" />
+            ) : (
+              <Pencil className="h-3 w-3 shrink-0" />
+            )}
+            <span className="font-semibold truncate">{label}</span>
+            <button
+              type="button"
+              className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              aria-label="Remove block"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="opacity-80 truncate">
+            {isMultiDay ? `${dayCount} days` : duration}
+          </div>
+          {block.notes && (
+            <div className="opacity-60 truncate">{block.notes}</div>
+          )}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[260px]">
+        <div className="space-y-0.5">
+          <div className="font-semibold">{label}</div>
+          {isCustom && block.title?.trim() && (
+            <div className="text-xs opacity-80">{typeLabel}</div>
+          )}
+          {isMultiDay ? (
+            <div className="text-xs">
+              {fmtBlockDay(startDay)} → {fmtBlockDay(endDay)} ({dayCount} days)
+            </div>
+          ) : (
+            <div className="text-xs">{fmtBlockDay(startDay)}</div>
+          )}
+          <div className="text-xs">
+            {fmtBlockTime(block.start_time)} – {fmtBlockTime(block.end_time)}
+            {!isMultiDay && duration ? ` (${duration})` : ""}
+          </div>
+          {block.notes && <div className="text-xs opacity-80">{block.notes}</div>}
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -1209,10 +1259,18 @@ export default function ScheduleBoard() {
   const blocksByTechAndDate = useMemo(() => {
     const map = new Map<string, ScheduleBlock[]>();
     for (const block of blocks) {
-      const date = block.start_time.slice(0, 10);
-      const key = `${block.technician_id}::${date}`;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(block);
+      const startDate = block.start_time.slice(0, 10);
+      const endDate = block.end_time.slice(0, 10);
+      // Expand multi-day blocks onto every day they span (capped at 62 days as a guard).
+      let date = startDate;
+      let guard = 0;
+      do {
+        const key = `${block.technician_id}::${date}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(block);
+        date = addDaysISO(date, 1);
+        guard += 1;
+      } while (date <= endDate && guard < 62);
     }
     return map;
   }, [blocks]);

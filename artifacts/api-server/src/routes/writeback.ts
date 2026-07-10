@@ -628,9 +628,11 @@ router.get("/wb/schedule-blocks", async (req, res) => {
   try {
     const conditions: string[] = [];
     const params: unknown[] = [];
+    // Overlap semantics: return any block that intersects [start_date, end_date),
+    // so multi-day blocks that started before the window are still included.
     if (start_date) {
       params.push(start_date);
-      conditions.push(`start_time >= $${params.length}::date`);
+      conditions.push(`end_time >= $${params.length}::date`);
     }
     if (end_date) {
       params.push(end_date);
