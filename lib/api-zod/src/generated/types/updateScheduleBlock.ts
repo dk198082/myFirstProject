@@ -8,6 +8,7 @@
 import type { UpdateScheduleBlockBlockType } from './updateScheduleBlockBlockType';
 
 export interface UpdateScheduleBlock {
+  technician_id?: string;
   block_type?: UpdateScheduleBlockBlockType;
   /**
      * Custom title (only used when block_type is "custom")

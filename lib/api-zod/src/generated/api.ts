@@ -278,6 +278,7 @@ export const UpdateWbScheduleBlockParams = zod.object({
 })
 
 export const UpdateWbScheduleBlockBody = zod.object({
+  "technician_id": zod.string().optional(),
   "block_type": zod.enum(['drive_time', 'pto', 'custom']).optional(),
   "title": zod.string().nullish().describe('Custom title (only used when block_type is \"custom\")'),
   "start_time": zod.string().optional().describe('ISO 8601 timestamp'),

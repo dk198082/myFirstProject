@@ -623,6 +623,19 @@ const createScheduleBlockSchema = z.object({
   notes: z.string().nullable().optional(),
 });
 
+const updateScheduleBlockSchema = z
+  .object({
+    technician_id: z.string().min(1).optional(),
+    block_type: z.enum(["drive_time", "pto", "custom"]).optional(),
+    title: z.string().nullable().optional(),
+    start_time: z.string().min(1).optional(),
+    end_time: z.string().min(1).optional(),
+    notes: z.string().nullable().optional(),
+  })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), {
+    message: "No fields to update",
+  });
+
 router.get("/wb/schedule-blocks", async (req, res) => {
   const { start_date, end_date } = req.query as Record<string, string | undefined>;
   try {
@@ -698,16 +711,16 @@ router.patch("/wb/schedule-blocks/:id", async (req, res) => {
     res.status(400).json({ error: "Invalid block id" });
     return;
   }
-  const { block_type, title, start_time, end_time, notes } = req.body as {
-    block_type?: string;
-    title?: string | null;
-    start_time?: string;
-    end_time?: string;
-    notes?: string | null;
-  };
+  const parsed = updateScheduleBlockSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
+    return;
+  }
+  const { technician_id, block_type, title, start_time, end_time, notes } = parsed.data;
   try {
     const sets: string[] = [];
     const vals: unknown[] = [];
+    if (technician_id !== undefined) { sets.push(`technician_id = $${vals.push(technician_id)}`); }
     if (block_type !== undefined) { sets.push(`block_type = $${vals.push(block_type)}`); }
     if (title !== undefined) { sets.push(`title = $${vals.push(title)}`); }
     if (start_time !== undefined) { sets.push(`start_time = $${vals.push(start_time)}`); }

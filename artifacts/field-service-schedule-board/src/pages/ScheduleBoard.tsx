@@ -6,6 +6,7 @@ import {
   useSaveWbBooking,
   useListWbScheduleBlocks,
   useDeleteWbScheduleBlock,
+  useUpdateWbScheduleBlock,
   useListWbPlaceholderJobs,
   useDeleteWbPlaceholderJob,
   getListWbWorkOrdersQueryKey,
@@ -341,12 +342,23 @@ function fmtBlockTime(iso: string): string {
 
 function BlockChip({
   block,
+  dayIso,
   onEdit,
   onDelete,
+  onDragStart,
+  onResizeStart,
+  onDragEnd,
+  isDragging,
 }: {
   block: ScheduleBlock;
+  /** The day cell this chip instance is rendered in (YYYY-MM-DD). */
+  dayIso?: string;
   onEdit: () => void;
   onDelete: () => void;
+  onDragStart?: () => void;
+  onResizeStart?: () => void;
+  onDragEnd?: () => void;
+  isDragging?: boolean;
 }) {
   const isDriveTime = block.block_type === "drive_time";
   const isPTO = block.block_type === "pto";
@@ -372,15 +384,34 @@ function BlockChip({
   const typeLabel = isDriveTime ? "Drive Time" : isPTO ? "PTO" : "Custom";
   const label = isDriveTime ? "Drive Time" : isPTO ? "PTO" : (block.title?.trim() || "Custom");
 
+  // For multi-day blocks (rendered once per day), only the start-day chip moves
+  // the block and only the end-day chip exposes the stretch handle, so the
+  // affordances always act on the block's real boundaries.
+  const canDrag = !!onDragStart && (!dayIso || dayIso === startDay);
+  const showResizeHandle = !!onResizeStart && (!dayIso || dayIso === endDay);
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <div
           role="button"
           tabIndex={0}
+          draggable={canDrag}
           onClick={onEdit}
           onKeyDown={(e) => e.key === "Enter" && onEdit()}
-          className={`w-full rounded border text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:brightness-95 transition-[filter] ${chipCls}`}
+          onDragStart={(e) => {
+            if (!canDrag) {
+              e.preventDefault();
+              return;
+            }
+            onDragStart?.();
+            if (e.dataTransfer) {
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", String(block.id));
+            }
+          }}
+          onDragEnd={() => onDragEnd?.()}
+          className={`relative w-full rounded border text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:brightness-95 transition-[filter] ${chipCls} ${isDragging ? "opacity-40" : ""}`}
         >
           <div className="flex items-center gap-1">
             {isDriveTime ? (
@@ -408,6 +439,27 @@ function BlockChip({
           </div>
           {block.notes && (
             <div className="opacity-60 truncate">{block.notes}</div>
+          )}
+          {showResizeHandle && (
+            <div
+              draggable
+              onDragStart={(e) => {
+                e.stopPropagation();
+                onResizeStart?.();
+                if (e.dataTransfer) {
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(block.id));
+                }
+              }}
+              onDragEnd={(e) => {
+                e.stopPropagation();
+                onDragEnd?.();
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute inset-y-0 right-0 w-2 cursor-ew-resize rounded-r bg-current opacity-0 hover:opacity-30 transition-opacity"
+              title="Drag onto another day to extend or shorten this block"
+              aria-label="Resize block"
+            />
           )}
         </div>
       </TooltipTrigger>
@@ -1188,9 +1240,20 @@ export default function ScheduleBoard() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverCell, setDragOverCell] = useState<string | null>(null);
 
+  // Schedule-block drag: "move" relocates the whole block (new tech/day, same
+  // duration and time-of-day); "resize" drags the right-edge handle onto a day
+  // to become the block's new end day (stretching or shrinking it).
+  const dragBlockRef = useRef<{ block: ScheduleBlock; mode: "move" | "resize" } | null>(null);
+  const [draggingBlockId, setDraggingBlockId] = useState<number | null>(null);
+
   const startDrag = (job: ScheduleJob, sourceTechId: string) => {
     dragJobRef.current = { job, sourceTechId };
     setDraggingId(job.booking_id);
+  };
+
+  const startBlockDrag = (block: ScheduleBlock, mode: "move" | "resize") => {
+    dragBlockRef.current = { block, mode };
+    setDraggingBlockId(block.id);
   };
 
   const { toast } = useToast();
@@ -1209,7 +1272,9 @@ export default function ScheduleBoard() {
 
   const endDrag = () => {
     dragJobRef.current = null;
+    dragBlockRef.current = null;
     setDraggingId(null);
+    setDraggingBlockId(null);
     setDragOverCell(null);
   };
 
@@ -1302,6 +1367,77 @@ export default function ScheduleBoard() {
       },
     },
   });
+
+  const dragBlockMutation = useUpdateWbScheduleBlock({
+    mutation: {
+      onSuccess: () => {
+        void refetchBlocks();
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to update block",
+          description: err instanceof Error ? err.message : "Unknown error",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  // Whole days between two YYYY-MM-DD dates (b − a), sign included.
+  const dayDelta = (a: string, b: string) =>
+    Math.round(
+      (new Date(`${b}T00:00:00Z`).getTime() - new Date(`${a}T00:00:00Z`).getTime()) / 86_400_000,
+    );
+
+  const shiftIsoByDays = (iso: string, days: number) =>
+    new Date(new Date(iso).getTime() + days * 86_400_000).toISOString();
+
+  // Handle a block-chip drop on a day cell. "move" keeps the block's length and
+  // time-of-day, shifting its dates by the day delta and reassigning the tech;
+  // "resize" makes the target day the block's new end day (same end time-of-day).
+  const handleBlockDropOnCell = (targetTechId: string, targetDateIso: string) => {
+    const dragged = dragBlockRef.current;
+    endDrag();
+    if (!dragged) return;
+    const { block, mode } = dragged;
+
+    if (mode === "move") {
+      const delta = dayDelta(block.start_time.slice(0, 10), targetDateIso);
+      const techChanged = targetTechId !== block.technician_id;
+      if (delta === 0 && !techChanged) return;
+      dragBlockMutation.mutate(
+        {
+          id: block.id,
+          data: {
+            ...(techChanged ? { technician_id: targetTechId } : {}),
+            ...(delta !== 0
+              ? {
+                  start_time: shiftIsoByDays(block.start_time, delta),
+                  end_time: shiftIsoByDays(block.end_time, delta),
+                }
+              : {}),
+          },
+        },
+        { onSuccess: () => toast({ title: "Block moved" }) },
+      );
+    } else {
+      const delta = dayDelta(effectiveEndDay(block.end_time), targetDateIso);
+      if (delta === 0) return;
+      const newEnd = shiftIsoByDays(block.end_time, delta);
+      if (newEnd <= block.start_time) {
+        toast({
+          title: "Can't shrink block",
+          description: "The end of the block must stay after its start.",
+          variant: "destructive",
+        });
+        return;
+      }
+      dragBlockMutation.mutate(
+        { id: block.id, data: { end_time: newEnd } },
+        { onSuccess: () => toast({ title: "Block resized" }) },
+      );
+    }
+  };
 
   const blocksByTechAndDate = useMemo(() => {
     const map = new Map<string, ScheduleBlock[]>();
@@ -2146,7 +2282,9 @@ export default function ScheduleBoard() {
                           {jobsByWeekday.map((jobs, i) => {
                             const dh = weekdayHeaders[i];
                             const cellKey = `${tech.technician_id}:${dh.dayIdx}`;
-                            const isDropTarget = draggingId !== null && dragOverCell === cellKey;
+                            const isDropTarget =
+                              (draggingId !== null || draggingBlockId !== null) &&
+                              dragOverCell === cellKey;
                             const conflictDrop =
                               draggingId !== null &&
                               dropWouldConflict(tech.technician_id, dh.dayIdx);
@@ -2178,7 +2316,7 @@ export default function ScheduleBoard() {
                                     : undefined
                                 }
                                 onDragOver={(e) => {
-                                  if (!dragJobRef.current) return;
+                                  if (!dragJobRef.current && !dragBlockRef.current) return;
                                   e.preventDefault();
                                   e.dataTransfer.dropEffect = "move";
                                   if (dragOverCell !== cellKey) setDragOverCell(cellKey);
@@ -2188,6 +2326,10 @@ export default function ScheduleBoard() {
                                 }}
                                 onDrop={(e) => {
                                   e.preventDefault();
+                                  if (dragBlockRef.current) {
+                                    handleBlockDropOnCell(tech.technician_id, dh.iso);
+                                    return;
+                                  }
                                   handleDropOnCell(
                                     tech.technician_id,
                                     dh.dayIdx,
@@ -2216,8 +2358,13 @@ export default function ScheduleBoard() {
                                   <BlockChip
                                     key={blk.id}
                                     block={blk}
+                                    dayIso={dh.iso}
                                     onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
+                                    onDragStart={() => startBlockDrag(blk, "move")}
+                                    onResizeStart={() => startBlockDrag(blk, "resize")}
+                                    onDragEnd={endDrag}
+                                    isDragging={draggingBlockId === blk.id}
                                   />
                                 ))}
                                 {placeholderJobsForCell(tech.technician_id, dh.iso).map((phj) => (
@@ -2437,7 +2584,9 @@ export default function ScheduleBoard() {
                           </div>
                           {jobsByDay.map((jobs, i) => {
                             const cellKey = `${tech.technician_id}:${i}`;
-                            const isDropTarget = draggingId !== null && dragOverCell === cellKey;
+                            const isDropTarget =
+                              (draggingId !== null || draggingBlockId !== null) &&
+                              dragOverCell === cellKey;
                             const conflictDrop =
                               draggingId !== null && dropWouldConflict(tech.technician_id, i);
                             const dropCue = conflictDrop
@@ -2468,7 +2617,7 @@ export default function ScheduleBoard() {
                                     : undefined
                                 }
                                 onDragOver={(e) => {
-                                  if (!dragJobRef.current) return;
+                                  if (!dragJobRef.current && !dragBlockRef.current) return;
                                   e.preventDefault();
                                   e.dataTransfer.dropEffect = "move";
                                   if (dragOverCell !== cellKey) setDragOverCell(cellKey);
@@ -2478,6 +2627,10 @@ export default function ScheduleBoard() {
                                 }}
                                 onDrop={(e) => {
                                   e.preventDefault();
+                                  if (dragBlockRef.current) {
+                                    handleBlockDropOnCell(tech.technician_id, dayHeaders[i].iso);
+                                    return;
+                                  }
                                   handleDropOnCell(tech.technician_id, i, tech.resource_name);
                                 }}
                               >
@@ -2501,8 +2654,13 @@ export default function ScheduleBoard() {
                                   <BlockChip
                                     key={blk.id}
                                     block={blk}
+                                    dayIso={dayHeaders[i].iso}
                                     onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
+                                    onDragStart={() => startBlockDrag(blk, "move")}
+                                    onResizeStart={() => startBlockDrag(blk, "resize")}
+                                    onDragEnd={endDrag}
+                                    isDragging={draggingBlockId === blk.id}
                                   />
                                 ))}
                                 {placeholderJobsForCell(tech.technician_id, dayHeaders[i].iso).map((phj) => (

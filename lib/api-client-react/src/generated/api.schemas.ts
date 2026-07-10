@@ -117,6 +117,7 @@ export const UpdateScheduleBlockBlockType = {
 } as const;
 
 export interface UpdateScheduleBlock {
+  technician_id?: string;
   block_type?: UpdateScheduleBlockBlockType;
   /**
      * Custom title (only used when block_type is "custom")

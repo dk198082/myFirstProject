@@ -1028,6 +1028,8 @@ components:
     UpdateScheduleBlock:
       type: object
       properties:
+        technician_id:
+          type: string
         block_type:
           type: string
           enum: [drive_time, pto, custom]
