@@ -167,6 +167,9 @@ function fmtDuration(start: string | null | undefined, end: string | null | unde
   return `${m}m`;
 }
 
+// localStorage key for the visual-only per-cell chip ordering.
+const CHIP_ORDER_LS_KEY = "scheduleBoard.chipOrder";
+
 // Distinct, accessible palette for technicians. Each entry pairs a
 // chip background/border with a matching dot for the technician label.
 const TECH_PALETTE = [
@@ -1256,6 +1259,108 @@ export default function ScheduleBoard() {
     setDraggingBlockId(block.id);
   };
 
+  // ── Visual-only chip reordering within a cell ──────────────────────────────
+  // Users can drag a job/block chip above or below another chip in the SAME
+  // tech+day cell to rearrange the stack. This is purely cosmetic: the order is
+  // kept client-side in localStorage (keyed `${techId}|${dayIso}`) and never
+  // touches the underlying data.
+  const [chipOrder, setChipOrder] = useState<Record<string, string[]>>(() => {
+    try {
+      const raw = localStorage.getItem(CHIP_ORDER_LS_KEY);
+      return raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
+    } catch {
+      return {};
+    }
+  });
+  // `${orderKey}` of the cell the current drag started from (set on dragstart
+  // capture at the chip wrapper, cleared in endDrag). Reordering only applies
+  // when the drag stays within its source cell.
+  const dragSourceCellRef = useRef<string | null>(null);
+  const [reorderTarget, setReorderTarget] = useState<{
+    orderKey: string;
+    chipKey: string;
+    pos: "above" | "below";
+  } | null>(null);
+
+  const applyChipOrder = <T extends { key: string }>(orderKey: string, items: T[]): T[] => {
+    const order = chipOrder[orderKey];
+    if (!order) return items;
+    const idx = new Map(order.map((k, i) => [k, i]));
+    // Stable sort: chips without a saved position keep their default relative
+    // order and go after the explicitly ordered ones.
+    return [...items].sort(
+      (a, b) => (idx.get(a.key) ?? order.length) - (idx.get(b.key) ?? order.length),
+    );
+  };
+
+  const draggedChipKey = (): string | null => {
+    if (dragBlockRef.current) {
+      if (dragBlockRef.current.mode === "resize") return null;
+      return `block:${dragBlockRef.current.block.id}`;
+    }
+    if (dragJobRef.current) return `job:${dragJobRef.current.job.booking_id}`;
+    return null;
+  };
+
+  const chipReorderDragOver = (
+    e: React.DragEvent,
+    orderKey: string,
+    chipKey: string,
+  ) => {
+    if (dragSourceCellRef.current !== orderKey) return; // cross-cell drag → cell handles it
+    if (chipKey.startsWith("ph:")) return; // only job/block chips participate in reordering
+    const dragged = draggedChipKey();
+    if (!dragged || dragged === chipKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = e.clientY < rect.top + rect.height / 2 ? "above" : "below";
+    setReorderTarget((prev) =>
+      prev?.orderKey === orderKey && prev.chipKey === chipKey && prev.pos === pos
+        ? prev
+        : { orderKey, chipKey, pos },
+    );
+    setDragOverCell(null);
+  };
+
+  const chipReorderDrop = (
+    e: React.DragEvent,
+    orderKey: string,
+    chipKey: string,
+    orderedKeys: string[],
+  ) => {
+    if (dragSourceCellRef.current !== orderKey) return;
+    if (chipKey.startsWith("ph:")) return; // only job/block chips participate in reordering
+    const dragged = draggedChipKey();
+    if (!dragged || dragged === chipKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = e.clientY < rect.top + rect.height / 2 ? "above" : "below";
+    // Dedupe defensively (duplicate logical keys from data anomalies would make
+    // key-based insertion ambiguous) and keep placeholders out of the saved order.
+    const list = [...new Set(orderedKeys)].filter(
+      (k) => k !== dragged && !k.startsWith("ph:"),
+    );
+    let ti = list.indexOf(chipKey);
+    if (ti !== -1) {
+      if (pos === "below") ti += 1;
+      list.splice(ti, 0, dragged);
+      setChipOrder((prev) => {
+        const next = { ...prev, [orderKey]: list };
+        try {
+          localStorage.setItem(CHIP_ORDER_LS_KEY, JSON.stringify(next));
+        } catch {
+          // localStorage unavailable — order still applies for this session
+        }
+        return next;
+      });
+    }
+    setReorderTarget(null);
+    endDrag();
+  };
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const moveMutation = useSaveWbBooking({
@@ -1273,9 +1378,11 @@ export default function ScheduleBoard() {
   const endDrag = () => {
     dragJobRef.current = null;
     dragBlockRef.current = null;
+    dragSourceCellRef.current = null;
     setDraggingId(null);
     setDraggingBlockId(null);
     setDragOverCell(null);
+    setReorderTarget(null);
   };
 
   // Stage a booking write-back when a tile is dropped onto a different
@@ -2299,6 +2406,54 @@ export default function ScheduleBoard() {
                               jobs.length === 0 &&
                               blocksForCell(tech.technician_id, dh.iso).length === 0 &&
                               placeholderJobsForCell(tech.technician_id, dh.iso).length === 0;
+                            const orderKey = `${tech.technician_id}|${dh.iso}`;
+                            const cellItems = applyChipOrder(orderKey, [
+                              ...jobs.map((j) => ({
+                                key: `job:${j.booking_id}`,
+                                node: (
+                                  <JobChip
+                                    job={j}
+                                    compact={false}
+                                    colorClass={palette.chip}
+                                    isConflict={conflictedBookingIds.has(j.booking_id)}
+                                    syncPending={pendingSyncIds.has(j.booking_id)}
+                                    onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
+                                    onDragStart={() => startDrag(j, tech.technician_id)}
+                                    onDragEnd={endDrag}
+                                    isDragging={draggingId === j.booking_id}
+                                    showEquipment
+                                    showDuration={false}
+                                    dimmed={!!activeSearch && !jobMatchesSearch(j, activeSearch)}
+                                  />
+                                ),
+                              })),
+                              ...blocksForCell(tech.technician_id, dh.iso).map((blk) => ({
+                                key: `block:${blk.id}`,
+                                node: (
+                                  <BlockChip
+                                    block={blk}
+                                    dayIso={dh.iso}
+                                    onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
+                                    onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
+                                    onDragStart={() => startBlockDrag(blk, "move")}
+                                    onResizeStart={() => startBlockDrag(blk, "resize")}
+                                    onDragEnd={endDrag}
+                                    isDragging={draggingBlockId === blk.id}
+                                  />
+                                ),
+                              })),
+                              ...placeholderJobsForCell(tech.technician_id, dh.iso).map((phj) => ({
+                                key: `ph:${phj.id}`,
+                                node: (
+                                  <PlaceholderJobChip
+                                    job={phj}
+                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
+                                    onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
+                                  />
+                                ),
+                              })),
+                            ]);
+                            const orderedKeys = cellItems.map((it) => it.key);
                             return (
                               <div
                                 key={i}
@@ -2320,6 +2475,7 @@ export default function ScheduleBoard() {
                                   e.preventDefault();
                                   e.dataTransfer.dropEffect = "move";
                                   if (dragOverCell !== cellKey) setDragOverCell(cellKey);
+                                  setReorderTarget((prev) => (prev ? null : prev));
                                 }}
                                 onDragLeave={() => {
                                   setDragOverCell((prev) => (prev === cellKey ? null : prev));
@@ -2337,43 +2493,24 @@ export default function ScheduleBoard() {
                                   );
                                 }}
                               >
-                                {jobs.map((j) => (
-                                  <JobChip
-                                    key={j.booking_id}
-                                    job={j}
-                                    compact={false}
-                                    colorClass={palette.chip}
-                                    isConflict={conflictedBookingIds.has(j.booking_id)}
-                                    syncPending={pendingSyncIds.has(j.booking_id)}
-                                    onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
-                                    onDragStart={() => startDrag(j, tech.technician_id)}
-                                    onDragEnd={endDrag}
-                                    isDragging={draggingId === j.booking_id}
-                                    showEquipment
-                                    showDuration={false}
-                                    dimmed={!!activeSearch && !jobMatchesSearch(j, activeSearch)}
-                                  />
-                                ))}
-                                {blocksForCell(tech.technician_id, dh.iso).map((blk) => (
-                                  <BlockChip
-                                    key={blk.id}
-                                    block={blk}
-                                    dayIso={dh.iso}
-                                    onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
-                                    onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
-                                    onDragStart={() => startBlockDrag(blk, "move")}
-                                    onResizeStart={() => startBlockDrag(blk, "resize")}
-                                    onDragEnd={endDrag}
-                                    isDragging={draggingBlockId === blk.id}
-                                  />
-                                ))}
-                                {placeholderJobsForCell(tech.technician_id, dh.iso).map((phj) => (
-                                  <PlaceholderJobChip
-                                    key={phj.id}
-                                    job={phj}
-                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
-                                    onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
-                                  />
+                                {cellItems.map((it) => (
+                                  <div
+                                    key={it.key}
+                                    className="relative"
+                                    onDragStartCapture={() => {
+                                      dragSourceCellRef.current = orderKey;
+                                    }}
+                                    onDragOver={(e) => chipReorderDragOver(e, orderKey, it.key)}
+                                    onDrop={(e) => chipReorderDrop(e, orderKey, it.key, orderedKeys)}
+                                  >
+                                    {reorderTarget?.orderKey === orderKey &&
+                                      reorderTarget.chipKey === it.key && (
+                                        <div
+                                          className={`pointer-events-none absolute left-0 right-0 z-10 h-0.5 rounded bg-primary ${reorderTarget.pos === "above" ? "-top-[3px]" : "-bottom-[3px]"}`}
+                                        />
+                                      )}
+                                    {it.node}
+                                  </div>
                                 ))}
                                 <button
                                   type="button"
@@ -2600,6 +2737,53 @@ export default function ScheduleBoard() {
                               jobs.length === 0 &&
                               blocksForCell(tech.technician_id, dayHeaders[i].iso).length === 0 &&
                               placeholderJobsForCell(tech.technician_id, dayHeaders[i].iso).length === 0;
+                            const orderKey = `${tech.technician_id}|${dayHeaders[i].iso}`;
+                            const cellItems = applyChipOrder(orderKey, [
+                              ...jobs.map((j) => ({
+                                key: `job:${j.booking_id}`,
+                                node: (
+                                  <JobChip
+                                    job={j}
+                                    compact={view === "month"}
+                                    colorClass={palette.chip}
+                                    isConflict={conflictedBookingIds.has(j.booking_id)}
+                                    syncPending={pendingSyncIds.has(j.booking_id)}
+                                    onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
+                                    onDragStart={() => startDrag(j, tech.technician_id)}
+                                    onDragEnd={endDrag}
+                                    isDragging={draggingId === j.booking_id}
+                                    showEquipment={view === "week"}
+                                    dimmed={!!activeSearch && !jobMatchesSearch(j, activeSearch)}
+                                  />
+                                ),
+                              })),
+                              ...blocksForCell(tech.technician_id, dayHeaders[i].iso).map((blk) => ({
+                                key: `block:${blk.id}`,
+                                node: (
+                                  <BlockChip
+                                    block={blk}
+                                    dayIso={dayHeaders[i].iso}
+                                    onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
+                                    onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
+                                    onDragStart={() => startBlockDrag(blk, "move")}
+                                    onResizeStart={() => startBlockDrag(blk, "resize")}
+                                    onDragEnd={endDrag}
+                                    isDragging={draggingBlockId === blk.id}
+                                  />
+                                ),
+                              })),
+                              ...placeholderJobsForCell(tech.technician_id, dayHeaders[i].iso).map((phj) => ({
+                                key: `ph:${phj.id}`,
+                                node: (
+                                  <PlaceholderJobChip
+                                    job={phj}
+                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
+                                    onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
+                                  />
+                                ),
+                              })),
+                            ]);
+                            const orderedKeys = cellItems.map((it) => it.key);
                             return (
                               <div
                                 key={i}
@@ -2621,6 +2805,7 @@ export default function ScheduleBoard() {
                                   e.preventDefault();
                                   e.dataTransfer.dropEffect = "move";
                                   if (dragOverCell !== cellKey) setDragOverCell(cellKey);
+                                  setReorderTarget((prev) => (prev ? null : prev));
                                 }}
                                 onDragLeave={() => {
                                   setDragOverCell((prev) => (prev === cellKey ? null : prev));
@@ -2634,42 +2819,24 @@ export default function ScheduleBoard() {
                                   handleDropOnCell(tech.technician_id, i, tech.resource_name);
                                 }}
                               >
-                                {jobs.map((j) => (
-                                  <JobChip
-                                    key={j.booking_id}
-                                    job={j}
-                                    compact={view === "month"}
-                                    colorClass={palette.chip}
-                                    isConflict={conflictedBookingIds.has(j.booking_id)}
-                                    syncPending={pendingSyncIds.has(j.booking_id)}
-                                    onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
-                                    onDragStart={() => startDrag(j, tech.technician_id)}
-                                    onDragEnd={endDrag}
-                                    isDragging={draggingId === j.booking_id}
-                                    showEquipment={view === "week"}
-                                    dimmed={!!activeSearch && !jobMatchesSearch(j, activeSearch)}
-                                  />
-                                ))}
-                                {blocksForCell(tech.technician_id, dayHeaders[i].iso).map((blk) => (
-                                  <BlockChip
-                                    key={blk.id}
-                                    block={blk}
-                                    dayIso={dayHeaders[i].iso}
-                                    onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
-                                    onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
-                                    onDragStart={() => startBlockDrag(blk, "move")}
-                                    onResizeStart={() => startBlockDrag(blk, "resize")}
-                                    onDragEnd={endDrag}
-                                    isDragging={draggingBlockId === blk.id}
-                                  />
-                                ))}
-                                {placeholderJobsForCell(tech.technician_id, dayHeaders[i].iso).map((phj) => (
-                                  <PlaceholderJobChip
-                                    key={phj.id}
-                                    job={phj}
-                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
-                                    onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
-                                  />
+                                {cellItems.map((it) => (
+                                  <div
+                                    key={it.key}
+                                    className="relative"
+                                    onDragStartCapture={() => {
+                                      dragSourceCellRef.current = orderKey;
+                                    }}
+                                    onDragOver={(e) => chipReorderDragOver(e, orderKey, it.key)}
+                                    onDrop={(e) => chipReorderDrop(e, orderKey, it.key, orderedKeys)}
+                                  >
+                                    {reorderTarget?.orderKey === orderKey &&
+                                      reorderTarget.chipKey === it.key && (
+                                        <div
+                                          className={`pointer-events-none absolute left-0 right-0 z-10 h-0.5 rounded bg-primary ${reorderTarget.pos === "above" ? "-top-[3px]" : "-bottom-[3px]"}`}
+                                        />
+                                      )}
+                                    {it.node}
+                                  </div>
                                 ))}
                                 <button
                                   type="button"
