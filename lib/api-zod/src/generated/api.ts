@@ -352,6 +352,7 @@ export const UpdateWbPlaceholderJobParams = zod.object({
 })
 
 export const UpdateWbPlaceholderJobBody = zod.object({
+  "technician_id": zod.string().optional(),
   "title": zod.string().optional(),
   "customer_name": zod.string().nullish(),
   "city": zod.string().nullish(),

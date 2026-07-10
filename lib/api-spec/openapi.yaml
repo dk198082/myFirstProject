@@ -1098,6 +1098,8 @@ components:
     UpdatePlaceholderJob:
       type: object
       properties:
+        technician_id:
+          type: string
         title:
           type: string
         customer_name:

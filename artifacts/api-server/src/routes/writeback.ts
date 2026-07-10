@@ -852,24 +852,37 @@ router.post("/wb/placeholder-jobs", async (req, res) => {
   }
 });
 
+const updatePlaceholderJobSchema = z
+  .object({
+    technician_id: z.string().min(1).optional(),
+    title: z.string().min(1).optional(),
+    customer_name: z.string().nullable().optional(),
+    city: z.string().nullable().optional(),
+    state: z.string().nullable().optional(),
+    start_time: z.string().min(1).optional(),
+    end_time: z.string().min(1).optional(),
+    notes: z.string().nullable().optional(),
+  })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), {
+    message: "No fields to update",
+  });
+
 router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid placeholder job id" });
     return;
   }
-  const { title, customer_name, city, state, start_time, end_time, notes } = req.body as {
-    title?: string;
-    customer_name?: string | null;
-    city?: string | null;
-    state?: string | null;
-    start_time?: string;
-    end_time?: string;
-    notes?: string | null;
-  };
+  const parsed = updatePlaceholderJobSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
+    return;
+  }
+  const { technician_id, title, customer_name, city, state, start_time, end_time, notes } = parsed.data;
   try {
     const sets: string[] = [];
     const vals: unknown[] = [];
+    if (technician_id !== undefined) { sets.push(`technician_id = $${vals.push(technician_id)}`); }
     if (title !== undefined) { sets.push(`title = $${vals.push(title)}`); }
     if (customer_name !== undefined) { sets.push(`customer_name = $${vals.push(customer_name)}`); }
     if (city !== undefined) { sets.push(`city = $${vals.push(city)}`); }

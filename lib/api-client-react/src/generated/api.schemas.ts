@@ -169,6 +169,7 @@ export interface CreatePlaceholderJob {
 }
 
 export interface UpdatePlaceholderJob {
+  technician_id?: string;
   title?: string;
   /** @nullable */
   customer_name?: string | null;
