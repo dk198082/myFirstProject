@@ -623,7 +623,7 @@ function PlaceholderJobChip({
         // Rich tooltip for CRM-linked placeholder jobs (matches JobChip structure).
         // Canonical name/address from locDetail takes priority over freeform fields
         // so the tooltip always reflects what's in CRM, not stale freeform text.
-        <TooltipContent side="top" className="max-w-xs p-3 space-y-1.5 text-xs border border-red-300/60">
+        <TooltipContent side="top" className={`max-w-xs p-3 space-y-1.5 text-xs border ${colorCls}`}>
           <div className="font-bold text-sm">{job.title}</div>
           <div className="opacity-70 -mt-1">Potential Job</div>
           <div className="border-t border-current/20 pt-1.5 space-y-1">
@@ -691,7 +691,7 @@ function PlaceholderJobChip({
         </TooltipContent>
       ) : (
         // Simple freeform tooltip for unlinked placeholder jobs
-        <TooltipContent side="top" className="max-w-[260px]">
+        <TooltipContent side="top" className={`max-w-[260px] border ${colorCls}`}>
           <div className="space-y-0.5">
             <div className="font-semibold">{job.title}</div>
             <div className="text-xs opacity-80">Potential Job</div>
