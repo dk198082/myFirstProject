@@ -612,21 +612,23 @@ function PlaceholderJobChip({
       </TooltipTrigger>
 
       {job.service_location_id ? (
-        // Rich tooltip for CRM-linked placeholder jobs (matches JobChip structure)
+        // Rich tooltip for CRM-linked placeholder jobs (matches JobChip structure).
+        // Canonical name/address from locDetail takes priority over freeform fields
+        // so the tooltip always reflects what's in CRM, not stale freeform text.
         <TooltipContent side="top" className="max-w-xs p-3 space-y-1.5 text-xs border border-red-300/60">
           <div className="font-bold text-sm">{job.title}</div>
           <div className="opacity-70 -mt-1">Potential Job</div>
           <div className="border-t border-current/20 pt-1.5 space-y-1">
-            {job.customer_name && (
+            {(locDetail?.name ?? job.customer_name) && (
               <div>
                 <span className="font-medium opacity-70">Customer:</span>{" "}
-                {job.customer_name}
+                {locDetail?.name ?? job.customer_name}
               </div>
             )}
-            {location && (
+            {[locDetail?.city ?? job.city, locDetail?.state ?? job.state].filter(Boolean).join(", ") && (
               <div>
                 <span className="font-medium opacity-70">Location:</span>{" "}
-                {location}
+                {[locDetail?.city ?? job.city, locDetail?.state ?? job.state].filter(Boolean).join(", ")}
               </div>
             )}
             {isMultiDay ? (

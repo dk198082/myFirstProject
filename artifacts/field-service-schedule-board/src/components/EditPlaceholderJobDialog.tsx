@@ -64,8 +64,10 @@ export function EditPlaceholderJobDialog({
 
   const [title, setTitle] = useState(job.title);
   const [serviceLocation, setServiceLocation] = useState<ServiceLocationValue | null>(
-    job.service_location_id && job.customer_name
-      ? { id: job.service_location_id, name: job.customer_name, city: job.city ?? null, state: job.state ?? null }
+    // Initialize from service_location_id alone; customer_name may be blank but
+    // the ID must be preserved so saves don't accidentally unlink CRM jobs.
+    job.service_location_id
+      ? { id: job.service_location_id, name: job.customer_name ?? "", city: job.city ?? null, state: job.state ?? null }
       : null,
   );
   const [customerName, setCustomerName] = useState(job.customer_name ?? "");
