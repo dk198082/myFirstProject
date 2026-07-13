@@ -37,7 +37,7 @@ export function ServiceLocationPicker({ label = "Service location", value, onCha
   const isSelectedByValue = value !== null && inputValue === value.name;
 
   const searchParams = { search: debouncedSearch, limit: 20 };
-  const { data: results = [], isFetching, error } = useListWbServiceLocations(
+  const { data: results = [], isFetching, error, refetch } = useListWbServiceLocations(
     searchParams,
     {
       query: {
@@ -124,8 +124,15 @@ export function ServiceLocationPicker({ label = "Service location", value, onCha
       {showDropdown && (
         <div className="absolute z-50 mt-1 w-full max-w-[calc(100%-2rem)] rounded-md border border-border bg-popover shadow-md overflow-hidden">
           {crmUnavailable && !isFetching && (
-            <div className="px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
-              CRM unavailable — enter location manually
+            <div className="px-3 py-2 text-xs text-amber-600 dark:text-amber-400 flex items-center justify-between gap-2">
+              <span>CRM unavailable — enter location manually</span>
+              <button
+                type="button"
+                onClick={() => refetch()}
+                className="underline underline-offset-2 hover:no-underline shrink-0"
+              >
+                Retry
+              </button>
             </div>
           )}
           {!crmUnavailable && results.length === 0 && !isFetching && (
