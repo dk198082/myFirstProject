@@ -828,12 +828,13 @@ function JobChip({
               : ""}
           </div>
           <div>
-            <span className="font-medium opacity-70">Start:</span>{" "}
+            <span className="font-medium opacity-70">Time:</span>{" "}
             {fmtLocalTime(job.crmstart_time, job.crmstarttime) || "—"}
-          </div>
-          <div>
-            <span className="font-medium opacity-70">End:</span>{" "}
+            {" – "}
             {fmtLocalTime(job.crmend_time, job.crmendtime) || "—"}
+            {fmtDuration(job.crmstarttime ?? undefined, job.crmendtime ?? undefined)
+              ? ` (${fmtDuration(job.crmstarttime ?? undefined, job.crmendtime ?? undefined)})`
+              : ""}
           </div>
           {(job.city || job.state) && (
             <div>
