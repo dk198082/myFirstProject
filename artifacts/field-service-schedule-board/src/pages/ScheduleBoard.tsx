@@ -6,14 +6,20 @@ import {
   useSaveWbBooking,
   useListWbScheduleBlocks,
   useDeleteWbScheduleBlock,
+  useUpdateWbScheduleBlock,
+  useListWbPlaceholderJobs,
+  useDeleteWbPlaceholderJob,
+  useUpdateWbPlaceholderJob,
   getListWbWorkOrdersQueryKey,
   getGetWbScheduleBoardQueryKey,
   getGetWbResourceUtilizationQueryKey,
   getGetWbUnscheduledJobsQueryKey,
   getListWbScheduleBlocksQueryKey,
+  getListWbPlaceholderJobsQueryKey,
   type WbWorkOrder,
   type UnscheduledJob,
   type ScheduleBlock,
+  type PlaceholderJob,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -55,6 +61,7 @@ import {
 import { EditBookingDialog } from "@/components/EditBookingDialog";
 import { AddBlockDialog } from "@/components/AddBlockDialog";
 import { EditBlockDialog } from "@/components/EditBlockDialog";
+import { EditPlaceholderJobDialog } from "@/components/EditPlaceholderJobDialog";
 import {
   timeToMins,
   conflictedIdsForTech,
@@ -160,6 +167,9 @@ function fmtDuration(start: string | null | undefined, end: string | null | unde
   if (h) return `${h}h`;
   return `${m}m`;
 }
+
+// localStorage key for the visual-only per-cell chip ordering.
+const CHIP_ORDER_LS_KEY = "scheduleBoard.chipOrder";
 
 // Distinct, accessible palette for technicians. Each entry pairs a
 // chip background/border with a matching dot for the technician label.
@@ -306,19 +316,68 @@ function fmtBlockDuration(startIso: string, endIso: string): string {
   return fmtMins(Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000));
 }
 
+/**
+ * Day (YYYY-MM-DD) an item's end time falls on for display purposes.
+ * An end exactly at midnight belongs to the previous day, so e.g. a block
+ * ending at 00:00 on the 12th doesn't render an extra chip on the 12th.
+ */
+function effectiveEndDay(endIso: string): string {
+  const endDay = endIso.slice(0, 10);
+  if (endIso.slice(11, 19) === "00:00:00") {
+    return addDaysISO(endDay, -1);
+  }
+  return endDay;
+}
+
+function fmtBlockDay(isoDay: string): string {
+  return new Date(`${isoDay}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function fmtBlockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function BlockChip({
   block,
+  dayIso,
   onEdit,
   onDelete,
+  onDragStart,
+  onResizeStart,
+  onDragEnd,
+  isDragging,
 }: {
   block: ScheduleBlock;
+  /** The day cell this chip instance is rendered in (YYYY-MM-DD). */
+  dayIso?: string;
   onEdit: () => void;
   onDelete: () => void;
+  onDragStart?: () => void;
+  onResizeStart?: () => void;
+  onDragEnd?: () => void;
+  isDragging?: boolean;
 }) {
   const isDriveTime = block.block_type === "drive_time";
   const isPTO = block.block_type === "pto";
   const isCustom = block.block_type === "custom";
   const duration = fmtBlockDuration(block.start_time, block.end_time);
+
+  const startDay = block.start_time.slice(0, 10);
+  const endDay = effectiveEndDay(block.end_time);
+  const isMultiDay = endDay > startDay;
+  const dayCount = isMultiDay
+    ? Math.round(
+        (new Date(`${endDay}T00:00:00`).getTime() - new Date(`${startDay}T00:00:00`).getTime()) /
+          86_400_000,
+      ) + 1
+    : 1;
 
   const chipCls = isDriveTime
     ? "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600"
@@ -326,44 +385,236 @@ function BlockChip({
     ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700"
     : "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700";
 
+  const typeLabel = isDriveTime ? "Drive Time" : isPTO ? "PTO" : "Custom";
   const label = isDriveTime ? "Drive Time" : isPTO ? "PTO" : (block.title?.trim() || "Custom");
 
+  // For multi-day blocks (rendered once per day), only the start-day chip moves
+  // the block and only the end-day chip exposes the stretch handle, so the
+  // affordances always act on the block's real boundaries.
+  const canDrag = !!onDragStart && (!dayIso || dayIso === startDay);
+  const showResizeHandle = !!onResizeStart && (!dayIso || dayIso === endDay);
+
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onEdit}
-      onKeyDown={(e) => e.key === "Enter" && onEdit()}
-      className={`w-full rounded border text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:brightness-95 transition-[filter] ${chipCls}`}
-    >
-      <div className="flex items-center gap-1">
-        {isDriveTime ? (
-          <Car className="h-3 w-3 shrink-0" />
-        ) : isPTO ? (
-          <Sun className="h-3 w-3 shrink-0" />
-        ) : (
-          <Pencil className="h-3 w-3 shrink-0" />
-        )}
-        <span className="font-semibold truncate">{label}</span>
-        <button
-          type="button"
-          className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          role="button"
+          tabIndex={0}
+          draggable={canDrag}
+          onClick={onEdit}
+          onKeyDown={(e) => e.key === "Enter" && onEdit()}
+          onDragStart={(e) => {
+            if (!canDrag) {
+              e.preventDefault();
+              return;
+            }
+            onDragStart?.();
+            if (e.dataTransfer) {
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", String(block.id));
+            }
           }}
-          aria-label="Remove block"
+          onDragEnd={() => onDragEnd?.()}
+          className={`relative w-full rounded border text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:brightness-95 transition-[filter] ${chipCls} ${isDragging ? "opacity-40" : ""}`}
         >
-          <X className="h-3 w-3" />
-        </button>
-      </div>
-      {duration && (
-        <div className="opacity-80 truncate">{duration}</div>
-      )}
-      {block.notes && (
-        <div className="opacity-60 truncate">{block.notes}</div>
-      )}
-    </div>
+          <div className="flex items-center gap-1">
+            {isDriveTime ? (
+              <Car className="h-3 w-3 shrink-0" />
+            ) : isPTO ? (
+              <Sun className="h-3 w-3 shrink-0" />
+            ) : (
+              <Pencil className="h-3 w-3 shrink-0" />
+            )}
+            <span className="font-semibold truncate">{label}</span>
+            <button
+              type="button"
+              className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              aria-label="Remove block"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="opacity-80 truncate">
+            {isMultiDay ? `${dayCount} days` : duration}
+          </div>
+          {block.notes && (
+            <div className="opacity-60 truncate">{block.notes}</div>
+          )}
+          {showResizeHandle && (
+            <div
+              draggable
+              onDragStart={(e) => {
+                e.stopPropagation();
+                onResizeStart?.();
+                if (e.dataTransfer) {
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(block.id));
+                }
+              }}
+              onDragEnd={(e) => {
+                e.stopPropagation();
+                onDragEnd?.();
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute inset-y-0 right-0 w-2 cursor-ew-resize rounded-r bg-current opacity-0 hover:opacity-30 transition-opacity"
+              title="Drag onto another day to extend or shorten this block"
+              aria-label="Resize block"
+            />
+          )}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[260px]">
+        <div className="space-y-0.5">
+          <div className="font-semibold">{label}</div>
+          {isCustom && block.title?.trim() && (
+            <div className="text-xs opacity-80">{typeLabel}</div>
+          )}
+          {isMultiDay ? (
+            <div className="text-xs">
+              {fmtBlockDay(startDay)} → {fmtBlockDay(endDay)} ({dayCount} days)
+            </div>
+          ) : (
+            <div className="text-xs">{fmtBlockDay(startDay)}</div>
+          )}
+          <div className="text-xs">
+            {fmtBlockTime(block.start_time)} – {fmtBlockTime(block.end_time)}
+            {!isMultiDay && duration ? ` (${duration})` : ""}
+          </div>
+          {block.notes && <div className="text-xs opacity-80">{block.notes}</div>}
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function PlaceholderJobChip({
+  job,
+  dayIso,
+  onEdit,
+  onDelete,
+  onDragStart,
+  onResizeStart,
+  onDragEnd,
+  isDragging,
+}: {
+  job: PlaceholderJob;
+  /** The day cell this chip instance is rendered in (YYYY-MM-DD). */
+  dayIso?: string;
+  onEdit: () => void;
+  onDelete: () => void;
+  onDragStart?: () => void;
+  onResizeStart?: () => void;
+  onDragEnd?: () => void;
+  isDragging?: boolean;
+}) {
+  const duration = fmtBlockDuration(job.start_time, job.end_time);
+  const location = [job.city, job.state].filter(Boolean).join(", ");
+
+  const startDay = job.start_time.slice(0, 10);
+  const endDay = effectiveEndDay(job.end_time);
+  const isMultiDay = endDay > startDay;
+  const dayCount = isMultiDay
+    ? Math.round(
+        (new Date(`${endDay}T00:00:00`).getTime() - new Date(`${startDay}T00:00:00`).getTime()) /
+          86_400_000,
+      ) + 1
+    : 1;
+
+  // Mirrors BlockChip: for multi-day placeholders (rendered once per day), only
+  // the start-day chip moves the job and only the end-day chip exposes the
+  // stretch handle, so the affordances always act on the job's real boundaries.
+  const canDrag = !!onDragStart && (!dayIso || dayIso === startDay);
+  const showResizeHandle = !!onResizeStart && (!dayIso || dayIso === endDay);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          role="button"
+          tabIndex={0}
+          draggable={canDrag}
+          onClick={onEdit}
+          onKeyDown={(e) => e.key === "Enter" && onEdit()}
+          onDragStart={(e) => {
+            if (!canDrag) {
+              e.preventDefault();
+              return;
+            }
+            onDragStart?.();
+            if (e.dataTransfer) {
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", String(job.id));
+            }
+          }}
+          onDragEnd={() => onDragEnd?.()}
+          className={`relative w-full rounded border border-dashed border-red-300/70 bg-red-50/60 text-red-800/80 text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:bg-red-50 transition-colors ${isDragging ? "opacity-40" : ""}`}
+        >
+          <div className="flex items-center gap-1">
+            <User className="h-3 w-3 shrink-0" />
+            <span className="font-semibold truncate">{job.title}</span>
+            <button
+              type="button"
+              className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              aria-label="Remove placeholder job"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+          {job.customer_name && <div className="opacity-80 truncate">{job.customer_name}</div>}
+          {location && <div className="opacity-60 truncate">{location}</div>}
+          <div className="opacity-60 truncate">{isMultiDay ? `${dayCount} days` : duration}</div>
+          {showResizeHandle && (
+            <div
+              draggable
+              onDragStart={(e) => {
+                e.stopPropagation();
+                onResizeStart?.();
+                if (e.dataTransfer) {
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(job.id));
+                }
+              }}
+              onDragEnd={(e) => {
+                e.stopPropagation();
+                onDragEnd?.();
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute inset-y-0 right-0 w-2 cursor-ew-resize rounded-r bg-current opacity-0 hover:opacity-30 transition-opacity"
+              title="Drag onto another day to extend or shorten this placeholder job"
+              aria-label="Resize placeholder job"
+            />
+          )}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[260px]">
+        <div className="space-y-0.5">
+          <div className="font-semibold">{job.title}</div>
+          <div className="text-xs opacity-80">Potential Job</div>
+          {job.customer_name && <div className="text-xs">{job.customer_name}</div>}
+          {location && <div className="text-xs">{location}</div>}
+          {isMultiDay ? (
+            <div className="text-xs">
+              {fmtBlockDay(startDay)} → {fmtBlockDay(endDay)} ({dayCount} days)
+            </div>
+          ) : (
+            <div className="text-xs">{fmtBlockDay(startDay)}</div>
+          )}
+          <div className="text-xs">
+            {fmtBlockTime(job.start_time)} – {fmtBlockTime(job.end_time)}
+            {!isMultiDay && duration ? ` (${duration})` : ""}
+          </div>
+          {job.notes && <div className="text-xs opacity-80">{job.notes}</div>}
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -979,10 +1230,6 @@ export default function ScheduleBoard() {
   // an unscheduled job, so the dialog can auto-fill the end time.
   const [editingDuration, setEditingDuration] = useState<number | null>(null);
   const [utilRegions, setUtilRegions] = useState<Set<string> | null>(null); // null = all
-  // Capacity-planning toggle. When false (default) the board hides technicians
-  // with no jobs in the current range to keep the view focused on scheduled
-  // work. When true, idle technicians are shown across all views and counts.
-  const [showIdleTechs, setShowIdleTechs] = useState(true);
   // Calendar (tech) view weekend visibility. Default off — the calendar shows
   // Mon–Fri only; when true, Saturday and Sunday columns are included.
   const [showWeekends, setShowWeekends] = useState(false);
@@ -1000,6 +1247,12 @@ export default function ScheduleBoard() {
   // Block being edited (or null when dialog is closed).
   const [editingBlock, setEditingBlock] = useState<{
     block: ScheduleBlock;
+    technicianName: string;
+  } | null>(null);
+
+  // Placeholder job being edited (or null when dialog is closed).
+  const [editingPlaceholder, setEditingPlaceholder] = useState<{
+    job: PlaceholderJob;
     technicianName: string;
   } | null>(null);
 
@@ -1042,9 +1295,131 @@ export default function ScheduleBoard() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverCell, setDragOverCell] = useState<string | null>(null);
 
+  // Schedule-block drag: "move" relocates the whole block (new tech/day, same
+  // duration and time-of-day); "resize" drags the right-edge handle onto a day
+  // to become the block's new end day (stretching or shrinking it).
+  const dragBlockRef = useRef<{ block: ScheduleBlock; mode: "move" | "resize" } | null>(null);
+  const [draggingBlockId, setDraggingBlockId] = useState<number | null>(null);
+
+  // Placeholder-job drag: same "move"/"resize" semantics as schedule blocks.
+  const dragPlaceholderRef = useRef<{ job: PlaceholderJob; mode: "move" | "resize" } | null>(null);
+  const [draggingPlaceholderId, setDraggingPlaceholderId] = useState<number | null>(null);
+
   const startDrag = (job: ScheduleJob, sourceTechId: string) => {
     dragJobRef.current = { job, sourceTechId };
     setDraggingId(job.booking_id);
+  };
+
+  const startPlaceholderDrag = (job: PlaceholderJob, mode: "move" | "resize") => {
+    dragPlaceholderRef.current = { job, mode };
+    setDraggingPlaceholderId(job.id);
+  };
+
+  const startBlockDrag = (block: ScheduleBlock, mode: "move" | "resize") => {
+    dragBlockRef.current = { block, mode };
+    setDraggingBlockId(block.id);
+  };
+
+  // ── Visual-only chip reordering within a cell ──────────────────────────────
+  // Users can drag a job/block chip above or below another chip in the SAME
+  // tech+day cell to rearrange the stack. This is purely cosmetic: the order is
+  // kept client-side in localStorage (keyed `${techId}|${dayIso}`) and never
+  // touches the underlying data.
+  const [chipOrder, setChipOrder] = useState<Record<string, string[]>>(() => {
+    try {
+      const raw = localStorage.getItem(CHIP_ORDER_LS_KEY);
+      return raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
+    } catch {
+      return {};
+    }
+  });
+  // `${orderKey}` of the cell the current drag started from (set on dragstart
+  // capture at the chip wrapper, cleared in endDrag). Reordering only applies
+  // when the drag stays within its source cell.
+  const dragSourceCellRef = useRef<string | null>(null);
+  const [reorderTarget, setReorderTarget] = useState<{
+    orderKey: string;
+    chipKey: string;
+    pos: "above" | "below";
+  } | null>(null);
+
+  const applyChipOrder = <T extends { key: string }>(orderKey: string, items: T[]): T[] => {
+    const order = chipOrder[orderKey];
+    if (!order) return items;
+    const idx = new Map(order.map((k, i) => [k, i]));
+    // Stable sort: chips without a saved position keep their default relative
+    // order and go after the explicitly ordered ones.
+    return [...items].sort(
+      (a, b) => (idx.get(a.key) ?? order.length) - (idx.get(b.key) ?? order.length),
+    );
+  };
+
+  const draggedChipKey = (): string | null => {
+    if (dragBlockRef.current) {
+      if (dragBlockRef.current.mode === "resize") return null;
+      return `block:${dragBlockRef.current.block.id}`;
+    }
+    if (dragPlaceholderRef.current) {
+      if (dragPlaceholderRef.current.mode === "resize") return null;
+      return `ph:${dragPlaceholderRef.current.job.id}`;
+    }
+    if (dragJobRef.current) return `job:${dragJobRef.current.job.booking_id}`;
+    return null;
+  };
+
+  const chipReorderDragOver = (
+    e: React.DragEvent,
+    orderKey: string,
+    chipKey: string,
+  ) => {
+    if (dragSourceCellRef.current !== orderKey) return; // cross-cell drag → cell handles it
+    const dragged = draggedChipKey();
+    if (!dragged || dragged === chipKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = e.clientY < rect.top + rect.height / 2 ? "above" : "below";
+    setReorderTarget((prev) =>
+      prev?.orderKey === orderKey && prev.chipKey === chipKey && prev.pos === pos
+        ? prev
+        : { orderKey, chipKey, pos },
+    );
+    setDragOverCell(null);
+  };
+
+  const chipReorderDrop = (
+    e: React.DragEvent,
+    orderKey: string,
+    chipKey: string,
+    orderedKeys: string[],
+  ) => {
+    if (dragSourceCellRef.current !== orderKey) return;
+    const dragged = draggedChipKey();
+    if (!dragged || dragged === chipKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = e.clientY < rect.top + rect.height / 2 ? "above" : "below";
+    // Dedupe defensively — duplicate logical keys from data anomalies would make
+    // key-based insertion ambiguous.
+    const list = [...new Set(orderedKeys)].filter((k) => k !== dragged);
+    let ti = list.indexOf(chipKey);
+    if (ti !== -1) {
+      if (pos === "below") ti += 1;
+      list.splice(ti, 0, dragged);
+      setChipOrder((prev) => {
+        const next = { ...prev, [orderKey]: list };
+        try {
+          localStorage.setItem(CHIP_ORDER_LS_KEY, JSON.stringify(next));
+        } catch {
+          // localStorage unavailable — order still applies for this session
+        }
+        return next;
+      });
+    }
+    setReorderTarget(null);
+    endDrag();
   };
 
   const { toast } = useToast();
@@ -1063,8 +1438,14 @@ export default function ScheduleBoard() {
 
   const endDrag = () => {
     dragJobRef.current = null;
+    dragBlockRef.current = null;
+    dragPlaceholderRef.current = null;
+    dragSourceCellRef.current = null;
     setDraggingId(null);
+    setDraggingBlockId(null);
+    setDraggingPlaceholderId(null);
     setDragOverCell(null);
+    setReorderTarget(null);
   };
 
   // Stage a booking write-back when a tile is dropped onto a different
@@ -1157,19 +1538,201 @@ export default function ScheduleBoard() {
     },
   });
 
+  const dragBlockMutation = useUpdateWbScheduleBlock({
+    mutation: {
+      onSuccess: () => {
+        void refetchBlocks();
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to update block",
+          description: err instanceof Error ? err.message : "Unknown error",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  // Whole days between two YYYY-MM-DD dates (b − a), sign included.
+  const dayDelta = (a: string, b: string) =>
+    Math.round(
+      (new Date(`${b}T00:00:00Z`).getTime() - new Date(`${a}T00:00:00Z`).getTime()) / 86_400_000,
+    );
+
+  const shiftIsoByDays = (iso: string, days: number) =>
+    new Date(new Date(iso).getTime() + days * 86_400_000).toISOString();
+
+  // Handle a block-chip drop on a day cell. "move" keeps the block's length and
+  // time-of-day, shifting its dates by the day delta and reassigning the tech;
+  // "resize" makes the target day the block's new end day (same end time-of-day).
+  const handleBlockDropOnCell = (targetTechId: string, targetDateIso: string) => {
+    const dragged = dragBlockRef.current;
+    endDrag();
+    if (!dragged) return;
+    const { block, mode } = dragged;
+
+    if (mode === "move") {
+      const delta = dayDelta(block.start_time.slice(0, 10), targetDateIso);
+      const techChanged = targetTechId !== block.technician_id;
+      if (delta === 0 && !techChanged) return;
+      dragBlockMutation.mutate(
+        {
+          id: block.id,
+          data: {
+            ...(techChanged ? { technician_id: targetTechId } : {}),
+            ...(delta !== 0
+              ? {
+                  start_time: shiftIsoByDays(block.start_time, delta),
+                  end_time: shiftIsoByDays(block.end_time, delta),
+                }
+              : {}),
+          },
+        },
+        { onSuccess: () => toast({ title: "Block moved" }) },
+      );
+    } else {
+      const delta = dayDelta(effectiveEndDay(block.end_time), targetDateIso);
+      if (delta === 0) return;
+      const newEnd = shiftIsoByDays(block.end_time, delta);
+      if (newEnd <= block.start_time) {
+        toast({
+          title: "Can't shrink block",
+          description: "The end of the block must stay after its start.",
+          variant: "destructive",
+        });
+        return;
+      }
+      dragBlockMutation.mutate(
+        { id: block.id, data: { end_time: newEnd } },
+        { onSuccess: () => toast({ title: "Block resized" }) },
+      );
+    }
+  };
+
   const blocksByTechAndDate = useMemo(() => {
     const map = new Map<string, ScheduleBlock[]>();
     for (const block of blocks) {
-      const date = block.start_time.slice(0, 10);
-      const key = `${block.technician_id}::${date}`;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(block);
+      const startDate = block.start_time.slice(0, 10);
+      const endDate = effectiveEndDay(block.end_time);
+      // Expand multi-day blocks onto every day they span (capped at 62 days as a guard).
+      let date = startDate;
+      let guard = 0;
+      do {
+        const key = `${block.technician_id}::${date}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(block);
+        date = addDaysISO(date, 1);
+        guard += 1;
+      } while (date <= endDate && guard < 62);
     }
     return map;
   }, [blocks]);
 
   const blocksForCell = (techId: string, iso: string) =>
     blocksByTechAndDate.get(`${techId}::${iso}`) ?? [];
+
+  const { data: placeholderJobsData, refetch: refetchPlaceholderJobs } = useListWbPlaceholderJobs({
+    start_date: rangeStartForBlocks,
+    end_date: endDateForBlocks,
+  });
+  const placeholderJobs: PlaceholderJob[] = placeholderJobsData ?? [];
+
+  const deletePlaceholderMutation = useDeleteWbPlaceholderJob({
+    mutation: {
+      onSuccess: () => {
+        void refetchPlaceholderJobs();
+        toast({ title: "Placeholder job removed" });
+      },
+      onError: () => {
+        toast({ title: "Failed to remove placeholder job", variant: "destructive" });
+      },
+    },
+  });
+
+  const dragPlaceholderMutation = useUpdateWbPlaceholderJob({
+    mutation: {
+      onSuccess: () => {
+        void refetchPlaceholderJobs();
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to update placeholder job",
+          description: err instanceof Error ? err.message : "Unknown error",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  // Handle a placeholder-job-chip drop on a day cell. Mirrors
+  // handleBlockDropOnCell: "move" keeps the job's length and time-of-day,
+  // shifting its dates by the day delta and reassigning the tech; "resize"
+  // makes the target day the job's new end day (same end time-of-day).
+  const handlePlaceholderDropOnCell = (targetTechId: string, targetDateIso: string) => {
+    const dragged = dragPlaceholderRef.current;
+    endDrag();
+    if (!dragged) return;
+    const { job, mode } = dragged;
+
+    if (mode === "move") {
+      const delta = dayDelta(job.start_time.slice(0, 10), targetDateIso);
+      const techChanged = targetTechId !== job.technician_id;
+      if (delta === 0 && !techChanged) return;
+      dragPlaceholderMutation.mutate(
+        {
+          id: job.id,
+          data: {
+            ...(techChanged ? { technician_id: targetTechId } : {}),
+            ...(delta !== 0
+              ? {
+                  start_time: shiftIsoByDays(job.start_time, delta),
+                  end_time: shiftIsoByDays(job.end_time, delta),
+                }
+              : {}),
+          },
+        },
+        { onSuccess: () => toast({ title: "Placeholder job moved" }) },
+      );
+    } else {
+      const delta = dayDelta(effectiveEndDay(job.end_time), targetDateIso);
+      if (delta === 0) return;
+      const newEnd = shiftIsoByDays(job.end_time, delta);
+      if (newEnd <= job.start_time) {
+        toast({
+          title: "Can't shrink placeholder job",
+          description: "The end of the job must stay after its start.",
+          variant: "destructive",
+        });
+        return;
+      }
+      dragPlaceholderMutation.mutate(
+        { id: job.id, data: { end_time: newEnd } },
+        { onSuccess: () => toast({ title: "Placeholder job resized" }) },
+      );
+    }
+  };
+
+  const placeholderJobsByTechAndDate = useMemo(() => {
+    const map = new Map<string, PlaceholderJob[]>();
+    for (const job of placeholderJobs) {
+      const startDate = job.start_time.slice(0, 10);
+      const endDate = effectiveEndDay(job.end_time);
+      // Expand multi-day placeholder jobs onto every day they span (capped at 62 days).
+      let date = startDate;
+      let guard = 0;
+      do {
+        const key = `${job.technician_id}::${date}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(job);
+        date = addDaysISO(date, 1);
+        guard += 1;
+      } while (date <= endDate && guard < 62);
+    }
+    return map;
+  }, [placeholderJobs]);
+
+  const placeholderJobsForCell = (techId: string, iso: string) =>
+    placeholderJobsByTechAndDate.get(`${techId}::${iso}`) ?? [];
 
   // Resource utilization — shares start date + view with the board
   const utilView = view === "week" ? "week" : "month";
@@ -1190,29 +1753,10 @@ export default function ScheduleBoard() {
     [rangeStart, dayCount, view],
   );
 
-  // Display-only filter: by default only show technicians that have at least one
-  // job in the current range, and drop regions that end up with no such
-  // technicians. When `showIdleTechs` is on (capacity planning), show the full
-  // roster including idle technicians. The API response is left untouched for
-  // other consumers.
-  const techIdsWithBlocks = useMemo(
-    () => new Set(blocks.map((b) => b.technician_id)),
-    [blocks],
-  );
-  const allRegions = useMemo(
-    () =>
-      showIdleTechs
-        ? (data?.regions ?? [])
-        : (data?.regions ?? [])
-            .map((r) => ({
-              ...r,
-              technicians: r.technicians.filter(
-                (t) => (t.jobs?.length ?? 0) > 0 || techIdsWithBlocks.has(t.technician_id),
-              ),
-            }))
-            .filter((r) => r.technicians.length > 0),
-    [data, showIdleTechs, techIdsWithBlocks],
-  );
+  // The board always shows the full technician roster, including idle
+  // technicians with no jobs in the current range, so coordinators can see
+  // capacity at a glance without an extra toggle.
+  const allRegions = useMemo(() => data?.regions ?? [], [data]);
   const regions = useMemo(
     () =>
       selectedRegions === null
@@ -1674,33 +2218,6 @@ export default function ScheduleBoard() {
           </div>
             </>
           )}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={showIdleTechs}
-            onClick={() => setShowIdleTechs((v) => !v)}
-            data-testid="toggle-show-idle-techs"
-            title="Show technicians with no jobs in the current range"
-            className={`ml-auto inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
-              showIdleTechs
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-card text-muted-foreground border-border hover:bg-accent"
-            }`}
-          >
-            <span
-              className={`relative inline-flex h-3.5 w-6 items-center rounded-full transition-colors ${
-                showIdleTechs ? "bg-primary-foreground/40" : "bg-muted-foreground/30"
-              }`}
-              aria-hidden
-            >
-              <span
-                className={`inline-block h-2.5 w-2.5 rounded-full bg-white shadow transition-transform ${
-                  showIdleTechs ? "translate-x-3" : "translate-x-0.5"
-                }`}
-              />
-            </span>
-            Show idle techs
-          </button>
           {view === "tech" && (
             <button
               type="button"
@@ -1709,7 +2226,7 @@ export default function ScheduleBoard() {
               onClick={() => setShowWeekends((v) => !v)}
               data-testid="toggle-show-weekends"
               title="Show Saturday and Sunday columns in the calendar"
-              className={`inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+              className={`ml-auto inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
                 showWeekends
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-card text-muted-foreground border-border hover:bg-accent"
@@ -1985,12 +2502,10 @@ export default function ScheduleBoard() {
                                         ptoMinutes={blkMins.pto > 0 ? blkMins.pto : undefined}
                                       />
                                     ) : (
-                                      showIdleTechs && (
-                                        <IdleCapacityBadge
-                                          capacityMinutes={idleCapMinutes(tech.technician_id)}
-                                          colorClass={palette.chip}
-                                        />
-                                      )
+                                      <IdleCapacityBadge
+                                        capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                        colorClass={palette.chip}
+                                      />
                                     )}
                                   </>
                                 );
@@ -2000,7 +2515,11 @@ export default function ScheduleBoard() {
                           {jobsByWeekday.map((jobs, i) => {
                             const dh = weekdayHeaders[i];
                             const cellKey = `${tech.technician_id}:${dh.dayIdx}`;
-                            const isDropTarget = draggingId !== null && dragOverCell === cellKey;
+                            const isDropTarget =
+                              (draggingId !== null ||
+                                draggingBlockId !== null ||
+                                draggingPlaceholderId !== null) &&
+                              dragOverCell === cellKey;
                             const conflictDrop =
                               draggingId !== null &&
                               dropWouldConflict(tech.technician_id, dh.dayIdx);
@@ -2011,33 +2530,16 @@ export default function ScheduleBoard() {
                               : isDropTarget
                                 ? "bg-primary/10 ring-2 ring-inset ring-primary"
                                 : "";
-                            return (
-                              <div
-                                key={i}
-                                className={`group border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""} ${dropCue}`}
-                                data-testid={`tech-cell-${tech.technician_id}-${dh.dayIdx}`}
-                                aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
-                                onDragOver={(e) => {
-                                  if (!dragJobRef.current) return;
-                                  e.preventDefault();
-                                  e.dataTransfer.dropEffect = "move";
-                                  if (dragOverCell !== cellKey) setDragOverCell(cellKey);
-                                }}
-                                onDragLeave={() => {
-                                  setDragOverCell((prev) => (prev === cellKey ? null : prev));
-                                }}
-                                onDrop={(e) => {
-                                  e.preventDefault();
-                                  handleDropOnCell(
-                                    tech.technician_id,
-                                    dh.dayIdx,
-                                    tech.resource_name,
-                                  );
-                                }}
-                              >
-                                {jobs.map((j) => (
+                            const isEmptyCell =
+                              jobs.length === 0 &&
+                              blocksForCell(tech.technician_id, dh.iso).length === 0 &&
+                              placeholderJobsForCell(tech.technician_id, dh.iso).length === 0;
+                            const orderKey = `${tech.technician_id}|${dh.iso}`;
+                            const cellItems = applyChipOrder(orderKey, [
+                              ...jobs.map((j) => ({
+                                key: `job:${j.booking_id}`,
+                                node: (
                                   <JobChip
-                                    key={j.booking_id}
                                     job={j}
                                     compact={false}
                                     colorClass={palette.chip}
@@ -2051,28 +2553,120 @@ export default function ScheduleBoard() {
                                     showDuration={false}
                                     dimmed={!!activeSearch && !jobMatchesSearch(j, activeSearch)}
                                   />
-                                ))}
-                                {blocksForCell(tech.technician_id, dh.iso).map((blk) => (
+                                ),
+                              })),
+                              ...blocksForCell(tech.technician_id, dh.iso).map((blk) => ({
+                                key: `block:${blk.id}`,
+                                node: (
                                   <BlockChip
-                                    key={blk.id}
                                     block={blk}
+                                    dayIso={dh.iso}
                                     onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
+                                    onDragStart={() => startBlockDrag(blk, "move")}
+                                    onResizeStart={() => startBlockDrag(blk, "resize")}
+                                    onDragEnd={endDrag}
+                                    isDragging={draggingBlockId === blk.id}
                                   />
+                                ),
+                              })),
+                              ...placeholderJobsForCell(tech.technician_id, dh.iso).map((phj) => ({
+                                key: `ph:${phj.id}`,
+                                node: (
+                                  <PlaceholderJobChip
+                                    job={phj}
+                                    dayIso={dh.iso}
+                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
+                                    onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
+                                    onDragStart={() => startPlaceholderDrag(phj, "move")}
+                                    onResizeStart={() => startPlaceholderDrag(phj, "resize")}
+                                    onDragEnd={endDrag}
+                                    isDragging={draggingPlaceholderId === phj.id}
+                                  />
+                                ),
+                              })),
+                            ]);
+                            const orderedKeys = cellItems.map((it) => it.key);
+                            return (
+                              <div
+                                key={i}
+                                className={`group relative border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dh.isMonday ? "border-l-2 border-l-foreground/20" : ""} ${dropCue} ${isEmptyCell ? "cursor-pointer" : ""}`}
+                                data-testid={`tech-cell-${tech.technician_id}-${dh.dayIdx}`}
+                                aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
+                                onClick={
+                                  isEmptyCell
+                                    ? () =>
+                                        setAddingBlock({
+                                          technicianId: tech.technician_id,
+                                          technicianName: tech.resource_name ?? "Unknown",
+                                          date: dh.iso,
+                                        })
+                                    : undefined
+                                }
+                                onDragOver={(e) => {
+                                  if (!dragJobRef.current && !dragBlockRef.current && !dragPlaceholderRef.current) return;
+                                  e.preventDefault();
+                                  e.dataTransfer.dropEffect = "move";
+                                  if (dragOverCell !== cellKey) setDragOverCell(cellKey);
+                                  setReorderTarget((prev) => (prev ? null : prev));
+                                }}
+                                onDragLeave={() => {
+                                  setDragOverCell((prev) => (prev === cellKey ? null : prev));
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  if (dragBlockRef.current) {
+                                    handleBlockDropOnCell(tech.technician_id, dh.iso);
+                                    return;
+                                  }
+                                  if (dragPlaceholderRef.current) {
+                                    handlePlaceholderDropOnCell(tech.technician_id, dh.iso);
+                                    return;
+                                  }
+                                  handleDropOnCell(
+                                    tech.technician_id,
+                                    dh.dayIdx,
+                                    tech.resource_name,
+                                  );
+                                }}
+                              >
+                                {cellItems.map((it) => (
+                                  <div
+                                    key={it.key}
+                                    className="relative"
+                                    onDragStartCapture={() => {
+                                      dragSourceCellRef.current = orderKey;
+                                    }}
+                                    onDragOver={(e) => chipReorderDragOver(e, orderKey, it.key)}
+                                    onDrop={(e) => chipReorderDrop(e, orderKey, it.key, orderedKeys)}
+                                  >
+                                    {reorderTarget?.orderKey === orderKey &&
+                                      reorderTarget.chipKey === it.key && (
+                                        <div
+                                          className={`pointer-events-none absolute left-0 right-0 z-10 h-0.5 rounded bg-primary ${reorderTarget.pos === "above" ? "-top-[3px]" : "-bottom-[3px]"}`}
+                                        />
+                                      )}
+                                    {it.node}
+                                  </div>
                                 ))}
                                 <button
                                   type="button"
-                                  className="w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
-                                  onClick={() =>
+                                  className={
+                                    isEmptyCell
+                                      ? "absolute inset-0 flex items-center justify-center gap-1 text-xs font-bold text-muted-foreground/40 hover:text-foreground hover:bg-accent/70 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                      : "w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
+                                  }
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setAddingBlock({
                                       technicianId: tech.technician_id,
                                       technicianName: tech.resource_name ?? "Unknown",
                                       date: dh.iso,
-                                    })
-                                  }
+                                    });
+                                  }}
                                 >
-                                  <Plus className="h-2.5 w-2.5 shrink-0" />
-                                  Add block
+                                  <Plus className={isEmptyCell ? "h-4 w-4 shrink-0" : "h-2.5 w-2.5 shrink-0"} />
+                                  Add
                                 </button>
                               </div>
                             );
@@ -2252,12 +2846,10 @@ export default function ScheduleBoard() {
                                         ptoMinutes={blkMins.pto > 0 ? blkMins.pto : undefined}
                                       />
                                     ) : (
-                                      showIdleTechs && (
-                                        <IdleCapacityBadge
-                                          capacityMinutes={idleCapMinutes(tech.technician_id)}
-                                          colorClass={palette.chip}
-                                        />
-                                      )
+                                      <IdleCapacityBadge
+                                        capacityMinutes={idleCapMinutes(tech.technician_id)}
+                                        colorClass={palette.chip}
+                                      />
                                     )}
                                   </>
                                 );
@@ -2266,7 +2858,11 @@ export default function ScheduleBoard() {
                           </div>
                           {jobsByDay.map((jobs, i) => {
                             const cellKey = `${tech.technician_id}:${i}`;
-                            const isDropTarget = draggingId !== null && dragOverCell === cellKey;
+                            const isDropTarget =
+                              (draggingId !== null ||
+                                draggingBlockId !== null ||
+                                draggingPlaceholderId !== null) &&
+                              dragOverCell === cellKey;
                             const conflictDrop =
                               draggingId !== null && dropWouldConflict(tech.technician_id, i);
                             const dropCue = conflictDrop
@@ -2276,29 +2872,16 @@ export default function ScheduleBoard() {
                               : isDropTarget
                                 ? "bg-primary/10 ring-2 ring-inset ring-primary"
                                 : "";
-                            return (
-                              <div
-                                key={i}
-                                className={`group border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dropCue}`}
-                                data-testid={`cell-${tech.technician_id}-${i}`}
-                                aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
-                                onDragOver={(e) => {
-                                  if (!dragJobRef.current) return;
-                                  e.preventDefault();
-                                  e.dataTransfer.dropEffect = "move";
-                                  if (dragOverCell !== cellKey) setDragOverCell(cellKey);
-                                }}
-                                onDragLeave={() => {
-                                  setDragOverCell((prev) => (prev === cellKey ? null : prev));
-                                }}
-                                onDrop={(e) => {
-                                  e.preventDefault();
-                                  handleDropOnCell(tech.technician_id, i, tech.resource_name);
-                                }}
-                              >
-                                {jobs.map((j) => (
+                            const isEmptyCell =
+                              jobs.length === 0 &&
+                              blocksForCell(tech.technician_id, dayHeaders[i].iso).length === 0 &&
+                              placeholderJobsForCell(tech.technician_id, dayHeaders[i].iso).length === 0;
+                            const orderKey = `${tech.technician_id}|${dayHeaders[i].iso}`;
+                            const cellItems = applyChipOrder(orderKey, [
+                              ...jobs.map((j) => ({
+                                key: `job:${j.booking_id}`,
+                                node: (
                                   <JobChip
-                                    key={j.booking_id}
                                     job={j}
                                     compact={view === "month"}
                                     colorClass={palette.chip}
@@ -2311,28 +2894,116 @@ export default function ScheduleBoard() {
                                     showEquipment={view === "week"}
                                     dimmed={!!activeSearch && !jobMatchesSearch(j, activeSearch)}
                                   />
-                                ))}
-                                {blocksForCell(tech.technician_id, dayHeaders[i].iso).map((blk) => (
+                                ),
+                              })),
+                              ...blocksForCell(tech.technician_id, dayHeaders[i].iso).map((blk) => ({
+                                key: `block:${blk.id}`,
+                                node: (
                                   <BlockChip
-                                    key={blk.id}
                                     block={blk}
+                                    dayIso={dayHeaders[i].iso}
                                     onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
+                                    onDragStart={() => startBlockDrag(blk, "move")}
+                                    onResizeStart={() => startBlockDrag(blk, "resize")}
+                                    onDragEnd={endDrag}
+                                    isDragging={draggingBlockId === blk.id}
                                   />
+                                ),
+                              })),
+                              ...placeholderJobsForCell(tech.technician_id, dayHeaders[i].iso).map((phj) => ({
+                                key: `ph:${phj.id}`,
+                                node: (
+                                  <PlaceholderJobChip
+                                    job={phj}
+                                    dayIso={dayHeaders[i].iso}
+                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
+                                    onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
+                                    onDragStart={() => startPlaceholderDrag(phj, "move")}
+                                    onResizeStart={() => startPlaceholderDrag(phj, "resize")}
+                                    onDragEnd={endDrag}
+                                    isDragging={draggingPlaceholderId === phj.id}
+                                  />
+                                ),
+                              })),
+                            ]);
+                            const orderedKeys = cellItems.map((it) => it.key);
+                            return (
+                              <div
+                                key={i}
+                                className={`group relative border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dropCue} ${isEmptyCell ? "cursor-pointer" : ""}`}
+                                data-testid={`cell-${tech.technician_id}-${i}`}
+                                aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
+                                onClick={
+                                  isEmptyCell
+                                    ? () =>
+                                        setAddingBlock({
+                                          technicianId: tech.technician_id,
+                                          technicianName: tech.resource_name ?? "Unknown",
+                                          date: dayHeaders[i].iso,
+                                        })
+                                    : undefined
+                                }
+                                onDragOver={(e) => {
+                                  if (!dragJobRef.current && !dragBlockRef.current && !dragPlaceholderRef.current) return;
+                                  e.preventDefault();
+                                  e.dataTransfer.dropEffect = "move";
+                                  if (dragOverCell !== cellKey) setDragOverCell(cellKey);
+                                  setReorderTarget((prev) => (prev ? null : prev));
+                                }}
+                                onDragLeave={() => {
+                                  setDragOverCell((prev) => (prev === cellKey ? null : prev));
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  if (dragBlockRef.current) {
+                                    handleBlockDropOnCell(tech.technician_id, dayHeaders[i].iso);
+                                    return;
+                                  }
+                                  if (dragPlaceholderRef.current) {
+                                    handlePlaceholderDropOnCell(tech.technician_id, dayHeaders[i].iso);
+                                    return;
+                                  }
+                                  handleDropOnCell(tech.technician_id, i, tech.resource_name);
+                                }}
+                              >
+                                {cellItems.map((it) => (
+                                  <div
+                                    key={it.key}
+                                    className="relative"
+                                    onDragStartCapture={() => {
+                                      dragSourceCellRef.current = orderKey;
+                                    }}
+                                    onDragOver={(e) => chipReorderDragOver(e, orderKey, it.key)}
+                                    onDrop={(e) => chipReorderDrop(e, orderKey, it.key, orderedKeys)}
+                                  >
+                                    {reorderTarget?.orderKey === orderKey &&
+                                      reorderTarget.chipKey === it.key && (
+                                        <div
+                                          className={`pointer-events-none absolute left-0 right-0 z-10 h-0.5 rounded bg-primary ${reorderTarget.pos === "above" ? "-top-[3px]" : "-bottom-[3px]"}`}
+                                        />
+                                      )}
+                                    {it.node}
+                                  </div>
                                 ))}
                                 <button
                                   type="button"
-                                  className="w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
-                                  onClick={() =>
+                                  className={
+                                    isEmptyCell
+                                      ? "absolute inset-0 flex items-center justify-center gap-1 text-xs font-bold text-muted-foreground/40 hover:text-foreground hover:bg-accent/70 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                      : "w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
+                                  }
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setAddingBlock({
                                       technicianId: tech.technician_id,
                                       technicianName: tech.resource_name ?? "Unknown",
                                       date: dayHeaders[i].iso,
-                                    })
-                                  }
+                                    });
+                                  }}
                                 >
-                                  <Plus className="h-2.5 w-2.5 shrink-0" />
-                                  Add block
+                                  <Plus className={isEmptyCell ? "h-4 w-4 shrink-0" : "h-2.5 w-2.5 shrink-0"} />
+                                  Add
                                 </button>
                               </div>
                             );
@@ -2643,6 +3314,13 @@ export default function ScheduleBoard() {
           block={editingBlock.block}
           technicianName={editingBlock.technicianName}
           onClose={() => setEditingBlock(null)}
+        />
+      )}
+      {editingPlaceholder && (
+        <EditPlaceholderJobDialog
+          job={editingPlaceholder.job}
+          technicianName={editingPlaceholder.technicianName}
+          onClose={() => setEditingPlaceholder(null)}
         />
       )}
 

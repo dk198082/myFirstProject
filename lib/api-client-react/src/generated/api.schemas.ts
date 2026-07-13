@@ -68,7 +68,10 @@ export interface ScheduleBlock {
   id: number;
   technician_id: string;
   block_type: ScheduleBlockBlockType;
-  /** Custom title (only used when block_type is "custom") @nullable */
+  /**
+     * Custom title (only used when block_type is "custom")
+     * @nullable
+     */
   title?: string | null;
   /** ISO 8601 timestamp */
   start_time: string;
@@ -91,12 +94,93 @@ export const CreateScheduleBlockBlockType = {
 export interface CreateScheduleBlock {
   technician_id: string;
   block_type: CreateScheduleBlockBlockType;
-  /** Custom title (only used when block_type is "custom") @nullable */
+  /**
+     * Custom title (only used when block_type is "custom")
+     * @nullable
+     */
   title?: string | null;
   /** ISO 8601 timestamp */
   start_time: string;
   /** ISO 8601 timestamp */
   end_time: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type UpdateScheduleBlockBlockType = typeof UpdateScheduleBlockBlockType[keyof typeof UpdateScheduleBlockBlockType];
+
+
+export const UpdateScheduleBlockBlockType = {
+  drive_time: 'drive_time',
+  pto: 'pto',
+  custom: 'custom',
+} as const;
+
+export interface UpdateScheduleBlock {
+  technician_id?: string;
+  block_type?: UpdateScheduleBlockBlockType;
+  /**
+     * Custom title (only used when block_type is "custom")
+     * @nullable
+     */
+  title?: string | null;
+  /** ISO 8601 timestamp */
+  start_time?: string;
+  /** ISO 8601 timestamp */
+  end_time?: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface PlaceholderJob {
+  id: number;
+  technician_id: string;
+  title: string;
+  /** @nullable */
+  customer_name?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** ISO 8601 timestamp */
+  start_time: string;
+  /** ISO 8601 timestamp */
+  end_time: string;
+  /** @nullable */
+  notes?: string | null;
+  created_at: string;
+}
+
+export interface CreatePlaceholderJob {
+  technician_id: string;
+  title: string;
+  /** @nullable */
+  customer_name?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** ISO 8601 timestamp */
+  start_time: string;
+  /** ISO 8601 timestamp */
+  end_time: string;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface UpdatePlaceholderJob {
+  technician_id?: string;
+  title?: string;
+  /** @nullable */
+  customer_name?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** ISO 8601 timestamp */
+  start_time?: string;
+  /** ISO 8601 timestamp */
+  end_time?: string;
   /** @nullable */
   notes?: string | null;
 }
@@ -742,6 +826,21 @@ start_date?: string;
  * ISO date (YYYY-MM-DD) — exclusive upper bound on start_time
  */
 end_date?: string;
+};
+
+export type ListWbPlaceholderJobsParams = {
+/**
+ * ISO date (YYYY-MM-DD) — inclusive lower bound on start_time
+ */
+start_date?: string;
+/**
+ * ISO date (YYYY-MM-DD) — exclusive upper bound on start_time
+ */
+end_date?: string;
+};
+
+export type DeleteWbQueuedWritebacks200 = {
+  deleted: number;
 };
 
 export type GetTechnicianByEmailParams = {

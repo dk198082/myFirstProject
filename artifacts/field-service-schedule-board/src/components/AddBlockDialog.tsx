@@ -1,7 +1,9 @@
 import { useState } from "react";
 import {
   useCreateWbScheduleBlock,
+  useCreateWbPlaceholderJob,
   getListWbScheduleBlocksQueryKey,
+  getListWbPlaceholderJobsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -16,10 +18,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Car, Sun, Pencil } from "lucide-react";
+import { Loader2, Car, Sun, Pencil, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-type BlockType = "drive_time" | "pto" | "custom";
+type EntryType = "drive_time" | "pto" | "custom" | "potential_job";
 
 function fromLocalInput(local: string): string | null {
   if (!local) return null;
@@ -43,23 +45,38 @@ export function AddBlockDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [blockType, setBlockType] = useState<BlockType>("drive_time");
+  const [entryType, setEntryType] = useState<EntryType>("drive_time");
   const [customTitle, setCustomTitle] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setStateVal] = useState("");
   const [startTime, setStartTime] = useState(`${date}T09:00`);
-  const [endTime, setEndTime] = useState(`${date}T17:00`);
+  const [endTime, setEndTime] = useState(entryType === "potential_job" ? `${date}T11:00` : `${date}T17:00`);
   const [notes, setNotes] = useState("");
 
   const blockLabel =
-    blockType === "drive_time" ? "Drive time" : blockType === "pto" ? "PTO" : customTitle.trim() || "Custom block";
+    entryType === "drive_time"
+      ? "Drive time"
+      : entryType === "pto"
+        ? "PTO"
+        : entryType === "potential_job"
+          ? jobTitle.trim() || "Potential job"
+          : customTitle.trim() || "Custom block";
 
-  const createMutation = useCreateWbScheduleBlock({
+  const invalidateBlocks = () =>
+    queryClient.invalidateQueries({ queryKey: getListWbScheduleBlocksQueryKey() });
+  const invalidatePlaceholders = () =>
+    queryClient.invalidateQueries({ queryKey: getListWbPlaceholderJobsQueryKey() });
+
+  const createBlockMutation = useCreateWbScheduleBlock({
     mutation: {
       onSuccess: () => {
         toast({
           title: `${blockLabel} added`,
           description: `Block added for ${technicianName}.`,
         });
-        queryClient.invalidateQueries({ queryKey: getListWbScheduleBlocksQueryKey() });
+        invalidateBlocks();
         onClose();
       },
       onError: (err) => {
@@ -72,9 +89,35 @@ export function AddBlockDialog({
     },
   });
 
+  const createPlaceholderMutation = useCreateWbPlaceholderJob({
+    mutation: {
+      onSuccess: () => {
+        toast({
+          title: "Potential job added",
+          description: `Added for ${technicianName}.`,
+        });
+        invalidatePlaceholders();
+        onClose();
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to add potential job",
+          description: err instanceof Error ? err.message : "Unknown error",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  const isPending = createBlockMutation.isPending || createPlaceholderMutation.isPending;
+
   const submit = () => {
-    if (blockType === "custom" && !customTitle.trim()) {
+    if (entryType === "custom" && !customTitle.trim()) {
       toast({ title: "Title required", description: "Please enter a title for the custom block.", variant: "destructive" });
+      return;
+    }
+    if (entryType === "potential_job" && !jobTitle.trim()) {
+      toast({ title: "Title required", description: "Please enter a job title.", variant: "destructive" });
       return;
     }
     const start = fromLocalInput(startTime);
@@ -83,11 +126,28 @@ export function AddBlockDialog({
       toast({ title: "Invalid times", description: "Please enter valid start and end times.", variant: "destructive" });
       return;
     }
-    createMutation.mutate({
+
+    if (entryType === "potential_job") {
+      createPlaceholderMutation.mutate({
+        data: {
+          technician_id: technicianId,
+          title: jobTitle.trim(),
+          customer_name: customerName.trim() || null,
+          city: city.trim() || null,
+          state: state.trim() || null,
+          start_time: start,
+          end_time: end,
+          notes: notes.trim() || null,
+        },
+      });
+      return;
+    }
+
+    createBlockMutation.mutate({
       data: {
         technician_id: technicianId,
-        block_type: blockType,
-        title: blockType === "custom" ? customTitle.trim() : null,
+        block_type: entryType,
+        title: entryType === "custom" ? customTitle.trim() : null,
         start_time: start,
         end_time: end,
         notes: notes.trim() || null,
@@ -99,20 +159,20 @@ export function AddBlockDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="w-[calc(100vw-2rem)] max-w-sm overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Add schedule block</DialogTitle>
+          <DialogTitle>Add</DialogTitle>
           <DialogDescription>{technicianName} · {date}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2 min-w-0 overflow-hidden">
-          {/* Block type toggle */}
+          {/* Entry type toggle */}
           <div className="space-y-1.5">
-            <Label>Block type</Label>
-            <div className="flex gap-2">
+            <Label>Type</Label>
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setBlockType("drive_time")}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-                  blockType === "drive_time"
+                onClick={() => setEntryType("drive_time")}
+                className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                  entryType === "drive_time"
                     ? "bg-slate-700 text-white border-slate-700"
                     : "bg-background text-muted-foreground border-border hover:bg-accent"
                 }`}
@@ -122,9 +182,9 @@ export function AddBlockDialog({
               </button>
               <button
                 type="button"
-                onClick={() => setBlockType("pto")}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-                  blockType === "pto"
+                onClick={() => setEntryType("pto")}
+                className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                  entryType === "pto"
                     ? "bg-green-600 text-white border-green-600"
                     : "bg-background text-muted-foreground border-border hover:bg-accent"
                 }`}
@@ -134,9 +194,9 @@ export function AddBlockDialog({
               </button>
               <button
                 type="button"
-                onClick={() => setBlockType("custom")}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-                  blockType === "custom"
+                onClick={() => setEntryType("custom")}
+                className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                  entryType === "custom"
                     ? "bg-violet-600 text-white border-violet-600"
                     : "bg-background text-muted-foreground border-border hover:bg-accent"
                 }`}
@@ -144,11 +204,23 @@ export function AddBlockDialog({
                 <Pencil className="h-4 w-4" />
                 Custom
               </button>
+              <button
+                type="button"
+                onClick={() => setEntryType("potential_job")}
+                className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                  entryType === "potential_job"
+                    ? "bg-muted-foreground text-background border-muted-foreground"
+                    : "bg-background text-muted-foreground border-border hover:bg-accent"
+                }`}
+              >
+                <User className="h-4 w-4" />
+                Potential Job
+              </button>
             </div>
           </div>
 
           {/* Custom title — only shown for custom blocks */}
-          {blockType === "custom" && (
+          {entryType === "custom" && (
             <div className="space-y-1.5 min-w-0">
               <Label htmlFor="block-title">
                 Title <span className="text-destructive">*</span>
@@ -162,6 +234,59 @@ export function AddBlockDialog({
                 autoFocus
               />
             </div>
+          )}
+
+          {/* Potential job fields */}
+          {entryType === "potential_job" && (
+            <>
+              <div className="space-y-1.5 min-w-0">
+                <Label htmlFor="ph-title">
+                  Title <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="ph-title"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  placeholder="e.g. Furnace install"
+                  className="w-full min-w-0"
+                  autoFocus
+                />
+              </div>
+
+              <div className="space-y-1.5 min-w-0">
+                <Label htmlFor="ph-customer">Customer name</Label>
+                <Input
+                  id="ph-customer"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="e.g. Jane Smith"
+                  className="w-full min-w-0"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5 min-w-0">
+                  <Label htmlFor="ph-city">City</Label>
+                  <Input
+                    id="ph-city"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="e.g. Austin"
+                    className="w-full min-w-0"
+                  />
+                </div>
+                <div className="space-y-1.5 min-w-0">
+                  <Label htmlFor="ph-state">State</Label>
+                  <Input
+                    id="ph-state"
+                    value={state}
+                    onChange={(e) => setStateVal(e.target.value)}
+                    placeholder="e.g. TX"
+                    className="w-full min-w-0"
+                  />
+                </div>
+              </div>
+            </>
           )}
 
           <div className="space-y-1.5 min-w-0">
@@ -200,12 +325,12 @@ export function AddBlockDialog({
         </div>
 
         <DialogFooter className="gap-2 flex-row flex-wrap justify-end sm:space-x-0">
-          <Button variant="ghost" onClick={onClose} disabled={createMutation.isPending}>
+          <Button variant="ghost" onClick={onClose} disabled={isPending}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={createMutation.isPending}>
-            {createMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
-            Add block
+          <Button onClick={submit} disabled={isPending}>
+            {isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+            Add
           </Button>
         </DialogFooter>
       </DialogContent>
