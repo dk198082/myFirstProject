@@ -20,6 +20,7 @@ export const placeholderJobsTable = pgTable(
     startTime: timestamp("start_time", { withTimezone: true }).notNull(),
     endTime: timestamp("end_time", { withTimezone: true }).notNull(),
     notes: text("notes"),
+    serviceLocationId: text("service_location_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
