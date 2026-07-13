@@ -786,17 +786,17 @@ function JobChip({
           <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" aria-label="Double-booked" />
         )}
       </div>
+      {!compact && <div className="opacity-90 truncate">{job.customer_name ?? "—"}</div>}
+      {!compact && (job.city || job.state) && (
+        <div className="opacity-75 truncate">
+          {[job.city, job.state].filter(Boolean).join(", ")}
+        </div>
+      )}
       {!compact && (job.crmstarttime || job.crmendtime) && showDuration && (
         <div className="opacity-80 truncate">
           {isMultiDay
             ? chipTimeLabel(job)
             : fmtDuration(job.crmstarttime, job.crmendtime) || chipTimeLabel(job)}
-        </div>
-      )}
-      {!compact && <div className="opacity-90 truncate">{job.customer_name ?? "—"}</div>}
-      {!compact && (job.city || job.state) && (
-        <div className="opacity-75 truncate">
-          {[job.city, job.state].filter(Boolean).join(", ")}
         </div>
       )}
     </button>
