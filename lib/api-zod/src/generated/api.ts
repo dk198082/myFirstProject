@@ -321,6 +321,7 @@ export const ListWbPlaceholderJobsResponseItem = zod.object({
   "customer_name": zod.string().nullish(),
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
+  "service_location_id": zod.string().nullish().describe('CRM account ID of the linked service location (null when freeform)'),
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
@@ -339,6 +340,7 @@ export const CreateWbPlaceholderJobBody = zod.object({
   "customer_name": zod.string().nullish(),
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
+  "service_location_id": zod.string().nullish().describe('CRM account ID of the linked service location'),
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
@@ -359,6 +361,7 @@ export const UpdateWbPlaceholderJobBody = zod.object({
   "customer_name": zod.string().nullish(),
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
+  "service_location_id": zod.string().nullish().describe('CRM account ID of the linked service location (null to clear)'),
   "start_time": zod.string().optional().describe('ISO 8601 timestamp'),
   "end_time": zod.string().optional().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
@@ -372,6 +375,7 @@ export const UpdateWbPlaceholderJobResponse = zod.object({
   "customer_name": zod.string().nullish(),
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
+  "service_location_id": zod.string().nullish().describe('CRM account ID of the linked service location (null when freeform)'),
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
@@ -385,6 +389,72 @@ export const UpdateWbPlaceholderJobResponse = zod.object({
  */
 export const DeleteWbPlaceholderJobParams = zod.object({
   "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary Search CRM service locations (accounts) by name, city, or state
+ */
+export const listWbServiceLocationsQueryLimitMax = 100;
+
+
+
+export const ListWbServiceLocationsQueryParams = zod.object({
+  "search": zod.coerce.string().optional().describe('Free-text filter on account name, city, or state (min 2 chars)'),
+  "limit": zod.coerce.number().min(1).max(listWbServiceLocationsQueryLimitMax).optional().describe('Max rows to return (default 20)')
+})
+
+export const ListWbServiceLocationsResponseItem = zod.object({
+  "id": zod.string().describe('CRM account ID'),
+  "name": zod.string().describe('Account name'),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "address": zod.string().nullish()
+})
+export const ListWbServiceLocationsResponse = zod.array(ListWbServiceLocationsResponseItem)
+
+
+/**
+ * @summary Get detailed info for a CRM service location (account), including contact and equipment
+ */
+export const GetWbServiceLocationParams = zod.object({
+  "locationId": zod.coerce.string()
+})
+
+export const GetWbServiceLocationResponse = zod.object({
+  "id": zod.string().describe('CRM account ID'),
+  "name": zod.string(),
+  "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "postal_code": zod.string().nullish(),
+  "country": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "contact": zod.union([zod.object({
+  "contact_id": zod.string(),
+  "fullname": zod.string().nullish(),
+  "firstname": zod.string().nullish(),
+  "lastname": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "businessphone": zod.string().nullish(),
+  "homephone": zod.string().nullish(),
+  "mobilephone": zod.string().nullish(),
+  "street1": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "country": zod.string().nullish()
+}),zod.null()]).optional(),
+  "equipment": zod.array(zod.object({
+  "equipmentid": zod.string(),
+  "name": zod.string().nullish(),
+  "serialnumber": zod.string().nullish(),
+  "lastcalibrationdate": zod.string().nullish(),
+  "nextcalibrationdate": zod.string().nullish(),
+  "calinterval": zod.number().nullish(),
+  "machinecapacity": zod.string().nullish(),
+  "calibrationdate": zod.string().nullish()
+}))
 })
 
 

@@ -768,6 +768,143 @@ router.delete("/wb/schedule-blocks/:id", async (req, res) => {
 
 // ── Placeholder jobs (speculative / unconfirmed work, not yet in CRM) ─────────
 
+// ── Service locations (CRM accounts) ─────────────────────────────────────────
+
+router.get("/wb/service-locations", async (req, res) => {
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+  const search = ((req.query.search as string | undefined) ?? "").trim();
+  const limitRaw = Number(req.query.limit ?? 20);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, limitRaw)) : 20;
+
+  try {
+    const params: unknown[] = [];
+    let whereSearch = "";
+    if (search.length >= 2) {
+      params.push(`%${search}%`);
+      whereSearch = `AND (name ILIKE $${params.length} OR address1_city ILIKE $${params.length} OR address1_stateorprovince ILIKE $${params.length})`;
+    }
+    params.push(limit);
+    const r = await getCrmPool().query(
+      `SELECT accountid::text AS id,
+              name,
+              address1_city AS city,
+              address1_stateorprovince AS state,
+              address1_line1 AS address
+       FROM crm.account
+       WHERE COALESCE(is_deleted, false) = false ${whereSearch}
+       ORDER BY name ASC NULLS LAST
+       LIMIT $${params.length}`,
+      params,
+    );
+    res.json(
+      r.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        city: row.city ?? null,
+        state: row.state ?? null,
+        address: row.address ?? null,
+      })),
+    );
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to list service locations", "Failed to list service locations");
+  }
+});
+
+router.get("/wb/service-locations/:locationId", async (req, res) => {
+  const { locationId } = req.params;
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
+    return;
+  }
+
+  try {
+    const accountRes = await getCrmPool().query(
+      `SELECT accountid::text AS id,
+              name,
+              address1_line1 AS address,
+              address1_city AS city,
+              address1_stateorprovince AS state,
+              address1_postalcode AS postal_code,
+              address1_country AS country,
+              telephone1 AS phone,
+              emailaddress1 AS email
+       FROM crm.account
+       WHERE accountid = $1 AND COALESCE(is_deleted, false) = false
+       LIMIT 1`,
+      [locationId],
+    );
+    const account = accountRes.rows[0];
+    if (!account) {
+      res.status(404).json({ error: "Service location not found" });
+      return;
+    }
+
+    const [contactRes, equipmentRes] = await Promise.all([
+      getCrmPool().query(
+        `SELECT contactid::text AS contact_id, fullname, firstname, lastname,
+                emailaddress1 AS email, telephone1 AS businessphone,
+                mobilephone, NULL::text AS homephone, NULL::text AS street1,
+                NULL::text AS city, NULL::text AS state, NULL::text AS country
+         FROM crm.contact
+         WHERE parentcustomerid = $1 AND COALESCE(is_deleted, false) = false
+         LIMIT 1`,
+        [locationId],
+      ),
+      getCrmPool().query(
+        `SELECT DISTINCT ON (e.cf_name)
+                e.cf_workordercustomerequipmentid::text AS equipmentid,
+                e.cf_name AS name,
+                e.cf_serialnumber AS serialnumber,
+                e.cf_lastcalibrationdate AS lastcalibrationdate,
+                e.cf_nextcalibrationdate AS nextcalibrationdate,
+                e.cf_calibrationdate AS calibrationdate,
+                NULL::int AS calinterval,
+                NULL::text AS machinecapacity
+         FROM crm.cf_workordercustomerequipment e
+         JOIN crm.workorder wo ON wo.msdyn_workorderid = e.workorderid
+         WHERE wo.msdyn_serviceaccount = $1
+           AND COALESCE(e.is_deleted, false) = false
+           AND COALESCE(wo.is_deleted, false) = false
+         ORDER BY e.cf_name ASC NULLS LAST, e.cf_nextcalibrationdate ASC NULLS LAST`,
+        [locationId],
+      ),
+    ]);
+
+    const toDateOnly = (v: unknown) =>
+      v instanceof Date ? v.toISOString().slice(0, 10) : (v ?? null);
+
+    const equipment = equipmentRes.rows.map((e) => ({
+      ...e,
+      lastcalibrationdate: toDateOnly(e.lastcalibrationdate),
+      nextcalibrationdate: toDateOnly(e.nextcalibrationdate),
+      calibrationdate: toDateOnly(e.calibrationdate),
+    }));
+
+    res.json({
+      id: account.id,
+      name: account.name,
+      address: account.address ?? null,
+      city: account.city ?? null,
+      state: account.state ?? null,
+      postal_code: account.postal_code ?? null,
+      country: account.country ?? null,
+      phone: account.phone ?? null,
+      email: account.email ?? null,
+      contact: contactRes.rows[0] ?? null,
+      equipment,
+    });
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to get service location detail", "Failed to get service location detail", {
+      logContext: { locationId },
+    });
+  }
+});
+
+// ── Placeholder jobs ──────────────────────────────────────────────────────────
+
 const PLACEHOLDER_JOB_STATUSES = [
   "Reminder Letter Sent",
   "Quoted \u2013 No Purchase Order",
@@ -783,6 +920,7 @@ const createPlaceholderJobSchema = z.object({
   customer_name: z.string().nullable().optional(),
   city: z.string().nullable().optional(),
   state: z.string().nullable().optional(),
+  service_location_id: z.string().nullable().optional(),
   start_time: z.string().min(1),
   end_time: z.string().min(1),
   notes: z.string().nullable().optional(),
@@ -807,7 +945,7 @@ router.get("/wb/placeholder-jobs", async (req, res) => {
     }
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const r = await localPool.query(
-      `SELECT id, technician_id, title, customer_name, city, state, start_time, end_time, notes, status, created_at
+      `SELECT id, technician_id, title, customer_name, city, state, service_location_id, start_time, end_time, notes, status, created_at
        FROM placeholder_jobs ${where} ORDER BY start_time`,
       params,
     );
@@ -819,6 +957,7 @@ router.get("/wb/placeholder-jobs", async (req, res) => {
         customer_name: row.customer_name ?? null,
         city: row.city ?? null,
         state: row.state ?? null,
+        service_location_id: row.service_location_id ?? null,
         start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
         end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
         notes: row.notes ?? null,
@@ -837,13 +976,13 @@ router.post("/wb/placeholder-jobs", async (req, res) => {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
     return;
   }
-  const { technician_id, title, customer_name, city, state, start_time, end_time, notes, status } = parsed.data;
+  const { technician_id, title, customer_name, city, state, service_location_id, start_time, end_time, notes, status } = parsed.data;
   try {
     const r = await localPool.query(
-      `INSERT INTO placeholder_jobs (technician_id, title, customer_name, city, state, start_time, end_time, notes, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, technician_id, title, customer_name, city, state, start_time, end_time, notes, status, created_at`,
-      [technician_id, title, customer_name ?? null, city ?? null, state ?? null, start_time, end_time, notes ?? null, status ?? null],
+      `INSERT INTO placeholder_jobs (technician_id, title, customer_name, city, state, service_location_id, start_time, end_time, notes, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, technician_id, title, customer_name, city, state, service_location_id, start_time, end_time, notes, status, created_at`,
+      [technician_id, title, customer_name ?? null, city ?? null, state ?? null, service_location_id ?? null, start_time, end_time, notes ?? null, status ?? null],
     );
     const row = r.rows[0];
     res.status(201).json({
@@ -853,6 +992,7 @@ router.post("/wb/placeholder-jobs", async (req, res) => {
       customer_name: row.customer_name ?? null,
       city: row.city ?? null,
       state: row.state ?? null,
+      service_location_id: row.service_location_id ?? null,
       start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
       end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
       notes: row.notes ?? null,
@@ -871,6 +1011,7 @@ const updatePlaceholderJobSchema = z
     customer_name: z.string().nullable().optional(),
     city: z.string().nullable().optional(),
     state: z.string().nullable().optional(),
+    service_location_id: z.string().nullable().optional(),
     start_time: z.string().min(1).optional(),
     end_time: z.string().min(1).optional(),
     notes: z.string().nullable().optional(),
@@ -891,7 +1032,7 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
     return;
   }
-  const { technician_id, title, customer_name, city, state, start_time, end_time, notes, status } = parsed.data;
+  const { technician_id, title, customer_name, city, state, service_location_id, start_time, end_time, notes, status } = parsed.data;
   try {
     const sets: string[] = [];
     const vals: unknown[] = [];
@@ -900,6 +1041,7 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
     if (customer_name !== undefined) { sets.push(`customer_name = $${vals.push(customer_name)}`); }
     if (city !== undefined) { sets.push(`city = $${vals.push(city)}`); }
     if (state !== undefined) { sets.push(`state = $${vals.push(state)}`); }
+    if (service_location_id !== undefined) { sets.push(`service_location_id = $${vals.push(service_location_id)}`); }
     if (start_time !== undefined) { sets.push(`start_time = $${vals.push(start_time)}`); }
     if (end_time !== undefined) { sets.push(`end_time = $${vals.push(end_time)}`); }
     if (notes !== undefined) { sets.push(`notes = $${vals.push(notes)}`); }
@@ -910,7 +1052,7 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
     }
     vals.push(id);
     const r = await localPool.query(
-      `UPDATE placeholder_jobs SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, title, customer_name, city, state, start_time, end_time, notes, status, created_at`,
+      `UPDATE placeholder_jobs SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, title, customer_name, city, state, service_location_id, start_time, end_time, notes, status, created_at`,
       vals,
     );
     if (r.rows.length === 0) {
@@ -925,6 +1067,7 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
       customer_name: row.customer_name ?? null,
       city: row.city ?? null,
       state: row.state ?? null,
+      service_location_id: row.service_location_id ?? null,
       start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
       end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
       notes: row.notes ?? null,

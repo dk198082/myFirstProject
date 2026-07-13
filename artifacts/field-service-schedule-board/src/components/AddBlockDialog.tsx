@@ -27,8 +27,16 @@ import {
 import { Label } from "@/components/ui/label";
 import { Loader2, Car, Sun, Pencil, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ServiceLocationPicker } from "@/components/ServiceLocationPicker";
 
 type EntryType = "drive_time" | "pto" | "custom" | "potential_job";
+
+interface ServiceLocationValue {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+}
 
 function fromLocalInput(local: string): string | null {
   if (!local) return null;
@@ -55,6 +63,7 @@ export function AddBlockDialog({
   const [entryType, setEntryType] = useState<EntryType>("drive_time");
   const [customTitle, setCustomTitle] = useState("");
   const [jobTitle, setJobTitle] = useState("");
+  const [serviceLocation, setServiceLocation] = useState<ServiceLocationValue | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [city, setCity] = useState("");
   const [state, setStateVal] = useState("");
@@ -119,6 +128,15 @@ export function AddBlockDialog({
 
   const isPending = createBlockMutation.isPending || createPlaceholderMutation.isPending;
 
+  const handleLocationChange = (loc: ServiceLocationValue | null) => {
+    setServiceLocation(loc);
+    if (loc) {
+      setCustomerName(loc.name);
+      setCity(loc.city ?? "");
+      setStateVal(loc.state ?? "");
+    }
+  };
+
   const submit = () => {
     if (entryType === "custom" && !customTitle.trim()) {
       toast({ title: "Title required", description: "Please enter a title for the custom block.", variant: "destructive" });
@@ -143,6 +161,7 @@ export function AddBlockDialog({
           customer_name: customerName.trim() || null,
           city: city.trim() || null,
           state: state.trim() || null,
+          service_location_id: serviceLocation?.id ?? null,
           start_time: start,
           end_time: end,
           notes: notes.trim() || null,
@@ -259,6 +278,14 @@ export function AddBlockDialog({
                   placeholder="e.g. Furnace install"
                   className="w-full min-w-0"
                   autoFocus
+                />
+              </div>
+
+              <div className="relative">
+                <ServiceLocationPicker
+                  label="Service location"
+                  value={serviceLocation}
+                  onChange={handleLocationChange}
                 />
               </div>
 

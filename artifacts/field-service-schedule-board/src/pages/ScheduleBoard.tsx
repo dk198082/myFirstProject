@@ -594,24 +594,60 @@ function PlaceholderJobChip({
           )}
         </div>
       </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-[260px]">
-        <div className="space-y-0.5">
-          <div className="font-semibold">{job.title}</div>
-          <div className="text-xs opacity-80">Potential Job</div>
-          {job.customer_name && <div className="text-xs">{job.customer_name}</div>}
-          {location && <div className="text-xs">{location}</div>}
+      <TooltipContent side="top" className="max-w-xs p-3 space-y-1.5 text-xs border border-red-300/60">
+        <div className="font-bold text-sm">{job.title}</div>
+        <div className="opacity-70 -mt-1">Potential Job</div>
+        <div className="border-t border-current/20 pt-1.5 space-y-1">
+          {job.customer_name && (
+            <div>
+              <span className="font-medium opacity-70">Customer:</span>{" "}
+              {job.customer_name}
+            </div>
+          )}
+          {location && (
+            <div>
+              <span className="font-medium opacity-70">Location:</span>{" "}
+              {location}
+            </div>
+          )}
           {isMultiDay ? (
-            <div className="text-xs">
+            <div>
+              <span className="font-medium opacity-70">Dates:</span>{" "}
               {fmtBlockDay(startDay)} → {fmtBlockDay(endDay)} ({dayCount} days)
             </div>
           ) : (
-            <div className="text-xs">{fmtBlockDay(startDay)}</div>
+            <div>
+              <span className="font-medium opacity-70">Date:</span>{" "}
+              {fmtBlockDay(startDay)}
+            </div>
           )}
-          <div className="text-xs">
+          <div>
+            <span className="font-medium opacity-70">Time:</span>{" "}
             {fmtBlockTime(job.start_time)} – {fmtBlockTime(job.end_time)}
             {!isMultiDay && duration ? ` (${duration})` : ""}
           </div>
-          {job.notes && <div className="text-xs opacity-80">{job.notes}</div>}
+          {job.status && (
+            <div className="pt-0.5">
+              <Badge variant="outline" className="text-[10px] border-current/40">
+                {job.status}
+              </Badge>
+            </div>
+          )}
+          {job.notes && (
+            <div className="opacity-80 border-t border-current/20 pt-1">{job.notes}</div>
+          )}
+          {job.service_location_id && (
+            <div className="pt-1">
+              <Link
+                href={`/service-location/${job.service_location_id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-[11px] font-medium underline hover:opacity-80"
+              >
+                <ExternalLink className="h-3 w-3" />
+                View service location details
+              </Link>
+            </div>
+          )}
         </div>
       </TooltipContent>
     </Tooltip>

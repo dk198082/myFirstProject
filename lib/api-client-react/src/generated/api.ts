@@ -38,6 +38,7 @@ import type {
   HealthStatus,
   ListWbPlaceholderJobsParams,
   ListWbScheduleBlocksParams,
+  ListWbServiceLocationsParams,
   ListWbWorkOrdersParams,
   PlaceholderJob,
   RegionGroup,
@@ -55,6 +56,8 @@ import type {
   UpdateScheduleBlock,
   WbBookingUpdate,
   WbSaveResult,
+  WbServiceLocation,
+  WbServiceLocationDetail,
   WbSyncRequest,
   WbSyncResult,
   WbTechnician,
@@ -1118,6 +1121,167 @@ export const useDeleteWbPlaceholderJob = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getDeleteWbPlaceholderJobMutationOptions(options));
     }
+
+export const getListWbServiceLocationsUrl = (params?: ListWbServiceLocationsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/wb/service-locations?${stringifiedParams}` : `/api/wb/service-locations`
+}
+
+/**
+ * @summary Search CRM service locations (accounts) by name, city, or state
+ */
+export const listWbServiceLocations = async (params?: ListWbServiceLocationsParams, options?: RequestInit): Promise<WbServiceLocation[]> => {
+
+  return customFetch<WbServiceLocation[]>(getListWbServiceLocationsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWbServiceLocationsQueryKey = (params?: ListWbServiceLocationsParams,) => {
+    return [
+    `/api/wb/service-locations`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListWbServiceLocationsQueryOptions = <TData = Awaited<ReturnType<typeof listWbServiceLocations>>, TError = ErrorType<ErrorResponse>>(params?: ListWbServiceLocationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbServiceLocations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWbServiceLocationsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWbServiceLocations>>> = ({ signal }) => listWbServiceLocations(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWbServiceLocations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWbServiceLocationsQueryResult = NonNullable<Awaited<ReturnType<typeof listWbServiceLocations>>>
+export type ListWbServiceLocationsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Search CRM service locations (accounts) by name, city, or state
+ */
+
+export function useListWbServiceLocations<TData = Awaited<ReturnType<typeof listWbServiceLocations>>, TError = ErrorType<ErrorResponse>>(
+ params?: ListWbServiceLocationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbServiceLocations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWbServiceLocationsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetWbServiceLocationUrl = (locationId: string,) => {
+
+
+
+
+  return `/api/wb/service-locations/${locationId}`
+}
+
+/**
+ * @summary Get detailed info for a CRM service location (account), including contact and equipment
+ */
+export const getWbServiceLocation = async (locationId: string, options?: RequestInit): Promise<WbServiceLocationDetail> => {
+
+  return customFetch<WbServiceLocationDetail>(getGetWbServiceLocationUrl(locationId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWbServiceLocationQueryKey = (locationId: string,) => {
+    return [
+    `/api/wb/service-locations/${locationId}`
+    ] as const;
+    }
+
+
+export const getGetWbServiceLocationQueryOptions = <TData = Awaited<ReturnType<typeof getWbServiceLocation>>, TError = ErrorType<ErrorResponse>>(locationId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbServiceLocation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWbServiceLocationQueryKey(locationId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWbServiceLocation>>> = ({ signal }) => getWbServiceLocation(locationId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(locationId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWbServiceLocation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWbServiceLocationQueryResult = NonNullable<Awaited<ReturnType<typeof getWbServiceLocation>>>
+export type GetWbServiceLocationQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get detailed info for a CRM service location (account), including contact and equipment
+ */
+
+export function useGetWbServiceLocation<TData = Awaited<ReturnType<typeof getWbServiceLocation>>, TError = ErrorType<ErrorResponse>>(
+ locationId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbServiceLocation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWbServiceLocationQueryOptions(locationId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListWbWritebacksUrl = () => {
 

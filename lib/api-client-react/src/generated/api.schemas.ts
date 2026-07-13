@@ -154,6 +154,11 @@ export interface PlaceholderJob {
   city?: string | null;
   /** @nullable */
   state?: string | null;
+  /**
+     * CRM account ID of the linked service location (null when freeform)
+     * @nullable
+     */
+  service_location_id?: string | null;
   /** ISO 8601 timestamp */
   start_time: string;
   /** ISO 8601 timestamp */
@@ -173,6 +178,11 @@ export interface CreatePlaceholderJob {
   city?: string | null;
   /** @nullable */
   state?: string | null;
+  /**
+     * CRM account ID of the linked service location
+     * @nullable
+     */
+  service_location_id?: string | null;
   /** ISO 8601 timestamp */
   start_time: string;
   /** ISO 8601 timestamp */
@@ -191,6 +201,11 @@ export interface UpdatePlaceholderJob {
   city?: string | null;
   /** @nullable */
   state?: string | null;
+  /**
+     * CRM account ID of the linked service location (null to clear)
+     * @nullable
+     */
+  service_location_id?: string | null;
   /** ISO 8601 timestamp */
   start_time?: string;
   /** ISO 8601 timestamp */
@@ -198,6 +213,85 @@ export interface UpdatePlaceholderJob {
   /** @nullable */
   notes?: string | null;
   status?: PlaceholderJobStatus | null;
+}
+
+export interface WbServiceLocation {
+  /** CRM account ID */
+  id: string;
+  /** Account name */
+  name: string;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  address?: string | null;
+}
+
+export interface Contact {
+  contact_id: string;
+  /** @nullable */
+  fullname?: string | null;
+  /** @nullable */
+  firstname?: string | null;
+  /** @nullable */
+  lastname?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  businessphone?: string | null;
+  /** @nullable */
+  homephone?: string | null;
+  /** @nullable */
+  mobilephone?: string | null;
+  /** @nullable */
+  street1?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  country?: string | null;
+}
+
+export interface Equipment {
+  equipmentid: string;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  serialnumber?: string | null;
+  /** @nullable */
+  lastcalibrationdate?: string | null;
+  /** @nullable */
+  nextcalibrationdate?: string | null;
+  /** @nullable */
+  calinterval?: number | null;
+  /** @nullable */
+  machinecapacity?: string | null;
+  /** @nullable */
+  calibrationdate?: string | null;
+}
+
+export interface WbServiceLocationDetail {
+  /** CRM account ID */
+  id: string;
+  name: string;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  postal_code?: string | null;
+  /** @nullable */
+  country?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  contact?: Contact | null;
+  equipment: Equipment[];
 }
 
 export interface WbSaveResult {
@@ -320,32 +414,6 @@ export interface Customer {
   postal_code?: string | null;
 }
 
-export interface Contact {
-  contact_id: string;
-  /** @nullable */
-  fullname?: string | null;
-  /** @nullable */
-  firstname?: string | null;
-  /** @nullable */
-  lastname?: string | null;
-  /** @nullable */
-  email?: string | null;
-  /** @nullable */
-  businessphone?: string | null;
-  /** @nullable */
-  homephone?: string | null;
-  /** @nullable */
-  mobilephone?: string | null;
-  /** @nullable */
-  street1?: string | null;
-  /** @nullable */
-  city?: string | null;
-  /** @nullable */
-  state?: string | null;
-  /** @nullable */
-  country?: string | null;
-}
-
 export interface Booking {
   booking_id: string;
   /** @nullable */
@@ -400,24 +468,6 @@ export interface WorkOrderService {
   duration_minutes?: number | null;
   /** @nullable */
   line_status?: string | null;
-}
-
-export interface Equipment {
-  equipmentid: string;
-  /** @nullable */
-  name?: string | null;
-  /** @nullable */
-  serialnumber?: string | null;
-  /** @nullable */
-  lastcalibrationdate?: string | null;
-  /** @nullable */
-  nextcalibrationdate?: string | null;
-  /** @nullable */
-  calinterval?: number | null;
-  /** @nullable */
-  machinecapacity?: string | null;
-  /** @nullable */
-  calibrationdate?: string | null;
 }
 
 export interface WorkOrderDetail {
@@ -852,6 +902,19 @@ start_date?: string;
  * ISO date (YYYY-MM-DD) — exclusive upper bound on start_time
  */
 end_date?: string;
+};
+
+export type ListWbServiceLocationsParams = {
+/**
+ * Free-text filter on account name, city, or state (min 2 chars)
+ */
+search?: string;
+/**
+ * Max rows to return (default 20)
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
 };
 
 export type DeleteWbQueuedWritebacks200 = {

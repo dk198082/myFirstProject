@@ -27,6 +27,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ServiceLocationPicker } from "@/components/ServiceLocationPicker";
+
+interface ServiceLocationValue {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+}
 
 function toLocalInput(iso: string): string {
   const d = new Date(iso);
@@ -55,6 +63,11 @@ export function EditPlaceholderJobDialog({
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState(job.title);
+  const [serviceLocation, setServiceLocation] = useState<ServiceLocationValue | null>(
+    job.service_location_id && job.customer_name
+      ? { id: job.service_location_id, name: job.customer_name, city: job.city ?? null, state: job.state ?? null }
+      : null,
+  );
   const [customerName, setCustomerName] = useState(job.customer_name ?? "");
   const [city, setCity] = useState(job.city ?? "");
   const [state, setStateVal] = useState(job.state ?? "");
@@ -100,6 +113,15 @@ export function EditPlaceholderJobDialog({
     },
   });
 
+  const handleLocationChange = (loc: ServiceLocationValue | null) => {
+    setServiceLocation(loc);
+    if (loc) {
+      setCustomerName(loc.name);
+      setCity(loc.city ?? "");
+      setStateVal(loc.state ?? "");
+    }
+  };
+
   const submit = () => {
     if (!title.trim()) {
       toast({ title: "Title required", description: "Please enter a job title.", variant: "destructive" });
@@ -118,6 +140,7 @@ export function EditPlaceholderJobDialog({
         customer_name: customerName.trim() || null,
         city: city.trim() || null,
         state: state.trim() || null,
+        service_location_id: serviceLocation?.id ?? null,
         start_time: start,
         end_time: end,
         notes: notes.trim() || null,
@@ -147,6 +170,14 @@ export function EditPlaceholderJobDialog({
               onChange={(e) => setTitle(e.target.value)}
               className="w-full min-w-0"
               autoFocus
+            />
+          </div>
+
+          <div className="relative">
+            <ServiceLocationPicker
+              label="Service location"
+              value={serviceLocation}
+              onChange={handleLocationChange}
             />
           </div>
 

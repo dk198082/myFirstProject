@@ -9,6 +9,7 @@ import { LoginGate } from "@/components/LoginGate";
 import ScheduleBoard from "@/pages/ScheduleBoard";
 import Writebacks from "@/pages/Writebacks";
 import WorkOrderDetail from "@/pages/WorkOrderDetail";
+import ServiceLocationDetail from "@/pages/ServiceLocationDetail";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -112,6 +113,7 @@ function Router() {
         <Route path="/schedule-board" component={ScheduleBoard} />
         <Route path="/writebacks" component={Writebacks} />
         <Route path="/work-order/:id" component={WorkOrderDetail} />
+        <Route path="/service-location/:id" component={ServiceLocationDetail} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

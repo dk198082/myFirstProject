@@ -424,6 +424,73 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /wb/service-locations:
+    get:
+      operationId: listWbServiceLocations
+      tags: [writeback]
+      summary: Search CRM service locations (accounts) by name, city, or state
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Free-text filter on account name, city, or state (min 2 chars)
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Max rows to return (default 20)
+      responses:
+        "200":
+          description: List of matching service locations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WbServiceLocation"
+        "503":
+          description: CRM not configured or unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /wb/service-locations/{locationId}:
+    get:
+      operationId: getWbServiceLocation
+      tags: [writeback]
+      summary: Get detailed info for a CRM service location (account), including contact and equipment
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Service location detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WbServiceLocationDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: CRM not configured or unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /wb/writebacks:
     get:
       operationId: listWbWritebacks
@@ -1071,6 +1138,9 @@ components:
           type: ["string", "null"]
         state:
           type: ["string", "null"]
+        service_location_id:
+          type: ["string", "null"]
+          description: CRM account ID of the linked service location (null when freeform)
         start_time:
           type: string
           description: ISO 8601 timestamp
@@ -1100,6 +1170,9 @@ components:
           type: ["string", "null"]
         state:
           type: ["string", "null"]
+        service_location_id:
+          type: ["string", "null"]
+          description: CRM account ID of the linked service location
         start_time:
           type: string
           description: ISO 8601 timestamp
@@ -1126,6 +1199,9 @@ components:
           type: ["string", "null"]
         state:
           type: ["string", "null"]
+        service_location_id:
+          type: ["string", "null"]
+          description: CRM account ID of the linked service location (null to clear)
         start_time:
           type: string
           description: ISO 8601 timestamp
@@ -1138,6 +1214,55 @@ components:
           oneOf:
             - $ref: "#/components/schemas/PlaceholderJobStatus"
             - type: "null"
+
+    WbServiceLocation:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          description: CRM account ID
+        name:
+          type: string
+          description: Account name
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+
+    WbServiceLocationDetail:
+      type: object
+      required: [id, name, equipment]
+      properties:
+        id:
+          type: string
+          description: CRM account ID
+        name:
+          type: string
+        address:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        postal_code:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        contact:
+          oneOf:
+            - $ref: "#/components/schemas/Contact"
+            - type: "null"
+        equipment:
+          type: array
+          items:
+            $ref: "#/components/schemas/Equipment"
 
     WbSaveResult:
       type: object

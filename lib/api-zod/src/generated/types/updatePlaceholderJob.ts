@@ -16,6 +16,11 @@ export interface UpdatePlaceholderJob {
   city?: string | null;
   /** @nullable */
   state?: string | null;
+  /**
+     * CRM account ID of the linked service location (null to clear)
+     * @nullable
+     */
+  service_location_id?: string | null;
   /** ISO 8601 timestamp */
   start_time?: string;
   /** ISO 8601 timestamp */
