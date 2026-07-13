@@ -1217,17 +1217,17 @@ components:
 
     WbServiceLocation:
       type: object
-      required: [id, name]
+      required: [id]
       properties:
         id:
           type: string
-          description: CRM account ID (UUID)
-        account_number:
+          description: CRM cf_servicelocation UUID
+        service_loc_id:
           type: ["string", "null"]
-          description: Human-readable CRM account number (e.g. "12345")
+          description: Human-readable Service Location ID (e.g. "S304082-1")
         name:
-          type: string
-          description: Account name
+          type: ["string", "null"]
+          description: Location address name (cf_addressname)
         city:
           type: ["string", "null"]
         state:
@@ -1237,13 +1237,17 @@ components:
 
     WbServiceLocationDetail:
       type: object
-      required: [id, name, equipment]
+      required: [id, equipment]
       properties:
         id:
           type: string
-          description: CRM account ID
+          description: CRM cf_servicelocation UUID
+        service_loc_id:
+          type: ["string", "null"]
+          description: Human-readable Service Location ID (e.g. "S304082-1")
         name:
-          type: string
+          type: ["string", "null"]
+          description: Location address name (cf_addressname)
         address:
           type: ["string", "null"]
         city:
@@ -1257,6 +1261,8 @@ components:
         phone:
           type: ["string", "null"]
         email:
+          type: ["string", "null"]
+        special_instructions:
           type: ["string", "null"]
         contact:
           oneOf:

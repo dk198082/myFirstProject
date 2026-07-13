@@ -9,9 +9,18 @@ import type { Contact } from './contact';
 import type { Equipment } from './equipment';
 
 export interface WbServiceLocationDetail {
-  /** CRM account ID */
+  /** CRM cf_servicelocation UUID */
   id: string;
-  name: string;
+  /**
+     * Human-readable Service Location ID (e.g. "S304082-1")
+     * @nullable
+     */
+  service_loc_id?: string | null;
+  /**
+     * Location address name (cf_addressname)
+     * @nullable
+     */
+  name?: string | null;
   /** @nullable */
   address?: string | null;
   /** @nullable */
@@ -26,6 +35,8 @@ export interface WbServiceLocationDetail {
   phone?: string | null;
   /** @nullable */
   email?: string | null;
+  /** @nullable */
+  special_instructions?: string | null;
   contact?: Contact | null;
   equipment: Equipment[];
 }

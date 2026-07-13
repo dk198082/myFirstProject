@@ -33,8 +33,8 @@ type EntryType = "drive_time" | "pto" | "custom" | "potential_job";
 
 interface ServiceLocationValue {
   id: string;
-  account_number: string | null;
-  name: string;
+  service_loc_id: string | null;
+  name: string | null;
   city: string | null;
   state: string | null;
 }
@@ -132,7 +132,7 @@ export function AddBlockDialog({
   const handleLocationChange = (loc: ServiceLocationValue | null) => {
     setServiceLocation(loc);
     if (loc) {
-      setCustomerName(loc.name);
+      setCustomerName(loc.name ?? "");
       setCity(loc.city ?? "");
       setStateVal(loc.state ?? "");
     }

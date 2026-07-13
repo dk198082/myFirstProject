@@ -784,27 +784,27 @@ router.get("/wb/service-locations", async (req, res) => {
     let whereSearch = "";
     if (search.length >= 2) {
       params.push(`%${search}%`);
-      whereSearch = `AND (accountnumber ILIKE $${params.length} OR name ILIKE $${params.length} OR address1_city ILIKE $${params.length} OR address1_stateorprovince ILIKE $${params.length})`;
+      whereSearch = `AND (cf_servicelocid ILIKE $${params.length} OR cf_addressname ILIKE $${params.length} OR cf_city ILIKE $${params.length} OR cf_state ILIKE $${params.length})`;
     }
     params.push(limit);
     const r = await getCrmPool().query(
-      `SELECT accountid::text AS id,
-              accountnumber AS account_number,
-              name,
-              address1_city AS city,
-              address1_stateorprovince AS state,
-              address1_line1 AS address
-       FROM crm.account
+      `SELECT cf_servicelocationid::text AS id,
+              cf_servicelocid          AS service_loc_id,
+              cf_addressname           AS name,
+              cf_city                  AS city,
+              cf_state                 AS state,
+              cf_street1               AS address
+       FROM crm.cf_servicelocation
        WHERE COALESCE(is_deleted, false) = false ${whereSearch}
-       ORDER BY accountnumber ASC NULLS LAST, name ASC NULLS LAST
+       ORDER BY cf_servicelocid ASC NULLS LAST
        LIMIT $${params.length}`,
       params,
     );
     res.json(
       r.rows.map((row) => ({
         id: row.id,
-        account_number: row.account_number ?? null,
-        name: row.name,
+        service_loc_id: row.service_loc_id ?? null,
+        name: row.name ?? null,
         city: row.city ?? null,
         state: row.state ?? null,
         address: row.address ?? null,
@@ -823,39 +823,44 @@ router.get("/wb/service-locations/:locationId", async (req, res) => {
   }
 
   try {
-    const accountRes = await getCrmPool().query(
-      `SELECT accountid::text AS id,
-              name,
-              address1_line1 AS address,
-              address1_city AS city,
-              address1_stateorprovince AS state,
-              address1_postalcode AS postal_code,
-              address1_country AS country,
-              telephone1 AS phone,
-              emailaddress1 AS email
-       FROM crm.account
-       WHERE accountid = $1 AND COALESCE(is_deleted, false) = false
+    const slRes = await getCrmPool().query(
+      `SELECT sl.cf_servicelocationid::text AS id,
+              sl.cf_servicelocid           AS service_loc_id,
+              sl.cf_addressname            AS name,
+              sl.cf_street1                AS address,
+              sl.cf_city                   AS city,
+              sl.cf_state                  AS state,
+              sl.cf_zippostalcode          AS postal_code,
+              sl.cf_countryregion          AS country,
+              sl.cf_account::text          AS account_id,
+              sl.cf_servicecontact::text   AS service_contact_id,
+              sl.cf_specialinstructions    AS special_instructions
+       FROM crm.cf_servicelocation sl
+       WHERE sl.cf_servicelocationid = $1 AND COALESCE(sl.is_deleted, false) = false
        LIMIT 1`,
       [locationId],
     );
-    const account = accountRes.rows[0];
-    if (!account) {
+    const sl = slRes.rows[0];
+    if (!sl) {
       res.status(404).json({ error: "Service location not found" });
       return;
     }
 
     const [contactRes, equipmentRes] = await Promise.all([
-      getCrmPool().query(
-        `SELECT c.contactid::text AS contact_id, c.fullname, c.firstname, c.lastname,
-                c.emailaddress1 AS email, c.telephone1 AS businessphone,
-                c.mobilephone, NULL::text AS homephone, NULL::text AS street1,
-                NULL::text AS city, NULL::text AS state, NULL::text AS country
-         FROM crm.account a
-         JOIN crm.contact c ON c.contactid = a.primarycontactid
-         WHERE a.accountid = $1 AND COALESCE(c.is_deleted, false) = false
-         LIMIT 1`,
-        [locationId],
-      ),
+      // Primary contact: use cf_servicecontact on the service location record
+      sl.service_contact_id
+        ? getCrmPool().query(
+            `SELECT c.contactid::text AS contact_id, c.fullname, c.firstname, c.lastname,
+                    c.emailaddress1 AS email, c.telephone1 AS businessphone,
+                    c.mobilephone, NULL::text AS homephone, NULL::text AS street1,
+                    NULL::text AS city, NULL::text AS state, NULL::text AS country
+             FROM crm.contact c
+             WHERE c.contactid = $1 AND COALESCE(c.is_deleted, false) = false
+             LIMIT 1`,
+            [sl.service_contact_id],
+          )
+        : Promise.resolve({ rows: [] as Record<string, unknown>[] }),
+      // Equipment: work orders whose service location FK matches this service location
       getCrmPool().query(
         `SELECT DISTINCT ON (e.cf_name)
                 e.cf_workordercustomerequipmentid::text AS equipmentid,
@@ -868,7 +873,7 @@ router.get("/wb/service-locations/:locationId", async (req, res) => {
                 NULL::text AS machinecapacity
          FROM crm.cf_workordercustomerequipment e
          JOIN crm.workorder wo ON wo.msdyn_workorderid = e.workorderid
-         WHERE wo.msdyn_serviceaccount = $1
+         WHERE wo.cf_servicelocation = $1
            AND COALESCE(e.is_deleted, false) = false
            AND COALESCE(wo.is_deleted, false) = false
          ORDER BY e.cf_name ASC NULLS LAST, e.cf_nextcalibrationdate ASC NULLS LAST`,
@@ -887,15 +892,17 @@ router.get("/wb/service-locations/:locationId", async (req, res) => {
     }));
 
     res.json({
-      id: account.id,
-      name: account.name,
-      address: account.address ?? null,
-      city: account.city ?? null,
-      state: account.state ?? null,
-      postal_code: account.postal_code ?? null,
-      country: account.country ?? null,
-      phone: account.phone ?? null,
-      email: account.email ?? null,
+      id: sl.id,
+      service_loc_id: sl.service_loc_id ?? null,
+      name: sl.name ?? null,
+      address: sl.address ?? null,
+      city: sl.city ?? null,
+      state: sl.state ?? null,
+      postal_code: sl.postal_code ?? null,
+      country: sl.country ?? null,
+      phone: null,
+      email: null,
+      special_instructions: sl.special_instructions ?? null,
       contact: contactRes.rows[0] ?? null,
       equipment,
     });

@@ -7,15 +7,18 @@
  */
 
 export interface WbServiceLocation {
-  /** CRM account ID (UUID) */
+  /** CRM cf_servicelocation UUID */
   id: string;
   /**
-     * Human-readable CRM account number (e.g. "12345")
+     * Human-readable Service Location ID (e.g. "S304082-1")
      * @nullable
      */
-  account_number?: string | null;
-  /** Account name */
-  name: string;
+  service_loc_id?: string | null;
+  /**
+     * Location address name (cf_addressname)
+     * @nullable
+     */
+  name?: string | null;
   /** @nullable */
   city?: string | null;
   /** @nullable */

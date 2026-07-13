@@ -405,9 +405,9 @@ export const ListWbServiceLocationsQueryParams = zod.object({
 })
 
 export const ListWbServiceLocationsResponseItem = zod.object({
-  "id": zod.string().describe('CRM account ID (UUID)'),
-  "account_number": zod.string().nullish().describe('Human-readable CRM account number (e.g. \"12345\")'),
-  "name": zod.string().describe('Account name'),
+  "id": zod.string().describe('CRM cf_servicelocation UUID'),
+  "service_loc_id": zod.string().nullish().describe('Human-readable Service Location ID (e.g. \"S304082-1\")'),
+  "name": zod.string().nullish().describe('Location address name (cf_addressname)'),
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
   "address": zod.string().nullish()
@@ -423,8 +423,9 @@ export const GetWbServiceLocationParams = zod.object({
 })
 
 export const GetWbServiceLocationResponse = zod.object({
-  "id": zod.string().describe('CRM account ID'),
-  "name": zod.string(),
+  "id": zod.string().describe('CRM cf_servicelocation UUID'),
+  "service_loc_id": zod.string().nullish().describe('Human-readable Service Location ID (e.g. \"S304082-1\")'),
+  "name": zod.string().nullish().describe('Location address name (cf_addressname)'),
   "address": zod.string().nullish(),
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
@@ -432,6 +433,7 @@ export const GetWbServiceLocationResponse = zod.object({
   "country": zod.string().nullish(),
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
+  "special_instructions": zod.string().nullish(),
   "contact": zod.union([zod.object({
   "contact_id": zod.string(),
   "fullname": zod.string().nullish(),

@@ -2,12 +2,12 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useListWbServiceLocations, getListWbServiceLocationsQueryKey, type WbServiceLocation } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, X, MapPin, Search, Hash } from "lucide-react";
+import { Loader2, X, MapPin, Search } from "lucide-react";
 
 interface ServiceLocationValue {
   id: string;
-  account_number: string | null;
-  name: string;
+  service_loc_id: string | null;
+  name: string | null;
   city: string | null;
   state: string | null;
 }
@@ -27,8 +27,9 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced;
 }
 
-function displayLabel(loc: { account_number?: string | null; name: string }): string {
-  return loc.account_number ?? loc.name;
+/** Primary display label: service_loc_id if available, else name, else id */
+function displayLabel(loc: { service_loc_id?: string | null; name?: string | null; id: string }): string {
+  return loc.service_loc_id ?? loc.name ?? loc.id;
 }
 
 export function ServiceLocationPicker({ label = "Service location", value, onChange }: ServiceLocationPickerProps) {
@@ -59,15 +60,14 @@ export function ServiceLocationPicker({ label = "Service location", value, onCha
 
   const handleSelect = useCallback(
     (loc: WbServiceLocation) => {
-      const label = displayLabel(loc);
       onChange({
         id: loc.id,
-        account_number: loc.account_number ?? null,
-        name: loc.name,
+        service_loc_id: loc.service_loc_id ?? null,
+        name: loc.name ?? null,
         city: loc.city ?? null,
         state: loc.state ?? null,
       });
-      setInputValue(label);
+      setInputValue(displayLabel(loc));
       setOpen(false);
     },
     [onChange],
@@ -109,7 +109,7 @@ export function ServiceLocationPicker({ label = "Service location", value, onCha
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Search by ID, name, city, or state…"
+          placeholder="Search by location ID, name, city…"
           className="w-full min-w-0 pl-8 pr-8"
           autoComplete="off"
         />
@@ -130,7 +130,7 @@ export function ServiceLocationPicker({ label = "Service location", value, onCha
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground px-0.5">
           <MapPin className="h-3 w-3 shrink-0" />
           <span className="truncate">
-            {value.name}
+            {value.name ?? value.service_loc_id ?? ""}
             {[value.city, value.state].filter(Boolean).length > 0 &&
               ` · ${[value.city, value.state].filter(Boolean).join(", ")}`}
           </span>
@@ -163,20 +163,12 @@ export function ServiceLocationPicker({ label = "Service location", value, onCha
                 handleSelect(loc);
               }}
             >
-              <div className="flex items-center gap-1.5 font-medium truncate">
-                {loc.account_number && (
-                  <>
-                    <Hash className="h-3 w-3 shrink-0 text-muted-foreground" />
-                    <span>{loc.account_number}</span>
-                    <span className="text-muted-foreground font-normal">·</span>
-                  </>
-                )}
-                <span className={loc.account_number ? "text-muted-foreground font-normal truncate" : "truncate"}>
-                  {loc.name}
-                </span>
-              </div>
+              <div className="font-medium truncate">{loc.service_loc_id ?? loc.name ?? loc.id}</div>
+              {loc.name && loc.service_loc_id && (
+                <div className="text-xs text-muted-foreground truncate">{loc.name}</div>
+              )}
               {(loc.city || loc.state || loc.address) && (
-                <div className="text-xs text-muted-foreground truncate mt-0.5">
+                <div className="text-xs text-muted-foreground truncate">
                   {[loc.address, loc.city, loc.state].filter(Boolean).join(", ")}
                 </div>
               )}

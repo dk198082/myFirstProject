@@ -216,15 +216,18 @@ export interface UpdatePlaceholderJob {
 }
 
 export interface WbServiceLocation {
-  /** CRM account ID (UUID) */
+  /** CRM cf_servicelocation UUID */
   id: string;
   /**
-     * Human-readable CRM account number (e.g. "12345")
+     * Human-readable Service Location ID (e.g. "S304082-1")
      * @nullable
      */
-  account_number?: string | null;
-  /** Account name */
-  name: string;
+  service_loc_id?: string | null;
+  /**
+     * Location address name (cf_addressname)
+     * @nullable
+     */
+  name?: string | null;
   /** @nullable */
   city?: string | null;
   /** @nullable */
@@ -278,9 +281,18 @@ export interface Equipment {
 }
 
 export interface WbServiceLocationDetail {
-  /** CRM account ID */
+  /** CRM cf_servicelocation UUID */
   id: string;
-  name: string;
+  /**
+     * Human-readable Service Location ID (e.g. "S304082-1")
+     * @nullable
+     */
+  service_loc_id?: string | null;
+  /**
+     * Location address name (cf_addressname)
+     * @nullable
+     */
+  name?: string | null;
   /** @nullable */
   address?: string | null;
   /** @nullable */
@@ -295,6 +307,8 @@ export interface WbServiceLocationDetail {
   phone?: string | null;
   /** @nullable */
   email?: string | null;
+  /** @nullable */
+  special_instructions?: string | null;
   contact?: Contact | null;
   equipment: Equipment[];
 }
