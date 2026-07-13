@@ -37,16 +37,19 @@ export function ServiceLocationPicker({ label = "Service location", value, onCha
   const isSelectedByValue = value !== null && inputValue === value.name;
 
   const searchParams = { search: debouncedSearch, limit: 20 };
-  const { data: results = [], isFetching } = useListWbServiceLocations(
+  const { data: results = [], isFetching, error } = useListWbServiceLocations(
     searchParams,
     {
       query: {
         queryKey: getListWbServiceLocationsQueryKey(searchParams),
         enabled: open && debouncedSearch.length >= 2 && !isSelectedByValue,
         staleTime: 60_000,
+        retry: false,
       },
     },
   );
+
+  const crmUnavailable = error !== null && error !== undefined;
 
   const handleSelect = useCallback(
     (loc: WbServiceLocation) => {
@@ -120,7 +123,12 @@ export function ServiceLocationPicker({ label = "Service location", value, onCha
       )}
       {showDropdown && (
         <div className="absolute z-50 mt-1 w-full max-w-[calc(100%-2rem)] rounded-md border border-border bg-popover shadow-md overflow-hidden">
-          {results.length === 0 && !isFetching && (
+          {crmUnavailable && !isFetching && (
+            <div className="px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+              CRM unavailable — enter location manually
+            </div>
+          )}
+          {!crmUnavailable && results.length === 0 && !isFetching && (
             <div className="px-3 py-2 text-xs text-muted-foreground">No locations found</div>
           )}
           {results.map((loc) => (
