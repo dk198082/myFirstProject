@@ -821,12 +821,19 @@ function JobChip({
             {job.technician_name ?? "—"}
           </div>
           <div>
-            <span className="font-medium opacity-70">CRM Start:</span>{" "}
-            {job.crmstart_time ?? "—"} {fmtLocalTime(job.crmstart_time, job.crmstarttime)}
+            <span className="font-medium opacity-70">Date:</span>{" "}
+            {job.crmstart_time ? fmtBlockDay(job.crmstart_time) : "—"}
+            {job.crmend_time && job.crmend_time !== job.crmstart_time
+              ? ` → ${fmtBlockDay(job.crmend_time)}`
+              : ""}
           </div>
           <div>
-            <span className="font-medium opacity-70">CRM End:</span>{" "}
-            {job.crmend_time ?? "—"} {fmtLocalTime(job.crmend_time, job.crmendtime)}
+            <span className="font-medium opacity-70">Start:</span>{" "}
+            {fmtLocalTime(job.crmstart_time, job.crmstarttime) || "—"}
+          </div>
+          <div>
+            <span className="font-medium opacity-70">End:</span>{" "}
+            {fmtLocalTime(job.crmend_time, job.crmendtime) || "—"}
           </div>
           {(job.city || job.state) && (
             <div>
