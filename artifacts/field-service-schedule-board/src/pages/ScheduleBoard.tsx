@@ -16,6 +16,8 @@ import {
   getGetWbUnscheduledJobsQueryKey,
   getListWbScheduleBlocksQueryKey,
   getListWbPlaceholderJobsQueryKey,
+  useGetWbServiceLocation,
+  getGetWbServiceLocationQueryKey,
   type WbWorkOrder,
   type UnscheduledJob,
   type ScheduleBlock,
@@ -530,6 +532,20 @@ function PlaceholderJobChip({
   const canDrag = !!onDragStart && (!dayIso || dayIso === startDay);
   const showResizeHandle = !!onResizeStart && (!dayIso || dayIso === endDay);
 
+  // When a service location is linked, prefetch its detail (equipment, contact)
+  // so the rich tooltip is ready on hover. Cache is shared across all chips for
+  // the same location, so a repeated location only fetches once.
+  const { data: locDetail } = useGetWbServiceLocation(
+    job.service_location_id ?? "",
+    {
+      query: {
+        queryKey: getGetWbServiceLocationQueryKey(job.service_location_id ?? ""),
+        enabled: !!job.service_location_id,
+        staleTime: 5 * 60_000,
+      },
+    },
+  );
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -594,49 +610,63 @@ function PlaceholderJobChip({
           )}
         </div>
       </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs p-3 space-y-1.5 text-xs border border-red-300/60">
-        <div className="font-bold text-sm">{job.title}</div>
-        <div className="opacity-70 -mt-1">Potential Job</div>
-        <div className="border-t border-current/20 pt-1.5 space-y-1">
-          {job.customer_name && (
+
+      {job.service_location_id ? (
+        // Rich tooltip for CRM-linked placeholder jobs (matches JobChip structure)
+        <TooltipContent side="top" className="max-w-xs p-3 space-y-1.5 text-xs border border-red-300/60">
+          <div className="font-bold text-sm">{job.title}</div>
+          <div className="opacity-70 -mt-1">Potential Job</div>
+          <div className="border-t border-current/20 pt-1.5 space-y-1">
+            {job.customer_name && (
+              <div>
+                <span className="font-medium opacity-70">Customer:</span>{" "}
+                {job.customer_name}
+              </div>
+            )}
+            {location && (
+              <div>
+                <span className="font-medium opacity-70">Location:</span>{" "}
+                {location}
+              </div>
+            )}
+            {isMultiDay ? (
+              <div>
+                <span className="font-medium opacity-70">Dates:</span>{" "}
+                {fmtBlockDay(startDay)} → {fmtBlockDay(endDay)} ({dayCount} days)
+              </div>
+            ) : (
+              <div>
+                <span className="font-medium opacity-70">Date:</span>{" "}
+                {fmtBlockDay(startDay)}
+              </div>
+            )}
             <div>
-              <span className="font-medium opacity-70">Customer:</span>{" "}
-              {job.customer_name}
+              <span className="font-medium opacity-70">Time:</span>{" "}
+              {fmtBlockTime(job.start_time)} – {fmtBlockTime(job.end_time)}
+              {!isMultiDay && duration ? ` (${duration})` : ""}
             </div>
-          )}
-          {location && (
-            <div>
-              <span className="font-medium opacity-70">Location:</span>{" "}
-              {location}
-            </div>
-          )}
-          {isMultiDay ? (
-            <div>
-              <span className="font-medium opacity-70">Dates:</span>{" "}
-              {fmtBlockDay(startDay)} → {fmtBlockDay(endDay)} ({dayCount} days)
-            </div>
-          ) : (
-            <div>
-              <span className="font-medium opacity-70">Date:</span>{" "}
-              {fmtBlockDay(startDay)}
-            </div>
-          )}
-          <div>
-            <span className="font-medium opacity-70">Time:</span>{" "}
-            {fmtBlockTime(job.start_time)} – {fmtBlockTime(job.end_time)}
-            {!isMultiDay && duration ? ` (${duration})` : ""}
-          </div>
-          {job.status && (
-            <div className="pt-0.5">
-              <Badge variant="outline" className="text-[10px] border-current/40">
-                {job.status}
-              </Badge>
-            </div>
-          )}
-          {job.notes && (
-            <div className="opacity-80 border-t border-current/20 pt-1">{job.notes}</div>
-          )}
-          {job.service_location_id && (
+            {job.status && (
+              <div className="pt-0.5">
+                <Badge variant="outline" className="text-[10px] border-current/40">
+                  {job.status}
+                </Badge>
+              </div>
+            )}
+            {(locDetail?.equipment?.length ?? 0) > 0 && (
+              <div className="border-t border-current/20 pt-1.5">
+                <span className="font-medium opacity-70">Equipment:</span>
+                <ul className="mt-0.5 list-disc pl-4 space-y-0.5">
+                  {locDetail!.equipment.slice(0, 5).map((eq, i) => (
+                    <li key={`${eq.equipmentid}-${i}`} className="truncate">
+                      {eq.name ?? "—"}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {job.notes && (
+              <div className="opacity-80 border-t border-current/20 pt-1">{job.notes}</div>
+            )}
             <div className="pt-1">
               <Link
                 href={`/service-location/${job.service_location_id}`}
@@ -647,9 +677,36 @@ function PlaceholderJobChip({
                 View service location details
               </Link>
             </div>
-          )}
-        </div>
-      </TooltipContent>
+          </div>
+        </TooltipContent>
+      ) : (
+        // Simple freeform tooltip for unlinked placeholder jobs
+        <TooltipContent side="top" className="max-w-[260px]">
+          <div className="space-y-0.5">
+            <div className="font-semibold">{job.title}</div>
+            <div className="text-xs opacity-80">Potential Job</div>
+            {job.customer_name && <div className="text-xs">{job.customer_name}</div>}
+            {location && <div className="text-xs">{location}</div>}
+            {isMultiDay ? (
+              <div className="text-xs">
+                {fmtBlockDay(startDay)} → {fmtBlockDay(endDay)} ({dayCount} days)
+              </div>
+            ) : (
+              <div className="text-xs">{fmtBlockDay(startDay)}</div>
+            )}
+            <div className="text-xs">
+              {fmtBlockTime(job.start_time)} – {fmtBlockTime(job.end_time)}
+              {!isMultiDay && duration ? ` (${duration})` : ""}
+            </div>
+            {job.status && (
+              <div className="text-xs pt-0.5">
+                <Badge variant="outline" className="text-[10px]">{job.status}</Badge>
+              </div>
+            )}
+            {job.notes && <div className="text-xs opacity-80">{job.notes}</div>}
+          </div>
+        </TooltipContent>
+      )}
     </Tooltip>
   );
 }

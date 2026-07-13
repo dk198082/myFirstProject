@@ -844,12 +844,13 @@ router.get("/wb/service-locations/:locationId", async (req, res) => {
 
     const [contactRes, equipmentRes] = await Promise.all([
       getCrmPool().query(
-        `SELECT contactid::text AS contact_id, fullname, firstname, lastname,
-                emailaddress1 AS email, telephone1 AS businessphone,
-                mobilephone, NULL::text AS homephone, NULL::text AS street1,
+        `SELECT c.contactid::text AS contact_id, c.fullname, c.firstname, c.lastname,
+                c.emailaddress1 AS email, c.telephone1 AS businessphone,
+                c.mobilephone, NULL::text AS homephone, NULL::text AS street1,
                 NULL::text AS city, NULL::text AS state, NULL::text AS country
-         FROM crm.contact
-         WHERE parentcustomerid = $1 AND COALESCE(is_deleted, false) = false
+         FROM crm.account a
+         JOIN crm.contact c ON c.contactid = a.primarycontactid
+         WHERE a.accountid = $1 AND COALESCE(c.is_deleted, false) = false
          LIMIT 1`,
         [locationId],
       ),
