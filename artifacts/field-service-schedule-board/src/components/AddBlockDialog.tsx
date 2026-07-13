@@ -61,7 +61,7 @@ export function AddBlockDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [entryType, setEntryType] = useState<EntryType>("drive_time");
+  const [entryType, setEntryType] = useState<EntryType>("potential_job");
   const [customTitle, setCustomTitle] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [serviceLocation, setServiceLocation] = useState<ServiceLocationValue | null>(null);
@@ -186,17 +186,29 @@ export function AddBlockDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-sm overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-sm flex flex-col max-h-[90vh]">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Add</DialogTitle>
           <DialogDescription>{technicianName} · {date}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2 min-w-0 overflow-hidden">
+        <div className="space-y-4 py-2 min-w-0 overflow-y-auto flex-1 pr-1">
           {/* Entry type toggle */}
           <div className="space-y-1.5">
             <Label>Type</Label>
             <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setEntryType("potential_job")}
+                className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                  entryType === "potential_job"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-background text-muted-foreground border-border hover:bg-accent"
+                }`}
+              >
+                <User className="h-4 w-4" />
+                Potential Job
+              </button>
               <button
                 type="button"
                 onClick={() => setEntryType("drive_time")}
@@ -232,18 +244,6 @@ export function AddBlockDialog({
               >
                 <Pencil className="h-4 w-4" />
                 Custom
-              </button>
-              <button
-                type="button"
-                onClick={() => setEntryType("potential_job")}
-                className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-                  entryType === "potential_job"
-                    ? "bg-muted-foreground text-background border-muted-foreground"
-                    : "bg-background text-muted-foreground border-border hover:bg-accent"
-                }`}
-              >
-                <User className="h-4 w-4" />
-                Potential Job
               </button>
             </div>
           </div>
@@ -378,7 +378,7 @@ export function AddBlockDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 flex-row flex-wrap justify-end sm:space-x-0">
+        <DialogFooter className="gap-2 flex-row flex-wrap justify-end sm:space-x-0 shrink-0">
           <Button variant="ghost" onClick={onClose} disabled={isPending}>
             Cancel
           </Button>
