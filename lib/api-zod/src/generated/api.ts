@@ -405,7 +405,8 @@ export const ListWbServiceLocationsQueryParams = zod.object({
 })
 
 export const ListWbServiceLocationsResponseItem = zod.object({
-  "id": zod.string().describe('CRM account ID'),
+  "id": zod.string().describe('CRM account ID (UUID)'),
+  "account_number": zod.string().nullish().describe('Human-readable CRM account number (e.g. \"12345\")'),
   "name": zod.string().describe('Account name'),
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),

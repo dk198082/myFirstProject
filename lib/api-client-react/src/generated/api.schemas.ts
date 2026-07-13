@@ -216,8 +216,13 @@ export interface UpdatePlaceholderJob {
 }
 
 export interface WbServiceLocation {
-  /** CRM account ID */
+  /** CRM account ID (UUID) */
   id: string;
+  /**
+     * Human-readable CRM account number (e.g. "12345")
+     * @nullable
+     */
+  account_number?: string | null;
   /** Account name */
   name: string;
   /** @nullable */

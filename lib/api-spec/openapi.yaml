@@ -1221,7 +1221,10 @@ components:
       properties:
         id:
           type: string
-          description: CRM account ID
+          description: CRM account ID (UUID)
+        account_number:
+          type: ["string", "null"]
+          description: Human-readable CRM account number (e.g. "12345")
         name:
           type: string
           description: Account name

@@ -31,6 +31,7 @@ import { ServiceLocationPicker } from "@/components/ServiceLocationPicker";
 
 interface ServiceLocationValue {
   id: string;
+  account_number: string | null;
   name: string;
   city: string | null;
   state: string | null;
@@ -67,7 +68,7 @@ export function EditPlaceholderJobDialog({
     // Initialize from service_location_id alone; customer_name may be blank but
     // the ID must be preserved so saves don't accidentally unlink CRM jobs.
     job.service_location_id
-      ? { id: job.service_location_id, name: job.customer_name ?? "", city: job.city ?? null, state: job.state ?? null }
+      ? { id: job.service_location_id, account_number: null, name: job.customer_name ?? "", city: job.city ?? null, state: job.state ?? null }
       : null,
   );
   const [customerName, setCustomerName] = useState(job.customer_name ?? "");

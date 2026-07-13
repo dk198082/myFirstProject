@@ -2,10 +2,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useListWbServiceLocations, getListWbServiceLocationsQueryKey, type WbServiceLocation } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, X, MapPin, Search } from "lucide-react";
+import { Loader2, X, MapPin, Search, Hash } from "lucide-react";
 
 interface ServiceLocationValue {
   id: string;
+  account_number: string | null;
   name: string;
   city: string | null;
   state: string | null;
@@ -26,15 +27,20 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced;
 }
 
+function displayLabel(loc: { account_number?: string | null; name: string }): string {
+  return loc.account_number ?? loc.name;
+}
+
 export function ServiceLocationPicker({ label = "Service location", value, onChange }: ServiceLocationPickerProps) {
-  const [inputValue, setInputValue] = useState(value?.name ?? "");
+  const [inputValue, setInputValue] = useState(value ? displayLabel(value) : "");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const debouncedSearch = useDebounce(inputValue, 300);
 
-  const isSelectedByValue = value !== null && inputValue === value.name;
+  const selectedLabel = value ? displayLabel(value) : null;
+  const isSelectedByValue = value !== null && inputValue === selectedLabel;
 
   const searchParams = { search: debouncedSearch, limit: 20 };
   const { data: results = [], isFetching, error, refetch } = useListWbServiceLocations(
@@ -53,8 +59,15 @@ export function ServiceLocationPicker({ label = "Service location", value, onCha
 
   const handleSelect = useCallback(
     (loc: WbServiceLocation) => {
-      onChange({ id: loc.id, name: loc.name, city: loc.city ?? null, state: loc.state ?? null });
-      setInputValue(loc.name);
+      const label = displayLabel(loc);
+      onChange({
+        id: loc.id,
+        account_number: loc.account_number ?? null,
+        name: loc.name,
+        city: loc.city ?? null,
+        state: loc.state ?? null,
+      });
+      setInputValue(label);
       setOpen(false);
     },
     [onChange],
@@ -90,13 +103,13 @@ export function ServiceLocationPicker({ label = "Service location", value, onCha
           value={inputValue}
           onChange={(e) => {
             setInputValue(e.target.value);
-            if (value && e.target.value !== value.name) {
+            if (value && e.target.value !== selectedLabel) {
               onChange(null);
             }
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Search by name, city, or state…"
+          placeholder="Search by ID, name, city, or state…"
           className="w-full min-w-0 pl-8 pr-8"
           autoComplete="off"
         />
@@ -117,7 +130,9 @@ export function ServiceLocationPicker({ label = "Service location", value, onCha
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground px-0.5">
           <MapPin className="h-3 w-3 shrink-0" />
           <span className="truncate">
-            {[value.city, value.state].filter(Boolean).join(", ") || value.name}
+            {value.name}
+            {[value.city, value.state].filter(Boolean).length > 0 &&
+              ` · ${[value.city, value.state].filter(Boolean).join(", ")}`}
           </span>
         </div>
       )}
@@ -148,9 +163,20 @@ export function ServiceLocationPicker({ label = "Service location", value, onCha
                 handleSelect(loc);
               }}
             >
-              <div className="font-medium truncate">{loc.name}</div>
-              {(loc.city || loc.state) && (
-                <div className="text-xs text-muted-foreground truncate">
+              <div className="flex items-center gap-1.5 font-medium truncate">
+                {loc.account_number && (
+                  <>
+                    <Hash className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <span>{loc.account_number}</span>
+                    <span className="text-muted-foreground font-normal">·</span>
+                  </>
+                )}
+                <span className={loc.account_number ? "text-muted-foreground font-normal truncate" : "truncate"}>
+                  {loc.name}
+                </span>
+              </div>
+              {(loc.city || loc.state || loc.address) && (
+                <div className="text-xs text-muted-foreground truncate mt-0.5">
                   {[loc.address, loc.city, loc.state].filter(Boolean).join(", ")}
                 </div>
               )}

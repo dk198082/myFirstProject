@@ -784,24 +784,26 @@ router.get("/wb/service-locations", async (req, res) => {
     let whereSearch = "";
     if (search.length >= 2) {
       params.push(`%${search}%`);
-      whereSearch = `AND (name ILIKE $${params.length} OR address1_city ILIKE $${params.length} OR address1_stateorprovince ILIKE $${params.length})`;
+      whereSearch = `AND (accountnumber ILIKE $${params.length} OR name ILIKE $${params.length} OR address1_city ILIKE $${params.length} OR address1_stateorprovince ILIKE $${params.length})`;
     }
     params.push(limit);
     const r = await getCrmPool().query(
       `SELECT accountid::text AS id,
+              accountnumber AS account_number,
               name,
               address1_city AS city,
               address1_stateorprovince AS state,
               address1_line1 AS address
        FROM crm.account
        WHERE COALESCE(is_deleted, false) = false ${whereSearch}
-       ORDER BY name ASC NULLS LAST
+       ORDER BY accountnumber ASC NULLS LAST, name ASC NULLS LAST
        LIMIT $${params.length}`,
       params,
     );
     res.json(
       r.rows.map((row) => ({
         id: row.id,
+        account_number: row.account_number ?? null,
         name: row.name,
         city: row.city ?? null,
         state: row.state ?? null,

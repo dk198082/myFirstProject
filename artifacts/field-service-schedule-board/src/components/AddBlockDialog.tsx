@@ -33,6 +33,7 @@ type EntryType = "drive_time" | "pto" | "custom" | "potential_job";
 
 interface ServiceLocationValue {
   id: string;
+  account_number: string | null;
   name: string;
   city: string | null;
   state: string | null;
