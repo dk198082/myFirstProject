@@ -496,6 +496,7 @@ function BlockChip({
 function PlaceholderJobChip({
   job,
   dayIso,
+  technicianId,
   onEdit,
   onDelete,
   onDragStart,
@@ -506,6 +507,7 @@ function PlaceholderJobChip({
   job: PlaceholderJob;
   /** The day cell this chip instance is rendered in (YYYY-MM-DD). */
   dayIso?: string;
+  technicianId?: string | null;
   onEdit: () => void;
   onDelete: () => void;
   onDragStart?: () => void;
@@ -513,6 +515,7 @@ function PlaceholderJobChip({
   onDragEnd?: () => void;
   isDragging?: boolean;
 }) {
+  const colorCls = techColor(technicianId).chip;
   const duration = fmtBlockDuration(job.start_time, job.end_time);
   const location = [job.city, job.state].filter(Boolean).join(", ");
 
@@ -567,9 +570,14 @@ function PlaceholderJobChip({
             }
           }}
           onDragEnd={() => onDragEnd?.()}
-          className={`relative w-full rounded border border-dashed border-red-300/70 bg-red-50/60 text-red-800/80 text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:bg-red-50 transition-colors ${isDragging ? "opacity-40" : ""}`}
+          className={`relative w-full rounded border border-dashed text-[11px] px-1.5 py-1 leading-tight cursor-pointer transition-colors overflow-hidden ${colorCls} ${isDragging ? "opacity-40" : ""}`}
         >
-          <div className="flex items-center gap-1">
+          {/* Diagonal stripe overlay — marks this as a potential job */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ backgroundImage: "repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 5px)" }}
+          />
+          <div className="relative flex items-center gap-1">
             <User className="h-3 w-3 shrink-0" />
             <span className="font-semibold truncate">{job.title}</span>
             <button
@@ -584,9 +592,9 @@ function PlaceholderJobChip({
               <X className="h-3 w-3" />
             </button>
           </div>
-          {job.customer_name && <div className="opacity-80 truncate">{job.customer_name}</div>}
-          {location && <div className="opacity-60 truncate">{location}</div>}
-          <div className="opacity-60 truncate">{isMultiDay ? `${dayCount} days` : duration}</div>
+          {job.customer_name && <div className="relative opacity-80 truncate">{job.customer_name}</div>}
+          {location && <div className="relative opacity-60 truncate">{location}</div>}
+          <div className="relative opacity-60 truncate">{isMultiDay ? `${dayCount} days` : duration}</div>
           {showResizeHandle && (
             <div
               draggable
@@ -2679,6 +2687,7 @@ export default function ScheduleBoard() {
                                   <PlaceholderJobChip
                                     job={phj}
                                     dayIso={dh.iso}
+                                    technicianId={tech.technician_id}
                                     onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
                                     onDragStart={() => startPlaceholderDrag(phj, "move")}
@@ -3020,6 +3029,7 @@ export default function ScheduleBoard() {
                                   <PlaceholderJobChip
                                     job={phj}
                                     dayIso={dayHeaders[i].iso}
+                                    technicianId={tech.technician_id}
                                     onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
                                     onDragStart={() => startPlaceholderDrag(phj, "move")}
