@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -51,6 +58,7 @@ export function EditPlaceholderJobDialog({
   const [customerName, setCustomerName] = useState(job.customer_name ?? "");
   const [city, setCity] = useState(job.city ?? "");
   const [state, setStateVal] = useState(job.state ?? "");
+  const [jobStatus, setJobStatus] = useState(job.status ?? "");
   const [startTime, setStartTime] = useState(toLocalInput(job.start_time));
   const [endTime, setEndTime] = useState(toLocalInput(job.end_time));
   const [notes, setNotes] = useState(job.notes ?? "");
@@ -113,6 +121,7 @@ export function EditPlaceholderJobDialog({
         start_time: start,
         end_time: end,
         notes: notes.trim() || null,
+        status: (jobStatus || null) as Parameters<typeof updateMutation.mutate>[0]["data"]["status"],
       },
     });
   };
@@ -170,6 +179,23 @@ export function EditPlaceholderJobDialog({
                 className="w-full min-w-0"
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5 min-w-0">
+            <Label htmlFor="ph-edit-status">Status <span className="text-muted-foreground">(optional)</span></Label>
+            <Select value={jobStatus} onValueChange={setJobStatus}>
+              <SelectTrigger id="ph-edit-status" className="w-full">
+                <SelectValue placeholder="Select a status…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Reminder Letter Sent">Reminder Letter Sent</SelectItem>
+                <SelectItem value="Quoted – No Purchase Order">Quoted – No Purchase Order</SelectItem>
+                <SelectItem value="Have Purchase Order">Have Purchase Order</SelectItem>
+                <SelectItem value="Have Credit Card">Have Credit Card</SelectItem>
+                <SelectItem value="Cash in Advance">Cash in Advance</SelectItem>
+                <SelectItem value="Credit Hold">Credit Hold</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5 min-w-0">

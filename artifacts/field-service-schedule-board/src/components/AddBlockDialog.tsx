@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -51,6 +58,7 @@ export function AddBlockDialog({
   const [customerName, setCustomerName] = useState("");
   const [city, setCity] = useState("");
   const [state, setStateVal] = useState("");
+  const [jobStatus, setJobStatus] = useState("");
   const [startTime, setStartTime] = useState(`${date}T09:00`);
   const [endTime, setEndTime] = useState(entryType === "potential_job" ? `${date}T11:00` : `${date}T17:00`);
   const [notes, setNotes] = useState("");
@@ -138,6 +146,7 @@ export function AddBlockDialog({
           start_time: start,
           end_time: end,
           notes: notes.trim() || null,
+          status: (jobStatus || null) as Parameters<typeof createPlaceholderMutation.mutate>[0]["data"]["status"],
         },
       });
       return;
@@ -285,6 +294,23 @@ export function AddBlockDialog({
                     className="w-full min-w-0"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1.5 min-w-0">
+                <Label htmlFor="ph-status">Status <span className="text-muted-foreground">(optional)</span></Label>
+                <Select value={jobStatus} onValueChange={setJobStatus}>
+                  <SelectTrigger id="ph-status" className="w-full">
+                    <SelectValue placeholder="Select a status…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Reminder Letter Sent">Reminder Letter Sent</SelectItem>
+                    <SelectItem value="Quoted – No Purchase Order">Quoted – No Purchase Order</SelectItem>
+                    <SelectItem value="Have Purchase Order">Have Purchase Order</SelectItem>
+                    <SelectItem value="Have Credit Card">Have Credit Card</SelectItem>
+                    <SelectItem value="Cash in Advance">Cash in Advance</SelectItem>
+                    <SelectItem value="Credit Hold">Credit Hold</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </>
           )}
