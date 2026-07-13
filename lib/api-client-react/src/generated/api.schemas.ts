@@ -132,6 +132,18 @@ export interface UpdateScheduleBlock {
   notes?: string | null;
 }
 
+export type PlaceholderJobStatus = typeof PlaceholderJobStatus[keyof typeof PlaceholderJobStatus];
+
+
+export const PlaceholderJobStatus = {
+  Reminder_Letter_Sent: 'Reminder Letter Sent',
+  'Quoted_–_No_Purchase_Order': 'Quoted – No Purchase Order',
+  Have_Purchase_Order: 'Have Purchase Order',
+  Have_Credit_Card: 'Have Credit Card',
+  Cash_in_Advance: 'Cash in Advance',
+  Credit_Hold: 'Credit Hold',
+} as const;
+
 export interface PlaceholderJob {
   id: number;
   technician_id: string;
@@ -148,6 +160,7 @@ export interface PlaceholderJob {
   end_time: string;
   /** @nullable */
   notes?: string | null;
+  status?: PlaceholderJobStatus | null;
   created_at: string;
 }
 
@@ -166,6 +179,7 @@ export interface CreatePlaceholderJob {
   end_time: string;
   /** @nullable */
   notes?: string | null;
+  status?: PlaceholderJobStatus | null;
 }
 
 export interface UpdatePlaceholderJob {
@@ -183,6 +197,7 @@ export interface UpdatePlaceholderJob {
   end_time?: string;
   /** @nullable */
   notes?: string | null;
+  status?: PlaceholderJobStatus | null;
 }
 
 export interface WbSaveResult {

@@ -5,6 +5,7 @@
  * Technician Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+import type { PlaceholderJobStatus } from './placeholderJobStatus';
 
 export interface PlaceholderJob {
   id: number;
@@ -22,5 +23,6 @@ export interface PlaceholderJob {
   end_time: string;
   /** @nullable */
   notes?: string | null;
+  status?: PlaceholderJobStatus | null;
   created_at: string;
 }

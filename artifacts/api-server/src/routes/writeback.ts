@@ -768,6 +768,15 @@ router.delete("/wb/schedule-blocks/:id", async (req, res) => {
 
 // ── Placeholder jobs (speculative / unconfirmed work, not yet in CRM) ─────────
 
+const PLACEHOLDER_JOB_STATUSES = [
+  "Reminder Letter Sent",
+  "Quoted \u2013 No Purchase Order",
+  "Have Purchase Order",
+  "Have Credit Card",
+  "Cash in Advance",
+  "Credit Hold",
+] as const;
+
 const createPlaceholderJobSchema = z.object({
   technician_id: z.string().min(1),
   title: z.string().min(1),
@@ -777,6 +786,7 @@ const createPlaceholderJobSchema = z.object({
   start_time: z.string().min(1),
   end_time: z.string().min(1),
   notes: z.string().nullable().optional(),
+  status: z.enum(PLACEHOLDER_JOB_STATUSES).nullable().optional(),
 });
 
 router.get("/wb/placeholder-jobs", async (req, res) => {
@@ -797,7 +807,7 @@ router.get("/wb/placeholder-jobs", async (req, res) => {
     }
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const r = await localPool.query(
-      `SELECT id, technician_id, title, customer_name, city, state, start_time, end_time, notes, created_at
+      `SELECT id, technician_id, title, customer_name, city, state, start_time, end_time, notes, status, created_at
        FROM placeholder_jobs ${where} ORDER BY start_time`,
       params,
     );
@@ -812,6 +822,7 @@ router.get("/wb/placeholder-jobs", async (req, res) => {
         start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
         end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
         notes: row.notes ?? null,
+        status: row.status ?? null,
         created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
       })),
     );
@@ -826,13 +837,13 @@ router.post("/wb/placeholder-jobs", async (req, res) => {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
     return;
   }
-  const { technician_id, title, customer_name, city, state, start_time, end_time, notes } = parsed.data;
+  const { technician_id, title, customer_name, city, state, start_time, end_time, notes, status } = parsed.data;
   try {
     const r = await localPool.query(
-      `INSERT INTO placeholder_jobs (technician_id, title, customer_name, city, state, start_time, end_time, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, technician_id, title, customer_name, city, state, start_time, end_time, notes, created_at`,
-      [technician_id, title, customer_name ?? null, city ?? null, state ?? null, start_time, end_time, notes ?? null],
+      `INSERT INTO placeholder_jobs (technician_id, title, customer_name, city, state, start_time, end_time, notes, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, technician_id, title, customer_name, city, state, start_time, end_time, notes, status, created_at`,
+      [technician_id, title, customer_name ?? null, city ?? null, state ?? null, start_time, end_time, notes ?? null, status ?? null],
     );
     const row = r.rows[0];
     res.status(201).json({
@@ -845,6 +856,7 @@ router.post("/wb/placeholder-jobs", async (req, res) => {
       start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
       end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
       notes: row.notes ?? null,
+      status: row.status ?? null,
       created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
     });
   } catch (err) {
@@ -862,6 +874,7 @@ const updatePlaceholderJobSchema = z
     start_time: z.string().min(1).optional(),
     end_time: z.string().min(1).optional(),
     notes: z.string().nullable().optional(),
+    status: z.enum(PLACEHOLDER_JOB_STATUSES).nullable().optional(),
   })
   .refine((v) => Object.values(v).some((x) => x !== undefined), {
     message: "No fields to update",
@@ -878,7 +891,7 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
     return;
   }
-  const { technician_id, title, customer_name, city, state, start_time, end_time, notes } = parsed.data;
+  const { technician_id, title, customer_name, city, state, start_time, end_time, notes, status } = parsed.data;
   try {
     const sets: string[] = [];
     const vals: unknown[] = [];
@@ -890,13 +903,14 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
     if (start_time !== undefined) { sets.push(`start_time = $${vals.push(start_time)}`); }
     if (end_time !== undefined) { sets.push(`end_time = $${vals.push(end_time)}`); }
     if (notes !== undefined) { sets.push(`notes = $${vals.push(notes)}`); }
+    if (status !== undefined) { sets.push(`status = $${vals.push(status)}`); }
     if (sets.length === 0) {
       res.status(400).json({ error: "No fields to update" });
       return;
     }
     vals.push(id);
     const r = await localPool.query(
-      `UPDATE placeholder_jobs SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, title, customer_name, city, state, start_time, end_time, notes, created_at`,
+      `UPDATE placeholder_jobs SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, title, customer_name, city, state, start_time, end_time, notes, status, created_at`,
       vals,
     );
     if (r.rows.length === 0) {
@@ -914,6 +928,7 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
       start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
       end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
       notes: row.notes ?? null,
+      status: row.status ?? null,
       created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
     });
   } catch (err) {

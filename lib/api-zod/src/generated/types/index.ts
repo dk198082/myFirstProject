@@ -41,6 +41,7 @@ export * from './listWbPlaceholderJobsParams';
 export * from './listWbScheduleBlocksParams';
 export * from './listWbWorkOrdersParams';
 export * from './placeholderJob';
+export * from './placeholderJobStatus';
 export * from './regionGroup';
 export * from './regionJob';
 export * from './regionJobGroup';

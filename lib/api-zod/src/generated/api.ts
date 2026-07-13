@@ -324,6 +324,7 @@ export const ListWbPlaceholderJobsResponseItem = zod.object({
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
+  "status": zod.union([zod.enum(['Reminder Letter Sent', 'Quoted – No Purchase Order', 'Have Purchase Order', 'Have Credit Card', 'Cash in Advance', 'Credit Hold']),zod.null()]).optional(),
   "created_at": zod.string()
 })
 export const ListWbPlaceholderJobsResponse = zod.array(ListWbPlaceholderJobsResponseItem)
@@ -340,7 +341,8 @@ export const CreateWbPlaceholderJobBody = zod.object({
   "state": zod.string().nullish(),
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "status": zod.union([zod.enum(['Reminder Letter Sent', 'Quoted – No Purchase Order', 'Have Purchase Order', 'Have Credit Card', 'Cash in Advance', 'Credit Hold']),zod.null()]).optional()
 })
 
 
@@ -359,7 +361,8 @@ export const UpdateWbPlaceholderJobBody = zod.object({
   "state": zod.string().nullish(),
   "start_time": zod.string().optional().describe('ISO 8601 timestamp'),
   "end_time": zod.string().optional().describe('ISO 8601 timestamp'),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "status": zod.union([zod.enum(['Reminder Letter Sent', 'Quoted – No Purchase Order', 'Have Purchase Order', 'Have Credit Card', 'Cash in Advance', 'Credit Hold']),zod.null()]).optional()
 })
 
 export const UpdateWbPlaceholderJobResponse = zod.object({
@@ -372,6 +375,7 @@ export const UpdateWbPlaceholderJobResponse = zod.object({
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
+  "status": zod.union([zod.enum(['Reminder Letter Sent', 'Quoted – No Purchase Order', 'Have Purchase Order', 'Have Credit Card', 'Cash in Advance', 'Credit Hold']),zod.null()]).optional(),
   "created_at": zod.string()
 })
 

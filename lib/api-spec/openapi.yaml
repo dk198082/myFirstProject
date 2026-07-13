@@ -1045,6 +1045,16 @@ components:
         notes:
           type: ["string", "null"]
 
+    PlaceholderJobStatus:
+      type: string
+      enum:
+        - "Reminder Letter Sent"
+        - "Quoted \u2013 No Purchase Order"
+        - "Have Purchase Order"
+        - "Have Credit Card"
+        - "Cash in Advance"
+        - "Credit Hold"
+
     PlaceholderJob:
       type: object
       required: [id, technician_id, title, start_time, end_time, created_at]
@@ -1069,6 +1079,10 @@ components:
           description: ISO 8601 timestamp
         notes:
           type: ["string", "null"]
+        status:
+          oneOf:
+            - $ref: "#/components/schemas/PlaceholderJobStatus"
+            - type: "null"
         created_at:
           type: string
 
@@ -1094,6 +1108,10 @@ components:
           description: ISO 8601 timestamp
         notes:
           type: ["string", "null"]
+        status:
+          oneOf:
+            - $ref: "#/components/schemas/PlaceholderJobStatus"
+            - type: "null"
 
     UpdatePlaceholderJob:
       type: object
@@ -1116,6 +1134,10 @@ components:
           description: ISO 8601 timestamp
         notes:
           type: ["string", "null"]
+        status:
+          oneOf:
+            - $ref: "#/components/schemas/PlaceholderJobStatus"
+            - type: "null"
 
     WbSaveResult:
       type: object
