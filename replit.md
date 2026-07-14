@@ -64,6 +64,7 @@ Notes: the store was consolidated from a stray singular `session` table to `sess
 (plural); `jsonb` is compatible with `connect-pg-simple`. Production DB is read-only to the
 agent and may be frozen when the app isn't actively deployed — the user runs the SQL above.
 
+<<<<<<< HEAD
 ### `placeholder_jobs.service_location_id` must be provisioned in production
 
 The `service_location_id` column was added to the dev `placeholder_jobs` table via psql
@@ -80,6 +81,8 @@ ALTER TABLE placeholder_jobs ADD COLUMN IF NOT EXISTS service_location_id text;
 Note: `status` is also present in dev (via psql) and missing from the Drizzle schema
 declaration — it has the same gap with production. Tracked separately.
 
+=======
+>>>>>>> tocrmfsLive
 ### Drizzle schema is not the source of truth for most tables — never `push`/`push-force`
 
 Almost every table in this project (`booking_writebacks`, `sessions`, the CRM tables,

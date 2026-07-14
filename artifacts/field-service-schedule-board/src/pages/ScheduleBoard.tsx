@@ -16,8 +16,11 @@ import {
   getGetWbUnscheduledJobsQueryKey,
   getListWbScheduleBlocksQueryKey,
   getListWbPlaceholderJobsQueryKey,
+<<<<<<< HEAD
   useGetWbServiceLocation,
   getGetWbServiceLocationQueryKey,
+=======
+>>>>>>> tocrmfsLive
   type WbWorkOrder,
   type UnscheduledJob,
   type ScheduleBlock,
@@ -496,7 +499,10 @@ function BlockChip({
 function PlaceholderJobChip({
   job,
   dayIso,
+<<<<<<< HEAD
   technicianId,
+=======
+>>>>>>> tocrmfsLive
   onEdit,
   onDelete,
   onDragStart,
@@ -507,7 +513,10 @@ function PlaceholderJobChip({
   job: PlaceholderJob;
   /** The day cell this chip instance is rendered in (YYYY-MM-DD). */
   dayIso?: string;
+<<<<<<< HEAD
   technicianId?: string | null;
+=======
+>>>>>>> tocrmfsLive
   onEdit: () => void;
   onDelete: () => void;
   onDragStart?: () => void;
@@ -515,7 +524,10 @@ function PlaceholderJobChip({
   onDragEnd?: () => void;
   isDragging?: boolean;
 }) {
+<<<<<<< HEAD
   const colorCls = techColor(technicianId).chip;
+=======
+>>>>>>> tocrmfsLive
   const duration = fmtBlockDuration(job.start_time, job.end_time);
   const location = [job.city, job.state].filter(Boolean).join(", ");
 
@@ -535,6 +547,7 @@ function PlaceholderJobChip({
   const canDrag = !!onDragStart && (!dayIso || dayIso === startDay);
   const showResizeHandle = !!onResizeStart && (!dayIso || dayIso === endDay);
 
+<<<<<<< HEAD
   // When a service location is linked, prefetch its detail (equipment, contact)
   // so the rich tooltip is ready on hover. Cache is shared across all chips for
   // the same location, so a repeated location only fetches once.
@@ -549,6 +562,8 @@ function PlaceholderJobChip({
     },
   );
 
+=======
+>>>>>>> tocrmfsLive
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -570,6 +585,7 @@ function PlaceholderJobChip({
             }
           }}
           onDragEnd={() => onDragEnd?.()}
+<<<<<<< HEAD
           className={`relative w-full rounded border border-dashed text-[11px] px-1.5 py-1 leading-tight cursor-pointer transition-colors overflow-hidden ${colorCls} ${isDragging ? "opacity-40" : ""}`}
         >
           {/* Diagonal stripe overlay — marks this as a potential job */}
@@ -578,6 +594,11 @@ function PlaceholderJobChip({
             style={{ backgroundImage: "repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 5px)" }}
           />
           <div className="relative flex items-center gap-1">
+=======
+          className={`relative w-full rounded border border-dashed border-red-300/70 bg-red-50/60 text-red-800/80 text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:bg-red-50 transition-colors ${isDragging ? "opacity-40" : ""}`}
+        >
+          <div className="flex items-center gap-1">
+>>>>>>> tocrmfsLive
             <User className="h-3 w-3 shrink-0" />
             <span className="font-semibold truncate">{job.title}</span>
             <button
@@ -592,9 +613,15 @@ function PlaceholderJobChip({
               <X className="h-3 w-3" />
             </button>
           </div>
+<<<<<<< HEAD
           {job.customer_name && <div className="relative opacity-80 truncate">{job.customer_name}</div>}
           {location && <div className="relative opacity-60 truncate">{location}</div>}
           <div className="relative opacity-60 truncate">{isMultiDay ? `${dayCount} days` : duration}</div>
+=======
+          {job.customer_name && <div className="opacity-80 truncate">{job.customer_name}</div>}
+          {location && <div className="opacity-60 truncate">{location}</div>}
+          <div className="opacity-60 truncate">{isMultiDay ? `${dayCount} days` : duration}</div>
+>>>>>>> tocrmfsLive
           {showResizeHandle && (
             <div
               draggable
@@ -618,6 +645,7 @@ function PlaceholderJobChip({
           )}
         </div>
       </TooltipTrigger>
+<<<<<<< HEAD
 
       {job.service_location_id ? (
         // Rich tooltip for CRM-linked placeholder jobs (matches JobChip structure).
@@ -717,6 +745,28 @@ function PlaceholderJobChip({
           </div>
         </TooltipContent>
       )}
+=======
+      <TooltipContent side="top" className="max-w-[260px]">
+        <div className="space-y-0.5">
+          <div className="font-semibold">{job.title}</div>
+          <div className="text-xs opacity-80">Potential Job</div>
+          {job.customer_name && <div className="text-xs">{job.customer_name}</div>}
+          {location && <div className="text-xs">{location}</div>}
+          {isMultiDay ? (
+            <div className="text-xs">
+              {fmtBlockDay(startDay)} → {fmtBlockDay(endDay)} ({dayCount} days)
+            </div>
+          ) : (
+            <div className="text-xs">{fmtBlockDay(startDay)}</div>
+          )}
+          <div className="text-xs">
+            {fmtBlockTime(job.start_time)} – {fmtBlockTime(job.end_time)}
+            {!isMultiDay && duration ? ` (${duration})` : ""}
+          </div>
+          {job.notes && <div className="text-xs opacity-80">{job.notes}</div>}
+        </div>
+      </TooltipContent>
+>>>>>>> tocrmfsLive
     </Tooltip>
   );
 }
@@ -2687,7 +2737,10 @@ export default function ScheduleBoard() {
                                   <PlaceholderJobChip
                                     job={phj}
                                     dayIso={dh.iso}
+<<<<<<< HEAD
                                     technicianId={tech.technician_id}
+=======
+>>>>>>> tocrmfsLive
                                     onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
                                     onDragStart={() => startPlaceholderDrag(phj, "move")}
@@ -3029,7 +3082,10 @@ export default function ScheduleBoard() {
                                   <PlaceholderJobChip
                                     job={phj}
                                     dayIso={dayHeaders[i].iso}
+<<<<<<< HEAD
                                     technicianId={tech.technician_id}
+=======
+>>>>>>> tocrmfsLive
                                     onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
                                     onDragStart={() => startPlaceholderDrag(phj, "move")}

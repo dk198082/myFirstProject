@@ -978,6 +978,151 @@ export const useCreateWbPlaceholderJob = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getCreateWbPlaceholderJobMutationOptions(options));
+<<<<<<< HEAD
+=======
+    }
+
+export const getUpdateWbPlaceholderJobUrl = (id: number,) => {
+
+
+
+
+  return `/api/wb/placeholder-jobs/${id}`
+}
+
+/**
+ * @summary Update a placeholder job
+ */
+export const updateWbPlaceholderJob = async (id: number,
+    updatePlaceholderJob: UpdatePlaceholderJob, options?: RequestInit): Promise<PlaceholderJob> => {
+
+  return customFetch<PlaceholderJob>(getUpdateWbPlaceholderJobUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updatePlaceholderJob,)
+  }
+);}
+
+
+
+
+export const getUpdateWbPlaceholderJobMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWbPlaceholderJob>>, TError,{id: number;data: BodyType<UpdatePlaceholderJob>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateWbPlaceholderJob>>, TError,{id: number;data: BodyType<UpdatePlaceholderJob>}, TContext> => {
+
+const mutationKey = ['updateWbPlaceholderJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateWbPlaceholderJob>>, {id: number;data: BodyType<UpdatePlaceholderJob>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateWbPlaceholderJob(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateWbPlaceholderJobMutationResult = NonNullable<Awaited<ReturnType<typeof updateWbPlaceholderJob>>>
+    export type UpdateWbPlaceholderJobMutationBody = BodyType<UpdatePlaceholderJob>
+    export type UpdateWbPlaceholderJobMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Update a placeholder job
+ */
+export const useUpdateWbPlaceholderJob = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateWbPlaceholderJob>>, TError,{id: number;data: BodyType<UpdatePlaceholderJob>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateWbPlaceholderJob>>,
+        TError,
+        {id: number;data: BodyType<UpdatePlaceholderJob>},
+        TContext
+      > => {
+      return useMutation(getUpdateWbPlaceholderJobMutationOptions(options));
+    }
+
+export const getDeleteWbPlaceholderJobUrl = (id: number,) => {
+
+
+
+
+  return `/api/wb/placeholder-jobs/${id}`
+}
+
+/**
+ * @summary Delete a placeholder job
+ */
+export const deleteWbPlaceholderJob = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteWbPlaceholderJobUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteWbPlaceholderJobMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWbPlaceholderJob>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteWbPlaceholderJob>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteWbPlaceholderJob'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWbPlaceholderJob>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteWbPlaceholderJob(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteWbPlaceholderJobMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWbPlaceholderJob>>>
+
+    export type DeleteWbPlaceholderJobMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Delete a placeholder job
+ */
+export const useDeleteWbPlaceholderJob = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWbPlaceholderJob>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteWbPlaceholderJob>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteWbPlaceholderJobMutationOptions(options));
+>>>>>>> tocrmfsLive
     }
 
 export const getUpdateWbPlaceholderJobUrl = (id: number,) => {

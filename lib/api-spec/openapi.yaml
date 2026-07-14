@@ -424,6 +424,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+<<<<<<< HEAD
   /wb/service-locations:
     get:
       operationId: listWbServiceLocations
@@ -491,6 +492,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+=======
+>>>>>>> tocrmfsLive
   /wb/writebacks:
     get:
       operationId: listWbWritebacks
@@ -1112,6 +1115,7 @@ components:
         notes:
           type: ["string", "null"]
 
+<<<<<<< HEAD
     PlaceholderJobStatus:
       type: string
       enum:
@@ -1122,6 +1126,8 @@ components:
         - "Cash in Advance"
         - "Credit Hold"
 
+=======
+>>>>>>> tocrmfsLive
     PlaceholderJob:
       type: object
       required: [id, technician_id, title, start_time, end_time, created_at]
@@ -1138,9 +1144,12 @@ components:
           type: ["string", "null"]
         state:
           type: ["string", "null"]
+<<<<<<< HEAD
         service_location_id:
           type: ["string", "null"]
           description: CRM account ID of the linked service location (null when freeform)
+=======
+>>>>>>> tocrmfsLive
         start_time:
           type: string
           description: ISO 8601 timestamp
@@ -1149,10 +1158,13 @@ components:
           description: ISO 8601 timestamp
         notes:
           type: ["string", "null"]
+<<<<<<< HEAD
         status:
           oneOf:
             - $ref: "#/components/schemas/PlaceholderJobStatus"
             - type: "null"
+=======
+>>>>>>> tocrmfsLive
         created_at:
           type: string
 
@@ -1170,9 +1182,12 @@ components:
           type: ["string", "null"]
         state:
           type: ["string", "null"]
+<<<<<<< HEAD
         service_location_id:
           type: ["string", "null"]
           description: CRM account ID of the linked service location
+=======
+>>>>>>> tocrmfsLive
         start_time:
           type: string
           description: ISO 8601 timestamp
@@ -1181,10 +1196,13 @@ components:
           description: ISO 8601 timestamp
         notes:
           type: ["string", "null"]
+<<<<<<< HEAD
         status:
           oneOf:
             - $ref: "#/components/schemas/PlaceholderJobStatus"
             - type: "null"
+=======
+>>>>>>> tocrmfsLive
 
     UpdatePlaceholderJob:
       type: object
@@ -1199,9 +1217,12 @@ components:
           type: ["string", "null"]
         state:
           type: ["string", "null"]
+<<<<<<< HEAD
         service_location_id:
           type: ["string", "null"]
           description: CRM account ID of the linked service location (null to clear)
+=======
+>>>>>>> tocrmfsLive
         start_time:
           type: string
           description: ISO 8601 timestamp
@@ -1210,6 +1231,7 @@ components:
           description: ISO 8601 timestamp
         notes:
           type: ["string", "null"]
+<<<<<<< HEAD
         status:
           oneOf:
             - $ref: "#/components/schemas/PlaceholderJobStatus"
@@ -1272,6 +1294,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Equipment"
+=======
+>>>>>>> tocrmfsLive
 
     WbSaveResult:
       type: object

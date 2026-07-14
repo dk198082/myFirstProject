@@ -9,4 +9,4 @@
 - [Schedule block visibility on the board](schedule-board-block-visibility.md) — blocks are globally shared; board hides idle techs (no jobs) by default, so keep techs with blocks visible too.
 - [Drizzle schema NOT source of truth](drizzle-schema-out-of-band.md) — most tables created out-of-band via psql; `push`/`push-force` DROPS undeclared tables. Declare a table in Drizzle so Publish manages it in prod.
 - [Data model/catalog docs](data-docs.md) — docs/data-model.html + data-catalog.html are hand-authored JS-array HTML (not generated, not served); update BOTH by hand on schema changes.
-- [js-yaml v5 breaks orval codegen](js-yaml-orval-esm.md) — pin the `js-yaml` pnpm override to `^4.x`, not `>=4.2.0`, or codegen fails with an ESM default-export error.
+- [js-yaml v5 breaks orval codegen](js-yaml-orval-esm.md) — pin the `js-yaml` pnpm override to `^4.x`, not `>=4.2.0`, or codegen fails with an ESM 
