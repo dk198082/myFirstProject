@@ -16,7 +16,8 @@ import {
   getGetWbUnscheduledJobsQueryKey,
   getListWbScheduleBlocksQueryKey,
   getListWbPlaceholderJobsQueryKey,
-
+  useGetWbServiceLocation,
+  getGetWbServiceLocationQueryKey,
   type WbWorkOrder,
   type UnscheduledJob,
   type ScheduleBlock,
@@ -495,6 +496,7 @@ function BlockChip({
 function PlaceholderJobChip({
   job,
   dayIso,
+  technicianId,
   onEdit,
   onDelete,
   onDragStart,
@@ -505,6 +507,7 @@ function PlaceholderJobChip({
   job: PlaceholderJob;
   /** The day cell this chip instance is rendered in (YYYY-MM-DD). */
   dayIso?: string;
+  technicianId?: string | null;
   onEdit: () => void;
   onDelete: () => void;
   onDragStart?: () => void;
@@ -512,6 +515,7 @@ function PlaceholderJobChip({
   onDragEnd?: () => void;
   isDragging?: boolean;
 }) {
+  const colorCls = techColor(technicianId).chip;
   const duration = fmtBlockDuration(job.start_time, job.end_time);
   const location = [job.city, job.state].filter(Boolean).join(", ");
 
@@ -530,6 +534,20 @@ function PlaceholderJobChip({
   // stretch handle, so the affordances always act on the job's real boundaries.
   const canDrag = !!onDragStart && (!dayIso || dayIso === startDay);
   const showResizeHandle = !!onResizeStart && (!dayIso || dayIso === endDay);
+
+  // When a service location is linked, prefetch its detail (equipment, contact)
+  // so the rich tooltip is ready on hover. Cache is shared across all chips for
+  // the same location, so a repeated location only fetches once.
+  const { data: locDetail } = useGetWbServiceLocation(
+    job.service_location_id ?? "",
+    {
+      query: {
+        queryKey: getGetWbServiceLocationQueryKey(job.service_location_id ?? ""),
+        enabled: !!job.service_location_id,
+        staleTime: 5 * 60_000,
+      },
+    },
+  );
 
   return (
     <Tooltip>
@@ -552,9 +570,14 @@ function PlaceholderJobChip({
             }
           }}
           onDragEnd={() => onDragEnd?.()}
-          className={`relative w-full rounded border border-dashed border-red-300/70 bg-red-50/60 text-red-800/80 text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:bg-red-50 transition-colors ${isDragging ? "opacity-40" : ""}`}
+          className={`relative w-full rounded border border-dashed text-[11px] px-1.5 py-1 leading-tight cursor-pointer transition-colors overflow-hidden ${colorCls} ${isDragging ? "opacity-40" : ""}`}
         >
-          <div className="flex items-center gap-1">
+          {/* Diagonal stripe overlay — marks this as a potential job */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ backgroundImage: "repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 5px)" }}
+          />
+          <div className="relative flex items-center gap-1">
             <User className="h-3 w-3 shrink-0" />
             <span className="font-semibold truncate">{job.title}</span>
             <button
@@ -569,9 +592,9 @@ function PlaceholderJobChip({
               <X className="h-3 w-3" />
             </button>
           </div>
-          {job.customer_name && <div className="opacity-80 truncate">{job.customer_name}</div>}
-          {location && <div className="opacity-60 truncate">{location}</div>}
-          <div className="opacity-60 truncate">{isMultiDay ? `${dayCount} days` : duration}</div>
+          {job.customer_name && <div className="relative opacity-80 truncate">{job.customer_name}</div>}
+          {location && <div className="relative opacity-60 truncate">{location}</div>}
+          <div className="relative opacity-60 truncate">{isMultiDay ? `${dayCount} days` : duration}</div>
           {showResizeHandle && (
             <div
               draggable
@@ -595,26 +618,105 @@ function PlaceholderJobChip({
           )}
         </div>
       </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-[260px]">
-        <div className="space-y-0.5">
-          <div className="font-semibold">{job.title}</div>
-          <div className="text-xs opacity-80">Potential Job</div>
-          {job.customer_name && <div className="text-xs">{job.customer_name}</div>}
-          {location && <div className="text-xs">{location}</div>}
-          {isMultiDay ? (
-            <div className="text-xs">
-              {fmtBlockDay(startDay)} → {fmtBlockDay(endDay)} ({dayCount} days)
+
+      {job.service_location_id ? (
+        // Rich tooltip for CRM-linked placeholder jobs (matches JobChip structure).
+        // Canonical name/address from locDetail takes priority over freeform fields
+        // so the tooltip always reflects what's in CRM, not stale freeform text.
+        <TooltipContent side="top" className={`max-w-xs p-3 space-y-1.5 text-xs border ${colorCls}`}>
+          <div className="font-bold text-sm">{job.title}</div>
+          <div className="opacity-70 -mt-1">Potential Job</div>
+          <div className="border-t border-current/20 pt-1.5 space-y-1">
+            {(locDetail?.name ?? job.customer_name) && (
+              <div>
+                <span className="font-medium opacity-70">Customer:</span>{" "}
+                {locDetail?.name ?? job.customer_name}
+              </div>
+            )}
+            {[locDetail?.city ?? job.city, locDetail?.state ?? job.state].filter(Boolean).join(", ") && (
+              <div>
+                <span className="font-medium opacity-70">Location:</span>{" "}
+                {[locDetail?.city ?? job.city, locDetail?.state ?? job.state].filter(Boolean).join(", ")}
+              </div>
+            )}
+            {isMultiDay ? (
+              <div>
+                <span className="font-medium opacity-70">Dates:</span>{" "}
+                {fmtBlockDay(startDay)} → {fmtBlockDay(endDay)} ({dayCount} days)
+              </div>
+            ) : (
+              <div>
+                <span className="font-medium opacity-70">Date:</span>{" "}
+                {fmtBlockDay(startDay)}
+              </div>
+            )}
+            <div>
+              <span className="font-medium opacity-70">Time:</span>{" "}
+              {fmtBlockTime(job.start_time)} – {fmtBlockTime(job.end_time)}
+              {!isMultiDay && duration ? ` (${duration})` : ""}
             </div>
-          ) : (
-            <div className="text-xs">{fmtBlockDay(startDay)}</div>
-          )}
-          <div className="text-xs">
-            {fmtBlockTime(job.start_time)} – {fmtBlockTime(job.end_time)}
-            {!isMultiDay && duration ? ` (${duration})` : ""}
+            {job.status && (
+              <div className="pt-0.5">
+                <Badge variant="outline" className="text-[10px] border-current/40">
+                  {job.status}
+                </Badge>
+              </div>
+            )}
+            {(locDetail?.equipment?.length ?? 0) > 0 && (
+              <div className="border-t border-current/20 pt-1.5">
+                <span className="font-medium opacity-70">Equipment:</span>
+                <ul className="mt-0.5 list-disc pl-4 space-y-0.5">
+                  {locDetail!.equipment.slice(0, 5).map((eq, i) => (
+                    <li key={`${eq.equipmentid}-${i}`} className="truncate">
+                      {eq.name ?? "—"}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {job.notes && (
+              <div className="opacity-80 border-t border-current/20 pt-1">{job.notes}</div>
+            )}
+            <div className="pt-1">
+              <Link
+                href={`/service-location/${job.service_location_id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-[11px] font-medium underline hover:opacity-80"
+              >
+                <ExternalLink className="h-3 w-3" />
+                View service location details
+              </Link>
+            </div>
           </div>
-          {job.notes && <div className="text-xs opacity-80">{job.notes}</div>}
-        </div>
-      </TooltipContent>
+        </TooltipContent>
+      ) : (
+        // Simple freeform tooltip for unlinked placeholder jobs
+        <TooltipContent side="top" className={`max-w-[260px] border ${colorCls}`}>
+          <div className="space-y-0.5">
+            <div className="font-semibold">{job.title}</div>
+            <div className="text-xs opacity-80">Potential Job</div>
+            {job.customer_name && <div className="text-xs">{job.customer_name}</div>}
+            {location && <div className="text-xs">{location}</div>}
+            {isMultiDay ? (
+              <div className="text-xs">
+                {fmtBlockDay(startDay)} → {fmtBlockDay(endDay)} ({dayCount} days)
+              </div>
+            ) : (
+              <div className="text-xs">{fmtBlockDay(startDay)}</div>
+            )}
+            <div className="text-xs">
+              {fmtBlockTime(job.start_time)} – {fmtBlockTime(job.end_time)}
+              {!isMultiDay && duration ? ` (${duration})` : ""}
+            </div>
+            {job.status && (
+              <div className="text-xs pt-0.5">
+                <Badge variant="outline" className="text-[10px]">{job.status}</Badge>
+              </div>
+            )}
+            {job.notes && <div className="text-xs opacity-80">{job.notes}</div>}
+          </div>
+        </TooltipContent>
+      )}
     </Tooltip>
   );
 }
@@ -692,17 +794,17 @@ function JobChip({
           <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" aria-label="Double-booked" />
         )}
       </div>
+      {!compact && <div className="opacity-90 truncate">{job.customer_name ?? "—"}</div>}
+      {!compact && (job.city || job.state) && (
+        <div className="opacity-75 truncate">
+          {[job.city, job.state].filter(Boolean).join(", ")}
+        </div>
+      )}
       {!compact && (job.crmstarttime || job.crmendtime) && showDuration && (
         <div className="opacity-80 truncate">
           {isMultiDay
             ? chipTimeLabel(job)
             : fmtDuration(job.crmstarttime, job.crmendtime) || chipTimeLabel(job)}
-        </div>
-      )}
-      {!compact && <div className="opacity-90 truncate">{job.customer_name ?? "—"}</div>}
-      {!compact && (job.city || job.state) && (
-        <div className="opacity-75 truncate">
-          {[job.city, job.state].filter(Boolean).join(", ")}
         </div>
       )}
     </button>
@@ -727,12 +829,20 @@ function JobChip({
             {job.technician_name ?? "—"}
           </div>
           <div>
-            <span className="font-medium opacity-70">CRM Start:</span>{" "}
-            {job.crmstart_time ?? "—"} {fmtLocalTime(job.crmstart_time, job.crmstarttime)}
+            <span className="font-medium opacity-70">Date:</span>{" "}
+            {job.crmstart_time ? fmtBlockDay(job.crmstart_time) : "—"}
+            {job.crmend_time && job.crmend_time !== job.crmstart_time
+              ? ` → ${fmtBlockDay(job.crmend_time)}`
+              : ""}
           </div>
           <div>
-            <span className="font-medium opacity-70">CRM End:</span>{" "}
-            {job.crmend_time ?? "—"} {fmtLocalTime(job.crmend_time, job.crmendtime)}
+            <span className="font-medium opacity-70">Time:</span>{" "}
+            {fmtLocalTime(job.crmstart_time, job.crmstarttime) || "—"}
+            {" – "}
+            {fmtLocalTime(job.crmend_time, job.crmendtime) || "—"}
+            {fmtDuration(job.crmstarttime ?? undefined, job.crmendtime ?? undefined)
+              ? ` (${fmtDuration(job.crmstarttime ?? undefined, job.crmendtime ?? undefined)})`
+              : ""}
           </div>
           {(job.city || job.state) && (
             <div>
@@ -2577,6 +2687,7 @@ export default function ScheduleBoard() {
                                   <PlaceholderJobChip
                                     job={phj}
                                     dayIso={dh.iso}
+                                    technicianId={tech.technician_id}
                                     onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
                                     onDragStart={() => startPlaceholderDrag(phj, "move")}
@@ -2918,6 +3029,7 @@ export default function ScheduleBoard() {
                                   <PlaceholderJobChip
                                     job={phj}
                                     dayIso={dayHeaders[i].iso}
+                                    technicianId={tech.technician_id}
                                     onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
                                     onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
                                     onDragStart={() => startPlaceholderDrag(phj, "move")}

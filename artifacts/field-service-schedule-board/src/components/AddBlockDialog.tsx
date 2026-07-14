@@ -30,7 +30,6 @@ import { useToast } from "@/hooks/use-toast";
 import { ServiceLocationPicker } from "@/components/ServiceLocationPicker";
 
 type EntryType = "drive_time" | "pto" | "custom" | "potential_job";
-<<<<<<< HEAD
 
 interface ServiceLocationValue {
   id: string;
@@ -39,8 +38,6 @@ interface ServiceLocationValue {
   city: string | null;
   state: string | null;
 }
-=======
->>>>>>> tocrmfsLive
 
 function fromLocalInput(local: string): string | null {
   if (!local) return null;
@@ -64,7 +61,6 @@ export function AddBlockDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-<<<<<<< HEAD
   const [entryType, setEntryType] = useState<EntryType>("potential_job");
   const [customTitle, setCustomTitle] = useState("");
   const [jobTitle, setJobTitle] = useState("");
@@ -73,14 +69,6 @@ export function AddBlockDialog({
   const [city, setCity] = useState("");
   const [state, setStateVal] = useState("");
   const [jobStatus, setJobStatus] = useState("");
-=======
-  const [entryType, setEntryType] = useState<EntryType>("drive_time");
-  const [customTitle, setCustomTitle] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setStateVal] = useState("");
->>>>>>> tocrmfsLive
   const [startTime, setStartTime] = useState(`${date}T09:00`);
   const [endTime, setEndTime] = useState(entryType === "potential_job" ? `${date}T11:00` : `${date}T17:00`);
   const [notes, setNotes] = useState("");
@@ -141,7 +129,6 @@ export function AddBlockDialog({
 
   const isPending = createBlockMutation.isPending || createPlaceholderMutation.isPending;
 
-<<<<<<< HEAD
   const handleLocationChange = (loc: ServiceLocationValue | null) => {
     setServiceLocation(loc);
     if (loc) {
@@ -151,8 +138,6 @@ export function AddBlockDialog({
     }
   };
 
-=======
->>>>>>> tocrmfsLive
   const submit = () => {
     if (entryType === "custom" && !customTitle.trim()) {
       toast({ title: "Title required", description: "Please enter a title for the custom block.", variant: "destructive" });
@@ -177,17 +162,11 @@ export function AddBlockDialog({
           customer_name: customerName.trim() || null,
           city: city.trim() || null,
           state: state.trim() || null,
-<<<<<<< HEAD
           service_location_id: serviceLocation?.id ?? null,
           start_time: start,
           end_time: end,
           notes: notes.trim() || null,
           status: (jobStatus || null) as Parameters<typeof createPlaceholderMutation.mutate>[0]["data"]["status"],
-=======
-          start_time: start,
-          end_time: end,
-          notes: notes.trim() || null,
->>>>>>> tocrmfsLive
         },
       });
       return;
@@ -207,29 +186,19 @@ export function AddBlockDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-<<<<<<< HEAD
       <DialogContent className="w-[calc(100vw-2rem)] max-w-sm flex flex-col max-h-[90vh]">
         <DialogHeader className="shrink-0">
-=======
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-sm overflow-hidden">
-        <DialogHeader>
->>>>>>> tocrmfsLive
           <DialogTitle>Add</DialogTitle>
           <DialogDescription>{technicianName} · {date}</DialogDescription>
         </DialogHeader>
 
-<<<<<<< HEAD
         <div className="space-y-4 py-2 min-w-0 overflow-y-auto flex-1 pr-1">
-=======
-        <div className="space-y-4 py-2 min-w-0 overflow-hidden">
->>>>>>> tocrmfsLive
           {/* Entry type toggle */}
           <div className="space-y-1.5">
             <Label>Type</Label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-<<<<<<< HEAD
                 onClick={() => setEntryType("potential_job")}
                 className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
                   entryType === "potential_job"
@@ -242,8 +211,6 @@ export function AddBlockDialog({
               </button>
               <button
                 type="button"
-=======
->>>>>>> tocrmfsLive
                 onClick={() => setEntryType("drive_time")}
                 className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
                   entryType === "drive_time"
@@ -277,18 +244,6 @@ export function AddBlockDialog({
               >
                 <Pencil className="h-4 w-4" />
                 Custom
-              </button>
-              <button
-                type="button"
-                onClick={() => setEntryType("potential_job")}
-                className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-                  entryType === "potential_job"
-                    ? "bg-muted-foreground text-background border-muted-foreground"
-                    : "bg-background text-muted-foreground border-border hover:bg-accent"
-                }`}
-              >
-                <User className="h-4 w-4" />
-                Potential Job
               </button>
             </div>
           </div>
@@ -327,7 +282,6 @@ export function AddBlockDialog({
                 />
               </div>
 
-<<<<<<< HEAD
               <div className="relative">
                 <ServiceLocationPicker
                   label="Service location"
@@ -336,8 +290,6 @@ export function AddBlockDialog({
                 />
               </div>
 
-=======
->>>>>>> tocrmfsLive
               <div className="space-y-1.5 min-w-0">
                 <Label htmlFor="ph-customer">Customer name</Label>
                 <Input
@@ -371,7 +323,6 @@ export function AddBlockDialog({
                   />
                 </div>
               </div>
-<<<<<<< HEAD
 
               <div className="space-y-1.5 min-w-0">
                 <Label htmlFor="ph-status">Status <span className="text-muted-foreground">(optional)</span></Label>
@@ -389,8 +340,6 @@ export function AddBlockDialog({
                   </SelectContent>
                 </Select>
               </div>
-=======
->>>>>>> tocrmfsLive
             </>
           )}
 
@@ -429,11 +378,7 @@ export function AddBlockDialog({
           </div>
         </div>
 
-<<<<<<< HEAD
         <DialogFooter className="gap-2 flex-row flex-wrap justify-end sm:space-x-0 shrink-0">
-=======
-        <DialogFooter className="gap-2 flex-row flex-wrap justify-end sm:space-x-0">
->>>>>>> tocrmfsLive
           <Button variant="ghost" onClick={onClose} disabled={isPending}>
             Cancel
           </Button>

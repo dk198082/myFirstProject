@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-<<<<<<< HEAD
   Select,
   SelectContent,
   SelectItem,
@@ -18,8 +17,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-=======
->>>>>>> tocrmfsLive
   Dialog,
   DialogContent,
   DialogDescription,
@@ -30,7 +27,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-<<<<<<< HEAD
 import { ServiceLocationPicker } from "@/components/ServiceLocationPicker";
 
 interface ServiceLocationValue {
@@ -40,8 +36,6 @@ interface ServiceLocationValue {
   city: string | null;
   state: string | null;
 }
-=======
->>>>>>> tocrmfsLive
 
 function toLocalInput(iso: string): string {
   const d = new Date(iso);
@@ -70,7 +64,6 @@ export function EditPlaceholderJobDialog({
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState(job.title);
-<<<<<<< HEAD
   const [serviceLocation, setServiceLocation] = useState<ServiceLocationValue | null>(
     // Initialize from service_location_id alone; customer_name may be blank but
     // the ID must be preserved so saves don't accidentally unlink CRM jobs.
@@ -82,11 +75,6 @@ export function EditPlaceholderJobDialog({
   const [city, setCity] = useState(job.city ?? "");
   const [state, setStateVal] = useState(job.state ?? "");
   const [jobStatus, setJobStatus] = useState(job.status ?? "");
-=======
-  const [customerName, setCustomerName] = useState(job.customer_name ?? "");
-  const [city, setCity] = useState(job.city ?? "");
-  const [state, setStateVal] = useState(job.state ?? "");
->>>>>>> tocrmfsLive
   const [startTime, setStartTime] = useState(toLocalInput(job.start_time));
   const [endTime, setEndTime] = useState(toLocalInput(job.end_time));
   const [notes, setNotes] = useState(job.notes ?? "");
@@ -128,7 +116,6 @@ export function EditPlaceholderJobDialog({
     },
   });
 
-<<<<<<< HEAD
   const handleLocationChange = (loc: ServiceLocationValue | null) => {
     setServiceLocation(loc);
     if (loc) {
@@ -138,8 +125,6 @@ export function EditPlaceholderJobDialog({
     }
   };
 
-=======
->>>>>>> tocrmfsLive
   const submit = () => {
     if (!title.trim()) {
       toast({ title: "Title required", description: "Please enter a job title.", variant: "destructive" });
@@ -158,17 +143,11 @@ export function EditPlaceholderJobDialog({
         customer_name: customerName.trim() || null,
         city: city.trim() || null,
         state: state.trim() || null,
-<<<<<<< HEAD
         service_location_id: serviceLocation?.id ?? null,
         start_time: start,
         end_time: end,
         notes: notes.trim() || null,
         status: (jobStatus || null) as Parameters<typeof updateMutation.mutate>[0]["data"]["status"],
-=======
-        start_time: start,
-        end_time: end,
-        notes: notes.trim() || null,
->>>>>>> tocrmfsLive
       },
     });
   };
@@ -197,7 +176,6 @@ export function EditPlaceholderJobDialog({
             />
           </div>
 
-<<<<<<< HEAD
           <div className="relative">
             <ServiceLocationPicker
               label="Service location"
@@ -206,8 +184,6 @@ export function EditPlaceholderJobDialog({
             />
           </div>
 
-=======
->>>>>>> tocrmfsLive
           <div className="space-y-1.5 min-w-0">
             <Label htmlFor="ph-edit-customer">Customer name</Label>
             <Input
@@ -240,7 +216,6 @@ export function EditPlaceholderJobDialog({
           </div>
 
           <div className="space-y-1.5 min-w-0">
-<<<<<<< HEAD
             <Label htmlFor="ph-edit-status">Status <span className="text-muted-foreground">(optional)</span></Label>
             <Select value={jobStatus} onValueChange={setJobStatus}>
               <SelectTrigger id="ph-edit-status" className="w-full">
@@ -258,8 +233,6 @@ export function EditPlaceholderJobDialog({
           </div>
 
           <div className="space-y-1.5 min-w-0">
-=======
->>>>>>> tocrmfsLive
             <Label htmlFor="ph-edit-start">Start time</Label>
             <Input
               id="ph-edit-start"
