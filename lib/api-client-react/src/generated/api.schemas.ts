@@ -132,7 +132,6 @@ export interface UpdateScheduleBlock {
   notes?: string | null;
 }
 
-<<<<<<< HEAD
 export type PlaceholderJobStatus = typeof PlaceholderJobStatus[keyof typeof PlaceholderJobStatus];
 
 
@@ -145,8 +144,6 @@ export const PlaceholderJobStatus = {
   Credit_Hold: 'Credit Hold',
 } as const;
 
-=======
->>>>>>> tocrmfsLive
 export interface PlaceholderJob {
   id: number;
   technician_id: string;
@@ -157,24 +154,18 @@ export interface PlaceholderJob {
   city?: string | null;
   /** @nullable */
   state?: string | null;
-<<<<<<< HEAD
   /**
      * CRM account ID of the linked service location (null when freeform)
      * @nullable
      */
   service_location_id?: string | null;
-=======
->>>>>>> tocrmfsLive
   /** ISO 8601 timestamp */
   start_time: string;
   /** ISO 8601 timestamp */
   end_time: string;
   /** @nullable */
   notes?: string | null;
-<<<<<<< HEAD
   status?: PlaceholderJobStatus | null;
-=======
->>>>>>> tocrmfsLive
   created_at: string;
 }
 
@@ -187,24 +178,18 @@ export interface CreatePlaceholderJob {
   city?: string | null;
   /** @nullable */
   state?: string | null;
-<<<<<<< HEAD
   /**
      * CRM account ID of the linked service location
      * @nullable
      */
   service_location_id?: string | null;
-=======
->>>>>>> tocrmfsLive
   /** ISO 8601 timestamp */
   start_time: string;
   /** ISO 8601 timestamp */
   end_time: string;
   /** @nullable */
   notes?: string | null;
-<<<<<<< HEAD
   status?: PlaceholderJobStatus | null;
-=======
->>>>>>> tocrmfsLive
 }
 
 export interface UpdatePlaceholderJob {
@@ -216,21 +201,17 @@ export interface UpdatePlaceholderJob {
   city?: string | null;
   /** @nullable */
   state?: string | null;
-<<<<<<< HEAD
   /**
      * CRM account ID of the linked service location (null to clear)
      * @nullable
      */
   service_location_id?: string | null;
-=======
->>>>>>> tocrmfsLive
   /** ISO 8601 timestamp */
   start_time?: string;
   /** ISO 8601 timestamp */
   end_time?: string;
   /** @nullable */
   notes?: string | null;
-<<<<<<< HEAD
   status?: PlaceholderJobStatus | null;
 }
 
@@ -330,8 +311,6 @@ export interface WbServiceLocationDetail {
   special_instructions?: string | null;
   contact?: Contact | null;
   equipment: Equipment[];
-=======
->>>>>>> tocrmfsLive
 }
 
 export interface WbSaveResult {
@@ -944,7 +923,6 @@ start_date?: string;
 end_date?: string;
 };
 
-<<<<<<< HEAD
 export type ListWbServiceLocationsParams = {
 /**
  * Free-text filter on account name, city, or state (min 2 chars)
@@ -958,8 +936,6 @@ search?: string;
 limit?: number;
 };
 
-=======
->>>>>>> tocrmfsLive
 export type DeleteWbQueuedWritebacks200 = {
   deleted: number;
 };
