@@ -74,6 +74,9 @@ RUN pnpm --filter @workspace/field-service-schedule-board run build
 # Build the API
 RUN pnpm --filter @workspace/api-server run build
 
+
+
+
 # --- Runtime ---------------------------------------------------------------
 ENV NODE_ENV=production
 # Azure App Service for Containers / Container Apps inject PORT themselves
