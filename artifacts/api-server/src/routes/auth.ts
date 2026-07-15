@@ -95,8 +95,13 @@ router.get("/auth/callback", async (req, res, next) => {
     await logAudit("login", "Session", `${name} (${email}) signed in via Entra ID`, name);
     res.redirect("/");
   } catch (err) {
+    // console.error("========== CALLBACK ERROR ==========");
+    // console.error(err);
     req.log.error({ err }, "Entra ID callback failed");
     res.redirect("/?auth_error=callback_failed");
+    // res.status(500).json({
+    // error: String(err),
+    //  });
   }
 });
 

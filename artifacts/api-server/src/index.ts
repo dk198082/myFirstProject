@@ -1,5 +1,9 @@
-import app, { ensureSessionTable } from "./app";
+import "dotenv/config";
+console.log("D365CRM_DATABASE_URL =", process.env.D365CRM_DATABASE_URL);
+console.log("DATABASE_URL =", process.env.DATABASE_URL);
+import app from "./app";
 import { logger } from "./lib/logger";
+
 
 const rawPort = process.env["PORT"];
 
@@ -15,20 +19,11 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-async function start(): Promise<void> {
-  await ensureSessionTable();
+app.listen(port, (err) => {
+  if (err) {
+    logger.error({ err }, "Error listening on port");
+    process.exit(1);
+  }
 
-  app.listen(port, (err) => {
-    if (err) {
-      logger.error({ err }, "Error listening on port");
-      process.exit(1);
-    }
-
-    logger.info({ port }, "Server listening");
-  });
-}
-
-start().catch((err) => {
-  logger.error({ err }, "Failed to start server");
-  process.exit(1);
+  logger.info({ port }, "Server listening");
 });
