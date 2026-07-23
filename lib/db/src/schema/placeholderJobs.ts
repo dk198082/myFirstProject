@@ -1,6 +1,7 @@
 import {
   pgTable,
   serial,
+  smallint,
   text,
   timestamp,
   index,
@@ -21,6 +22,7 @@ export const placeholderJobsTable = pgTable(
     endTime: timestamp("end_time", { withTimezone: true }).notNull(),
     notes: text("notes"),
     serviceLocationId: text("service_location_id"),
+    colorIndex: smallint("color_index"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

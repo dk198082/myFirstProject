@@ -159,6 +159,11 @@ export interface PlaceholderJob {
      * @nullable
      */
   service_location_id?: string | null;
+  /**
+     * 0–14 index into the board's colour palette; null = match technician swimlane colour
+     * @nullable
+     */
+  color_index?: number | null;
   /** ISO 8601 timestamp */
   start_time: string;
   /** ISO 8601 timestamp */
@@ -183,6 +188,11 @@ export interface CreatePlaceholderJob {
      * @nullable
      */
   service_location_id?: string | null;
+  /**
+     * 0–14 palette index; null = match technician swimlane colour
+     * @nullable
+     */
+  color_index?: number | null;
   /** ISO 8601 timestamp */
   start_time: string;
   /** ISO 8601 timestamp */
@@ -206,6 +216,11 @@ export interface UpdatePlaceholderJob {
      * @nullable
      */
   service_location_id?: string | null;
+  /**
+     * 0–14 palette index; null to reset to technician swimlane colour
+     * @nullable
+     */
+  color_index?: number | null;
   /** ISO 8601 timestamp */
   start_time?: string;
   /** ISO 8601 timestamp */
@@ -888,6 +903,28 @@ export interface WeeklyApprovedReport {
   approvers: WeeklyApprovedRow[];
 }
 
+export type WbSearchResultType = typeof WbSearchResultType[keyof typeof WbSearchResultType];
+
+
+export const WbSearchResultType = {
+  scheduled: 'scheduled',
+  potential: 'potential',
+  unscheduled: 'unscheduled',
+} as const;
+
+export interface WbSearchResult {
+  type: WbSearchResultType;
+  id: string;
+  work_order_number?: string | null;
+  customer_name?: string | null;
+  city?: string | null;
+  state?: string | null;
+  technician_id?: string | null;
+  technician_name?: string | null;
+  /** ISO date (YYYY-MM-DD); for unscheduled results this is the equipment due date (or today if none) */
+  start_date: string;
+}
+
 export type ListWbWorkOrdersParams = {
 /**
  * Free-text filter on work order number, title, or customer
@@ -921,6 +958,14 @@ start_date?: string;
  * ISO date (YYYY-MM-DD) — exclusive upper bound on start_time
  */
 end_date?: string;
+};
+
+export type SearchWbJobsParams = {
+/**
+ * Free-text query (min 2 chars) — matches customer name, WO number, city, state, technician name
+ * @minLength 2
+ */
+q: string;
 };
 
 export type ListWbServiceLocationsParams = {

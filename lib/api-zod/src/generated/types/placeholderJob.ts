@@ -22,6 +22,11 @@ export interface PlaceholderJob {
      * @nullable
      */
   service_location_id?: string | null;
+  /**
+     * 0–14 index into the board's colour palette; null = match technician swimlane colour
+     * @nullable
+     */
+  color_index?: number | null;
   /** ISO 8601 timestamp */
   start_time: string;
   /** ISO 8601 timestamp */

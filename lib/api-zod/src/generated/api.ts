@@ -322,6 +322,7 @@ export const ListWbPlaceholderJobsResponseItem = zod.object({
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
   "service_location_id": zod.string().nullish().describe('CRM account ID of the linked service location (null when freeform)'),
+  "color_index": zod.number().nullish().describe('0–14 index into the board\'s colour palette; null = match technician swimlane colour'),
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
@@ -341,6 +342,7 @@ export const CreateWbPlaceholderJobBody = zod.object({
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
   "service_location_id": zod.string().nullish().describe('CRM account ID of the linked service location'),
+  "color_index": zod.number().nullish().describe('0–14 palette index; null = match technician swimlane colour'),
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
@@ -362,6 +364,7 @@ export const UpdateWbPlaceholderJobBody = zod.object({
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
   "service_location_id": zod.string().nullish().describe('CRM account ID of the linked service location (null to clear)'),
+  "color_index": zod.number().nullish().describe('0–14 palette index; null to reset to technician swimlane colour'),
   "start_time": zod.string().optional().describe('ISO 8601 timestamp'),
   "end_time": zod.string().optional().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
@@ -376,6 +379,7 @@ export const UpdateWbPlaceholderJobResponse = zod.object({
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
   "service_location_id": zod.string().nullish().describe('CRM account ID of the linked service location (null when freeform)'),
+  "color_index": zod.number().nullish().describe('0–14 index into the board\'s colour palette; null = match technician swimlane colour'),
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
@@ -390,6 +394,31 @@ export const UpdateWbPlaceholderJobResponse = zod.object({
 export const DeleteWbPlaceholderJobParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
+/**
+ * @summary Search all future scheduled and potential jobs
+ */
+export const searchWbJobsQueryQMin = 2;
+
+
+
+export const SearchWbJobsQueryParams = zod.object({
+  "q": zod.coerce.string().min(searchWbJobsQueryQMin).describe('Free-text query (min 2 chars) — matches customer name, WO number, city, state, technician name')
+})
+
+export const SearchWbJobsResponseItem = zod.object({
+  "type": zod.enum(['scheduled', 'potential', 'unscheduled']),
+  "id": zod.string(),
+  "work_order_number": zod.string().nullish(),
+  "customer_name": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "technician_id": zod.string().nullish(),
+  "technician_name": zod.string().nullish(),
+  "start_date": zod.string().describe('ISO date (YYYY-MM-DD); for unscheduled results this is the equipment due date (or today if none)')
+})
+export const SearchWbJobsResponse = zod.array(SearchWbJobsResponseItem)
 
 
 /**

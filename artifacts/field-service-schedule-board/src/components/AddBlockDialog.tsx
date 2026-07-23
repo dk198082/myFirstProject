@@ -28,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Car, Sun, Pencil, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ServiceLocationPicker } from "@/components/ServiceLocationPicker";
+import { ChipColorPicker } from "@/components/ChipColorPicker";
 
 type EntryType = "drive_time" | "pto" | "custom" | "potential_job";
 
@@ -63,7 +64,6 @@ export function AddBlockDialog({
 
   const [entryType, setEntryType] = useState<EntryType>("potential_job");
   const [customTitle, setCustomTitle] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
   const [serviceLocation, setServiceLocation] = useState<ServiceLocationValue | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [city, setCity] = useState("");
@@ -72,6 +72,7 @@ export function AddBlockDialog({
   const [startTime, setStartTime] = useState(`${date}T09:00`);
   const [endTime, setEndTime] = useState(entryType === "potential_job" ? `${date}T11:00` : `${date}T17:00`);
   const [notes, setNotes] = useState("");
+  const [colorIndex, setColorIndex] = useState<number | null>(null);
 
   const blockLabel =
     entryType === "drive_time"
@@ -79,7 +80,7 @@ export function AddBlockDialog({
       : entryType === "pto"
         ? "PTO"
         : entryType === "potential_job"
-          ? jobTitle.trim() || "Potential job"
+          ? "Potential job"
           : customTitle.trim() || "Custom block";
 
   const invalidateBlocks = () =>
@@ -143,10 +144,7 @@ export function AddBlockDialog({
       toast({ title: "Title required", description: "Please enter a title for the custom block.", variant: "destructive" });
       return;
     }
-    if (entryType === "potential_job" && !jobTitle.trim()) {
-      toast({ title: "Title required", description: "Please enter a job title.", variant: "destructive" });
-      return;
-    }
+
     const start = fromLocalInput(startTime);
     const end = fromLocalInput(endTime);
     if (!start || !end) {
@@ -158,11 +156,12 @@ export function AddBlockDialog({
       createPlaceholderMutation.mutate({
         data: {
           technician_id: technicianId,
-          title: jobTitle.trim(),
+          title: "Potential job",
           customer_name: customerName.trim() || null,
           city: city.trim() || null,
           state: state.trim() || null,
           service_location_id: serviceLocation?.id ?? null,
+          color_index: colorIndex,
           start_time: start,
           end_time: end,
           notes: notes.trim() || null,
@@ -268,20 +267,6 @@ export function AddBlockDialog({
           {/* Potential job fields */}
           {entryType === "potential_job" && (
             <>
-              <div className="space-y-1.5 min-w-0">
-                <Label htmlFor="ph-title">
-                  Title <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="ph-title"
-                  value={jobTitle}
-                  onChange={(e) => setJobTitle(e.target.value)}
-                  placeholder="e.g. Furnace install"
-                  className="w-full min-w-0"
-                  autoFocus
-                />
-              </div>
-
               <div className="relative">
                 <ServiceLocationPicker
                   label="Service location"
@@ -364,6 +349,10 @@ export function AddBlockDialog({
               className="w-full min-w-0 block"
             />
           </div>
+
+          {entryType === "potential_job" && (
+            <ChipColorPicker value={colorIndex} onChange={setColorIndex} />
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="block-notes">Notes <span className="text-muted-foreground">(optional)</span></Label>

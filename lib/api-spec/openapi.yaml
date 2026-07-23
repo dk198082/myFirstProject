@@ -424,6 +424,41 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /wb/search:
+    get:
+      operationId: searchWbJobs
+      tags: [writeback]
+      summary: Search all future scheduled and potential jobs
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+          description: Free-text query (min 2 chars) — matches customer name, WO number, city, state, technician name
+      responses:
+        "200":
+          description: Matched jobs across all future dates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WbSearchResult"
+        "400":
+          description: Query too short
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: CRM not configured or unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /wb/service-locations:
     get:
       operationId: listWbServiceLocations
@@ -1141,6 +1176,9 @@ components:
         service_location_id:
           type: ["string", "null"]
           description: CRM account ID of the linked service location (null when freeform)
+        color_index:
+          type: ["integer", "null"]
+          description: 0–14 index into the board's colour palette; null = match technician swimlane colour
         start_time:
           type: string
           description: ISO 8601 timestamp
@@ -1173,6 +1211,9 @@ components:
         service_location_id:
           type: ["string", "null"]
           description: CRM account ID of the linked service location
+        color_index:
+          type: ["integer", "null"]
+          description: 0–14 palette index; null = match technician swimlane colour
         start_time:
           type: string
           description: ISO 8601 timestamp
@@ -1202,6 +1243,9 @@ components:
         service_location_id:
           type: ["string", "null"]
           description: CRM account ID of the linked service location (null to clear)
+        color_index:
+          type: ["integer", "null"]
+          description: 0–14 palette index; null to reset to technician swimlane colour
         start_time:
           type: string
           description: ISO 8601 timestamp
@@ -2263,3 +2307,37 @@ components:
         - total
         - week_numbers
         - approvers
+
+    WbSearchResult:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [scheduled, potential, unscheduled]
+        id:
+          type: string
+        work_order_number:
+          type: string
+          nullable: true
+        customer_name:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        state:
+          type: string
+          nullable: true
+        technician_id:
+          type: string
+          nullable: true
+        technician_name:
+          type: string
+          nullable: true
+        start_date:
+          type: string
+          description: ISO date (YYYY-MM-DD); for unscheduled results this is the equipment due date (or today if none)
+      required:
+        - type
+        - id
+        - start_date

@@ -21,6 +21,11 @@ export interface UpdatePlaceholderJob {
      * @nullable
      */
   service_location_id?: string | null;
+  /**
+     * 0–14 palette index; null to reset to technician swimlane colour
+     * @nullable
+     */
+  color_index?: number | null;
   /** ISO 8601 timestamp */
   start_time?: string;
   /** ISO 8601 timestamp */

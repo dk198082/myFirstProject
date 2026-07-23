@@ -10,6 +10,8 @@ import {
   useListWbPlaceholderJobs,
   useDeleteWbPlaceholderJob,
   useUpdateWbPlaceholderJob,
+  useSearchWbJobs,
+  getSearchWbJobsQueryKey,
   getListWbWorkOrdersQueryKey,
   getGetWbScheduleBoardQueryKey,
   getGetWbResourceUtilizationQueryKey,
@@ -294,6 +296,19 @@ function jobMatchesSearch(job: ScheduleJob, q: string): boolean {
   );
 }
 
+function placeholderJobMatchesSearch(job: PlaceholderJob, q: string, techName?: string | null): boolean {
+  if (!q) return true;
+  const lower = q.toLowerCase();
+  return !!(
+    job.customer_name?.toLowerCase().includes(lower) ||
+    job.city?.toLowerCase().includes(lower) ||
+    job.state?.toLowerCase().includes(lower) ||
+    job.status?.toLowerCase().includes(lower) ||
+    job.title?.toLowerCase().includes(lower) ||
+    techName?.toLowerCase().includes(lower)
+  );
+}
+
 function distinctJobCount(jobs: { booking_id: string }[]): number {
   return new Set(jobs.map((j) => j.booking_id)).size;
 }
@@ -503,6 +518,7 @@ function PlaceholderJobChip({
   onResizeStart,
   onDragEnd,
   isDragging,
+  dimmed,
 }: {
   job: PlaceholderJob;
   /** The day cell this chip instance is rendered in (YYYY-MM-DD). */
@@ -514,8 +530,11 @@ function PlaceholderJobChip({
   onResizeStart?: () => void;
   onDragEnd?: () => void;
   isDragging?: boolean;
+  dimmed?: boolean;
 }) {
-  const colorCls = techColor(technicianId).chip;
+  const colorCls = job.color_index != null
+    ? TECH_PALETTE[job.color_index]?.chip ?? techColor(technicianId).chip
+    : techColor(technicianId).chip;
   const duration = fmtBlockDuration(job.start_time, job.end_time);
   const location = [job.city, job.state].filter(Boolean).join(", ");
 
@@ -570,31 +589,27 @@ function PlaceholderJobChip({
             }
           }}
           onDragEnd={() => onDragEnd?.()}
-          className={`relative w-full rounded border border-dashed text-[11px] px-1.5 py-1 leading-tight cursor-pointer transition-colors overflow-hidden ${colorCls} ${isDragging ? "opacity-40" : ""}`}
+          className={`relative w-full rounded border border-dashed text-[11px] px-1.5 py-1 leading-tight cursor-pointer transition-colors overflow-hidden ${colorCls} ${isDragging ? "opacity-40" : ""} ${dimmed ? "opacity-20" : ""}`}
         >
           {/* Diagonal stripe overlay — marks this as a potential job */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{ backgroundImage: "repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 5px)" }}
           />
-          <div className="relative flex items-center gap-1">
-            <User className="h-3 w-3 shrink-0" />
-            <span className="font-semibold truncate">{job.title}</span>
-            <button
-              type="button"
-              className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              aria-label="Remove placeholder job"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-          {job.customer_name && <div className="relative opacity-80 truncate">{job.customer_name}</div>}
-          {location && <div className="relative opacity-60 truncate">{location}</div>}
-          <div className="relative opacity-60 truncate">{isMultiDay ? `${dayCount} days` : duration}</div>
+          <button
+            type="button"
+            className="absolute top-0.5 right-0.5 z-10 opacity-40 hover:opacity-100 transition-opacity"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            aria-label="Remove placeholder job"
+          >
+            <X className="h-3 w-3" />
+          </button>
+          <div className="relative opacity-90 truncate pr-3">{job.customer_name || job.title}</div>
+          {location && <div className="relative opacity-70 truncate">{location}</div>}
+          {job.status && <div className="relative opacity-60 truncate">{job.status}</div>}
           {showResizeHandle && (
             <div
               draggable
@@ -1196,10 +1211,12 @@ function UnscheduledJobCard({
   job,
   bucketIdx,
   onSchedule,
+  highlighted,
 }: {
   job: UnscheduledJob;
   bucketIdx: number;
   onSchedule: (job: UnscheduledJob, technicianId: string | null) => void;
+  highlighted?: boolean;
 }) {
   const t1 = job.best_fit_techs?.[0];
   const t2 = job.best_fit_techs?.[1];
@@ -1210,7 +1227,7 @@ function UnscheduledJobCard({
 
   return (
     <div
-      className={`group bg-white rounded-lg border border-card-border shadow-sm hover:shadow-md hover:border-primary/50 transition-all p-4 flex flex-col gap-3 min-w-[260px] max-w-[300px] w-[280px] shrink-0 ${canSchedule ? "cursor-pointer" : ""}`}
+      className={`group bg-white rounded-lg border shadow-sm hover:shadow-md transition-all p-4 flex flex-col gap-3 min-w-[260px] max-w-[300px] w-[280px] shrink-0 ${canSchedule ? "cursor-pointer" : ""} ${highlighted ? "border-primary ring-2 ring-primary/30 hover:border-primary" : "border-card-border hover:border-primary/50"}`}
       onClick={canSchedule ? () => onSchedule(job, t1?.technician_id ?? null) : undefined}
       role={canSchedule ? "button" : undefined}
       tabIndex={canSchedule ? 0 : undefined}
@@ -1336,6 +1353,7 @@ export default function ScheduleBoard() {
   const [selectedRegions, setSelectedRegions] = useState<Set<string> | null>(null);
   const [selectedTechIds, setSelectedTechIds] = useState<Set<string> | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [highlightedUnscheduledId, setHighlightedUnscheduledId] = useState<string | null>(null);
   const [editing, setEditing] = useState<WbWorkOrder | null>(null);
   // Estimated duration carried into the dialog when scheduling a new booking for
   // an unscheduled job, so the dialog can auto-fill the end time.
@@ -1347,6 +1365,8 @@ export default function ScheduleBoard() {
   // Grouping mode toggle. Default "tech-region" matches the original view;
   // "service-location" re-groups by work order state/city. Resets on page reload.
   const [groupBy, setGroupBy] = useState<GroupByMode>("tech-region");
+  // When non-null, the board shows the stacked-weeks calendar for just this technician.
+  const [focusedTechId, setFocusedTechId] = useState<string | null>(null);
 
   // Drive Time / PTO block being added (or null when dialog is closed).
   const [addingBlock, setAddingBlock] = useState<{
@@ -1919,14 +1939,78 @@ export default function ScheduleBoard() {
 
   const activeSearch = searchQuery.trim().toLowerCase();
 
+  // technician_id → resource_name map, built from board data for client-side matching.
+  const techNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of data?.regions ?? []) {
+      for (const t of r.technicians ?? []) {
+        if (t.technician_id && t.resource_name) m.set(t.technician_id, t.resource_name);
+      }
+    }
+    return m;
+  }, [data]);
+
   // Count of distinct jobs visible on the board that match the current search.
   const searchMatchCount = useMemo(() => {
     if (!activeSearch) return 0;
-    return (data?.regions ?? [])
+    const scheduledCount = (data?.regions ?? [])
       .flatMap((r) => r.technicians ?? [])
       .flatMap((t) => t.jobs ?? [])
       .filter((j) => jobMatchesSearch(j as ScheduleJob, activeSearch)).length;
-  }, [activeSearch, data]);
+    const placeholderCount = placeholderJobs.filter((j) =>
+      placeholderJobMatchesSearch(
+        j,
+        activeSearch,
+        j.technician_id ? techNameById.get(j.technician_id) : null,
+      ),
+    ).length;
+    return scheduledCount + placeholderCount;
+  }, [activeSearch, data, placeholderJobs, techNameById]);
+
+  // Debounced query for the server-side all-future-dates search (400 ms delay,
+  // min 2 chars so we don't hammer the server on every keystroke).
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Whether the results panel is open. Set false on result click so the panel
+  // closes while keeping the search query (and board highlighting) active.
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  useEffect(() => {
+    const raw = searchQuery.trim();
+    if (raw.length < 2) {
+      setDebouncedSearch("");
+      setSearchPanelOpen(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setDebouncedSearch(raw);
+      setSearchPanelOpen(true);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const { data: globalSearchResults, isFetching: globalSearchFetching } = useSearchWbJobs(
+    { q: debouncedSearch },
+    {
+      query: {
+        queryKey: getSearchWbJobsQueryKey({ q: debouncedSearch }),
+        enabled: debouncedSearch.length >= 2,
+        staleTime: 30_000,
+      },
+    },
+  );
+
+  // Scroll highlighted unscheduled card into view whenever the ID changes.
+  // The 200 ms delay gives React time to re-render visibleUnscheduledJobs (which
+  // now always includes the highlighted job) before the DOM query runs.
+  useEffect(() => {
+    if (!highlightedUnscheduledId) return;
+    const timer = setTimeout(() => {
+      const el = document.querySelector<HTMLElement>(
+        `[data-testid="unscheduled-card-${highlightedUnscheduledId}"]`,
+      );
+      el?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [highlightedUnscheduledId]);
 
   // Minutes from the CRM (work orders only).
   const techUtilMinutes = (technicianId: string) =>
@@ -1970,9 +2054,18 @@ export default function ScheduleBoard() {
     );
   }, [allRegions, selectedRegions]);
 
-  // Unscheduled jobs filtered by active region + view-derived horizon
+  // Unscheduled jobs filtered by active region + view-derived horizon.
+  // Exception: the currently highlighted job (from a search result click) is always
+  // included regardless of horizon/region so the target card is in the DOM to scroll to.
   const visibleUnscheduledJobs = useMemo(() => {
     return unscheduledJobs.filter((j) => {
+      // Always include the search-highlighted job so its card is scrollable.
+      if (
+        highlightedUnscheduledId !== null &&
+        (j.work_order_id === highlightedUnscheduledId ||
+          j.work_order_number === highlightedUnscheduledId)
+      )
+        return true;
       if (activeRegionNames !== null && (j.region == null || !activeRegionNames.has(j.region)))
         return false;
       if (!j.due_date) return unscheduledHorizonDays >= 30;
@@ -1980,7 +2073,7 @@ export default function ScheduleBoard() {
         (new Date(j.due_date + "T00:00:00Z").getTime() - Date.now()) / (1000 * 60 * 60 * 24);
       return diffDays <= unscheduledHorizonDays;
     });
-  }, [unscheduledJobs, activeRegionNames, unscheduledHorizonDays]);
+  }, [unscheduledJobs, activeRegionNames, unscheduledHorizonDays, highlightedUnscheduledId]);
 
   // Detect double-booked jobs: same tech, same day, overlapping time windows.
   const conflictedBookingIds = useMemo(() => {
@@ -2039,16 +2132,47 @@ export default function ScheduleBoard() {
   const clearRegions = () => setSelectedRegions(new Set());
   const isRegionSelected = (id: string) => selectedRegions === null || selectedRegions.has(id);
 
-  const goPrev = () => setStart(view === "week" ? addDaysISO(start, -7) : addMonthsISO(start, -1));
-  const goNext = () => setStart(view === "week" ? addDaysISO(start, 7) : addMonthsISO(start, 1));
+  // True whenever the board is showing a single-tech focused stacked view —
+  // either via explicit click-to-focus or checkbox narrowed to exactly 1 tech.
+  // Used early (before the full effectiveFocusedTechId memo) to drive navigation.
+  const isSingleTechFocused =
+    focusedTechId !== null ||
+    (view === "tech" && selectedTechIds !== null && selectedTechIds.size === 1);
+
+  const goPrev = () =>
+    setStart(view === "week" || isSingleTechFocused ? addDaysISO(start, -7) : addMonthsISO(start, -1));
+  const goNext = () =>
+    setStart(view === "week" || isSingleTechFocused ? addDaysISO(start, 7) : addMonthsISO(start, 1));
   const goToday = () =>
-    setStart(view === "week" ? startOfWeekISO(new Date()) : startOfMonthISO(new Date()));
+    setStart(
+      view === "week" || isSingleTechFocused
+        ? startOfWeekISO(new Date())
+        : startOfMonthISO(new Date()),
+    );
 
   const onChangeView = (next: ViewMode) => {
     if (next === view) return;
     const seed = new Date(start + "T00:00:00Z");
     setStart(next === "week" ? startOfWeekISO(seed) : startOfMonthISO(seed));
     setView(next);
+    setFocusedTechId(null);
+  };
+
+  // Enter the single-tech stacked-weeks view for a specific technician.
+  const focusTech = (techId: string) => {
+    setFocusedTechId(techId);
+    if (view !== "tech") {
+      setStart(startOfWeekISO(new Date(start + "T00:00:00Z")));
+      setView("tech");
+    }
+  };
+
+  // Exit focused mode and return to the week swimlane.
+  const unfocusTech = () => {
+    setFocusedTechId(null);
+    const seed = new Date(start + "T00:00:00Z");
+    setStart(startOfWeekISO(seed));
+    setView("week");
   };
 
   // ---- Per-Tech (printable) view derivations ----
@@ -2089,6 +2213,49 @@ export default function ScheduleBoard() {
   const clearTechs = () => setSelectedTechIds(new Set());
   const isTechSelected = (id: string) => selectedTechIds === null || selectedTechIds.has(id);
 
+  // Show the stacked-weeks layout when exactly 1 tech is focused explicitly (clicking their
+  // name in the swimlane) OR when in tech view with exactly 1 tech checked in the picker.
+  const effectiveFocusedTechId: string | null =
+    focusedTechId ??
+    (view === "tech" && selectedTechIds !== null && selectedTechIds.size === 1
+      ? [...selectedTechIds][0]
+      : null);
+
+  const focusedTechData = useMemo(() => {
+    if (!effectiveFocusedTechId) return null;
+    for (const rg of regions) {
+      const t = rg.technicians.find((t) => t.technician_id === effectiveFocusedTechId);
+      if (t) return { tech: t, region: rg.region };
+    }
+    return null;
+  }, [effectiveFocusedTechId, regions]);
+
+  // Stacked-weeks grid: group dayHeaders into Mon–Sun blocks for the focused single-tech view.
+  const stackedWeeks = useMemo(() => {
+    if (!effectiveFocusedTechId) return [];
+    const groups: Array<{ mondayISO: string; days: typeof dayHeaders }> = [];
+    let current: typeof dayHeaders = [];
+    let mondayISO = "";
+    for (const dh of dayHeaders) {
+      const dow = new Date(dh.iso + "T00:00:00Z").getUTCDay();
+      if (dow === 1 && current.length > 0) {
+        groups.push({ mondayISO, days: current });
+        current = [];
+      }
+      if (current.length === 0) mondayISO = dh.iso;
+      current.push(dh);
+    }
+    if (current.length > 0) groups.push({ mondayISO, days: current });
+    return groups;
+  }, [effectiveFocusedTechId, dayHeaders]);
+
+  const stackedColUTCDays = showWeekends ? [1, 2, 3, 4, 5, 6, 0] : [1, 2, 3, 4, 5];
+  const stackedColNames = showWeekends
+    ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    : ["Mon", "Tue", "Wed", "Thu", "Fri"];
+  const stackedColMinWidth = 160 + stackedColNames.length * 160;
+  const stackedColTemplate = `160px repeat(${stackedColNames.length}, minmax(160px, 1fr))`;
+
   // Drop selected tech ids that no longer exist after region/month change
   useEffect(() => {
     if (selectedTechIds === null) return;
@@ -2103,6 +2270,16 @@ export default function ScheduleBoard() {
       setSelectedTechIds(next.size === allTechs.length ? null : next);
     }
   }, [allTechs, selectedTechIds]);
+
+  // Exit explicit focused mode when the picker is used to select 2+ technicians.
+  // selectedTechIds === null means "All" which is the default/reset state and
+  // must NOT clear an explicit row-click focus (that stays until the back button).
+  useEffect(() => {
+    if (focusedTechId === null) return;
+    if (selectedTechIds !== null && selectedTechIds.size !== 1) {
+      setFocusedTechId(null);
+    }
+  }, [focusedTechId, selectedTechIds]);
 
   // Headers for the Calendar view — Mon–Fri by default, all 7 days when showWeekends is on
   const weekdayHeaders = useMemo(
@@ -2155,7 +2332,17 @@ export default function ScheduleBoard() {
             className="text-base font-semibold tabular-nums px-2 min-w-[200px] text-center"
             data-testid="text-range"
           >
-            {fmtRangeLabel(rangeStart, dayCount, view)}
+            {effectiveFocusedTechId !== null && focusedTechData ? (
+              <>
+                <span className="text-sm font-normal text-muted-foreground">
+                  {focusedTechData.tech.resource_name}
+                  {" · "}
+                </span>
+                {fmtRangeLabel(start, 7, "week")}
+              </>
+            ) : (
+              fmtRangeLabel(rangeStart, dayCount, view)
+            )}
           </div>
           <Button
             variant="outline"
@@ -2428,19 +2615,99 @@ export default function ScheduleBoard() {
             {searchQuery && (
               <button
                 type="button"
-                onClick={() => setSearchQuery("")}
+                onClick={() => { setSearchQuery(""); setSearchPanelOpen(false); setHighlightedUnscheduledId(null); }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 aria-label="Clear search"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
+            {/* All-future-dates results panel — visible until user clicks a result or clears the query */}
+            {searchPanelOpen && (
+              <div className="absolute top-full left-0 mt-1 w-full z-50 bg-background border border-border rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                {globalSearchFetching && (
+                  <div className="p-3 text-xs text-muted-foreground">Searching all future dates…</div>
+                )}
+                {!globalSearchFetching && (!globalSearchResults || globalSearchResults.length === 0) && (
+                  <div className="p-3 text-xs text-muted-foreground">No future jobs matched.</div>
+                )}
+                {!globalSearchFetching && globalSearchResults && globalSearchResults.length > 0 && (
+                  <ul>
+                    {globalSearchResults.map((result) => {
+                      const weekStart = startOfWeekISO(new Date(result.start_date + "T00:00:00"));
+                      const isUnscheduled = result.type === "unscheduled";
+                      return (
+                        <li key={`${result.type}:${result.id}`}>
+                          <button
+                            type="button"
+                            className="w-full text-left px-3 py-2 hover:bg-muted/50 flex items-center gap-2 text-xs border-b border-border/50 last:border-b-0"
+                            onClick={() => {
+                              if (isUnscheduled) {
+                                setHighlightedUnscheduledId(result.id);
+                                setSearchPanelOpen(false);
+                              } else {
+                                setStart(weekStart);
+                                if (view !== "week") setView("week");
+                                setSearchPanelOpen(false);
+                              }
+                            }}
+                          >
+                            <Badge
+                              variant="outline"
+                              className={`shrink-0 text-[10px] px-1 py-0 ${
+                                result.type === "potential"
+                                  ? "border-dashed text-amber-700 border-amber-400"
+                                  : isUnscheduled
+                                    ? "border-dashed text-rose-700 border-rose-400"
+                                    : ""
+                              }`}
+                            >
+                              {result.type === "potential"
+                                ? "Potential"
+                                : isUnscheduled
+                                  ? "Unscheduled"
+                                  : "Scheduled"}
+                            </Badge>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">
+                                {result.customer_name ?? result.work_order_number ?? "Unknown"}
+                                {result.work_order_number && result.customer_name
+                                  ? ` · ${result.work_order_number}`
+                                  : ""}
+                              </div>
+                              <div className="text-muted-foreground truncate">
+                                {[result.city, result.state].filter(Boolean).join(", ")}
+                                {result.technician_name ? ` · ${result.technician_name}` : ""}
+                                {isUnscheduled ? " · Unscheduled" : ""}
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-muted-foreground tabular-nums whitespace-nowrap">
+                              {isUnscheduled ? `due ${result.start_date}` : result.start_date}
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
           {activeSearch && (
             <span className="text-xs text-muted-foreground tabular-nums">
-              {searchMatchCount === 0
-                ? "No matches"
-                : `${searchMatchCount} job${searchMatchCount !== 1 ? "s" : ""} matched`}
+              {(() => {
+                const globalCount = globalSearchResults?.length ?? null;
+                const hasGlobal = globalCount !== null && !globalSearchFetching && debouncedSearch.length >= 2;
+                if (hasGlobal && globalCount !== null) {
+                  if (searchMatchCount === 0 && globalCount === 0) return "No matches";
+                  if (searchMatchCount !== globalCount) {
+                    return `${searchMatchCount} in view · ${globalCount} total`;
+                  }
+                  return `${globalCount} job${globalCount !== 1 ? "s" : ""} matched`;
+                }
+                if (searchMatchCount === 0) return "No matches";
+                return `${searchMatchCount} job${searchMatchCount !== 1 ? "s" : ""} matched`;
+              })()}
             </span>
           )}
         </div>
@@ -2468,8 +2735,415 @@ export default function ScheduleBoard() {
         </div>
       )}
 
+      {/* Single-tech stacked-weeks calendar */}
+      {view === "tech" && !isLoading && !error && effectiveFocusedTechId !== null && focusedTechData && (
+        <div data-testid="focused-tech-view" className="space-y-4">
+          {/* Header */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={unfocusTech}
+              data-testid="btn-all-technicians"
+              className="gap-1.5"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              All technicians
+            </Button>
+            <div className="flex items-center gap-2">
+              <span
+                className={`h-3 w-3 rounded-full ${techColor(effectiveFocusedTechId).dot}`}
+                aria-hidden
+              />
+              <span className="text-lg font-semibold">
+                {focusedTechData.tech.resource_name ?? "Technician"}
+              </span>
+              <Badge variant="outline" className="text-xs font-normal">
+                {focusedTechData.region}
+              </Badge>
+            </div>
+          </div>
+
+          {/* Stacked weeks grid */}
+          <Card className="overflow-hidden border-2 border-foreground/80 shadow-sm print:shadow-none bg-white">
+            <CardContent className="p-0 overflow-x-auto">
+              <div style={{ minWidth: `${stackedColMinWidth}px` }}>
+                {/* Column headers: "Week" + day names */}
+                <div
+                  className="grid bg-white border-b-2 border-foreground/80"
+                  style={{ gridTemplateColumns: stackedColTemplate }}
+                >
+                  <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-foreground/60 border-r border-foreground/40">
+                    Week
+                  </div>
+                  {stackedColNames.map((name) => (
+                    <div
+                      key={name}
+                      className="px-1.5 py-2 text-xs font-bold text-center border-r border-foreground/20 last:border-r-0"
+                    >
+                      {name}
+                    </div>
+                  ))}
+                </div>
+
+                {/* One row per week */}
+                {stackedWeeks.map(({ mondayISO, days }) => {
+                  const weekDayCells = stackedColUTCDays.map((targetDow) =>
+                    days.find(
+                      (dh) => new Date(dh.iso + "T00:00:00Z").getUTCDay() === targetDow,
+                    ) ?? null,
+                  );
+                  const palette = techColor(effectiveFocusedTechId);
+                  const tech = focusedTechData.tech;
+                  const lastDay = days[days.length - 1];
+                  const weekStart = new Date(mondayISO + "T00:00:00Z").toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    timeZone: "UTC",
+                  });
+                  const weekEnd = new Date(lastDay.iso + "T00:00:00Z").toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    timeZone: "UTC",
+                  });
+
+                  // Per-week job/block/capacity stats (mirrors the swimlane tech row header)
+                  const weekIsos = new Set(days.map((d) => d.iso));
+                  const weekDayIdxSet = new Set(
+                    days
+                      .map((d) => dayHeaders.findIndex((h) => h.iso === d.iso))
+                      .filter((i) => i >= 0),
+                  );
+                  const weekJobs = (tech.jobs as ScheduleJob[]).filter((j) =>
+                    weekDayIdxSet.has(j.day_index),
+                  );
+                  // Deduplicate multi-day jobs (one ScheduleJob per spanned day)
+                  // before summing durations so each booking is counted once.
+                  const weekJobMins = Array.from(
+                    new Map(weekJobs.map((j) => [j.booking_id, j])).values(),
+                  ).reduce((s, j) => {
+                    if (!j.start_time || !j.end_time) return s;
+                    return (
+                      s +
+                      Math.max(
+                        0,
+                        Math.round(
+                          (new Date(j.end_time).getTime() -
+                            new Date(j.start_time).getTime()) /
+                            60000,
+                        ),
+                      )
+                    );
+                  }, 0);
+                  const weekBlkMins = blocks
+                    .filter(
+                      (b) =>
+                        b.technician_id === tech.technician_id &&
+                        weekIsos.has(b.start_time.slice(0, 10)),
+                    )
+                    .reduce(
+                      (acc, b) => {
+                        const dur = Math.max(
+                          0,
+                          Math.round(
+                            (new Date(b.end_time).getTime() -
+                              new Date(b.start_time).getTime()) /
+                              60000,
+                          ),
+                        );
+                        return b.block_type === "drive_time"
+                          ? { ...acc, driveTime: acc.driveTime + dur }
+                          : { ...acc, pto: acc.pto + dur };
+                      },
+                      { driveTime: 0, pto: 0 },
+                    );
+                  const weekCapMinutes = Math.round(
+                    idleCapMinutes(tech.technician_id) /
+                      Math.max(1, stackedWeeks.length),
+                  );
+                  const weekTotalMins =
+                    weekJobMins + weekBlkMins.driveTime + weekBlkMins.pto;
+                  const weekHasAnyBooking =
+                    weekJobs.length > 0 ||
+                    weekBlkMins.driveTime > 0 ||
+                    weekBlkMins.pto > 0;
+
+                  return (
+                    <div
+                      key={mondayISO}
+                      className="grid border-b border-foreground/20 last:border-b-0"
+                      style={{ gridTemplateColumns: stackedColTemplate }}
+                      data-testid={`stacked-week-${mondayISO}`}
+                    >
+                      {/* Week label — styled like the swimlane tech row header */}
+                      <div className="px-2 py-2 border-r border-foreground/40 flex flex-col justify-start bg-muted/20 gap-0.5">
+                        <div className="text-xs font-semibold text-foreground leading-tight">
+                          {weekStart}
+                        </div>
+                        <div className="text-[10px] text-foreground/60 mb-1">– {weekEnd}</div>
+                        <div className="text-[10px] text-foreground/50">
+                          {distinctJobCount(weekJobs)} job
+                          {distinctJobCount(weekJobs) !== 1 ? "s" : ""}
+                          {weekJobMins > 0 && ` · ${fmtMins(weekJobMins)}`}
+                        </div>
+                        {(weekBlkMins.driveTime > 0 || weekBlkMins.pto > 0) && (
+                          <div className="flex items-center gap-1.5 text-[10px] flex-wrap">
+                            {weekBlkMins.driveTime > 0 && (
+                              <span className="flex items-center gap-0.5 text-slate-500 dark:text-slate-400">
+                                <Car className="h-2.5 w-2.5 shrink-0" />
+                                {fmtMins(weekBlkMins.driveTime)}
+                              </span>
+                            )}
+                            {weekBlkMins.pto > 0 && (
+                              <span className="flex items-center gap-0.5 text-green-600 dark:text-green-400">
+                                <Sun className="h-2.5 w-2.5 shrink-0" />
+                                {fmtMins(weekBlkMins.pto)}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {weekHasAnyBooking ? (
+                          <CapacityBadge
+                            utilizedMinutes={weekTotalMins}
+                            capacityMinutes={weekCapMinutes}
+                            colorClass={palette.chip}
+                            jobMinutes={weekJobMins > 0 ? weekJobMins : undefined}
+                            driveTimeMinutes={
+                              weekBlkMins.driveTime > 0
+                                ? weekBlkMins.driveTime
+                                : undefined
+                            }
+                            ptoMinutes={
+                              weekBlkMins.pto > 0 ? weekBlkMins.pto : undefined
+                            }
+                          />
+                        ) : (
+                          <IdleCapacityBadge
+                            capacityMinutes={weekCapMinutes}
+                            colorClass={palette.chip}
+                          />
+                        )}
+                      </div>
+
+                      {/* Day cells */}
+                      {weekDayCells.map((dh, ci) => {
+                        if (!dh) {
+                          return (
+                            <div
+                              key={ci}
+                              className="border-r border-foreground/20 last:border-r-0 p-1 min-h-[60px] bg-muted/30"
+                            />
+                          );
+                        }
+                        const dayIdx = dayHeaders.findIndex((h) => h.iso === dh.iso);
+                        const jobs = (tech.jobs as ScheduleJob[])
+                          .filter((j) => j.day_index === dayIdx)
+                          .sort((a, b) => {
+                            const am = timeToMins(a.crmstarttime);
+                            const bm = timeToMins(b.crmstarttime);
+                            if (am == null && bm == null) return 0;
+                            if (am == null) return 1;
+                            if (bm == null) return -1;
+                            return am - bm;
+                          });
+                        const cellBlocks = blocksForCell(tech.technician_id, dh.iso);
+                        const cellPlaceholders = placeholderJobsForCell(tech.technician_id, dh.iso);
+                        const orderKey = `${tech.technician_id}|${dh.iso}`;
+                        const cellItems = applyChipOrder(orderKey, [
+                          ...jobs.map((j) => ({
+                            key: `job:${j.booking_id}`,
+                            node: (
+                              <JobChip
+                                job={j}
+                                compact={false}
+                                colorClass={palette.chip}
+                                isConflict={conflictedBookingIds.has(j.booking_id)}
+                                syncPending={pendingSyncIds.has(j.booking_id)}
+                                onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
+                                onDragStart={() => startDrag(j, tech.technician_id)}
+                                onDragEnd={endDrag}
+                                isDragging={draggingId === j.booking_id}
+                                showEquipment
+                                showDuration={false}
+                                dimmed={
+                                  !!activeSearch && !jobMatchesSearch(j, activeSearch)
+                                }
+                              />
+                            ),
+                          })),
+                          ...cellBlocks.map((blk) => ({
+                            key: `block:${blk.id}`,
+                            node: (
+                              <BlockChip
+                                block={blk}
+                                dayIso={dh.iso}
+                                onEdit={() =>
+                                  setEditingBlock({
+                                    block: blk,
+                                    technicianName: tech.resource_name ?? "Unknown",
+                                  })
+                                }
+                                onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
+                                onDragStart={() => startBlockDrag(blk, "move")}
+                                onResizeStart={() => startBlockDrag(blk, "resize")}
+                                onDragEnd={endDrag}
+                                isDragging={draggingBlockId === blk.id}
+                              />
+                            ),
+                          })),
+                          ...cellPlaceholders.map((phj) => ({
+                            key: `ph:${phj.id}`,
+                            node: (
+                              <PlaceholderJobChip
+                                job={phj}
+                                dayIso={dh.iso}
+                                technicianId={tech.technician_id}
+                                onEdit={() =>
+                                  setEditingPlaceholder({
+                                    job: phj,
+                                    technicianName: tech.resource_name ?? "Unknown",
+                                  })
+                                }
+                                onDelete={() =>
+                                  deletePlaceholderMutation.mutate({ id: phj.id })
+                                }
+                                onDragStart={() => startPlaceholderDrag(phj, "move")}
+                                onResizeStart={() => startPlaceholderDrag(phj, "resize")}
+                                onDragEnd={endDrag}
+                                isDragging={draggingPlaceholderId === phj.id}
+                                dimmed={
+                                  !!activeSearch &&
+                                  !placeholderJobMatchesSearch(
+                                    phj,
+                                    activeSearch,
+                                    tech.resource_name,
+                                  )
+                                }
+                              />
+                            ),
+                          })),
+                        ]);
+                        const orderedKeys = cellItems.map((it) => it.key);
+                        const isEmptyCell = cellItems.length === 0;
+                        const cellKey = `${tech.technician_id}:${dayIdx}`;
+                        const isDropTarget =
+                          (draggingId !== null ||
+                            draggingBlockId !== null ||
+                            draggingPlaceholderId !== null) &&
+                          dragOverCell === cellKey;
+                        const conflictDrop =
+                          draggingId !== null &&
+                          dropWouldConflict(tech.technician_id, dayIdx);
+                        const dropCue = conflictDrop
+                          ? isDropTarget
+                            ? "bg-amber-100 ring-2 ring-inset ring-amber-500"
+                            : "bg-amber-50 ring-1 ring-inset ring-amber-300"
+                          : isDropTarget
+                            ? "bg-primary/10 ring-2 ring-inset ring-primary"
+                            : "";
+                        return (
+                          <div
+                            key={dh.iso}
+                            className={`group relative border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dropCue} ${isEmptyCell ? "cursor-pointer" : ""}`}
+                            data-testid={`stacked-cell-${tech.technician_id}-${dh.iso}`}
+                            onClick={
+                              isEmptyCell
+                                ? () =>
+                                    setAddingBlock({
+                                      technicianId: tech.technician_id,
+                                      technicianName: tech.resource_name ?? "Unknown",
+                                      date: dh.iso,
+                                    })
+                                : undefined
+                            }
+                            onDragOver={(e) => {
+                              if (
+                                !dragJobRef.current &&
+                                !dragBlockRef.current &&
+                                !dragPlaceholderRef.current
+                              )
+                                return;
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = "move";
+                              if (dragOverCell !== cellKey) setDragOverCell(cellKey);
+                            }}
+                            onDragLeave={() =>
+                              setDragOverCell((prev) => (prev === cellKey ? null : prev))
+                            }
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              if (dragBlockRef.current) {
+                                handleBlockDropOnCell(tech.technician_id, dh.iso);
+                                return;
+                              }
+                              if (dragPlaceholderRef.current) {
+                                handlePlaceholderDropOnCell(tech.technician_id, dh.iso);
+                                return;
+                              }
+                              handleDropOnCell(tech.technician_id, dayIdx, tech.resource_name);
+                            }}
+                          >
+                            {cellItems.map((it) => (
+                              <div
+                                key={it.key}
+                                className="relative"
+                                onDragStartCapture={() => {
+                                  dragSourceCellRef.current = orderKey;
+                                }}
+                                onDragOver={(e) => chipReorderDragOver(e, orderKey, it.key)}
+                                onDrop={(e) =>
+                                  chipReorderDrop(e, orderKey, it.key, orderedKeys)
+                                }
+                              >
+                                {reorderTarget?.orderKey === orderKey &&
+                                  reorderTarget.chipKey === it.key && (
+                                    <div
+                                      className={`pointer-events-none absolute left-0 right-0 z-10 h-0.5 rounded bg-primary ${reorderTarget.pos === "above" ? "-top-[3px]" : "-bottom-[3px]"}`}
+                                    />
+                                  )}
+                                {it.node}
+                              </div>
+                            ))}
+                            {isEmptyCell ? (
+                              <div className="absolute inset-0 flex items-center justify-center gap-1 text-xs font-bold text-muted-foreground/40 hover:text-foreground hover:bg-accent/70 rounded transition-colors opacity-0 group-hover:opacity-100">
+                                <Plus className="h-3 w-3" /> Block
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                className="w-full flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/60 rounded px-1 py-0.5 transition-colors opacity-0 group-hover:opacity-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setAddingBlock({
+                                    technicianId: tech.technician_id,
+                                    technicianName: tech.resource_name ?? "Unknown",
+                                    date: dh.iso,
+                                  });
+                                }}
+                              >
+                                <Plus className="h-2.5 w-2.5" /> Block
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+
+                {stackedWeeks.length === 0 && (
+                  <div className="px-4 py-8 text-sm text-muted-foreground italic text-center">
+                    No data for this period.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Calendar view — one row per technician, weekday columns (weekends optional), grouped by region */}
-      {view === "tech" && !isLoading && !error && techsToPrint.length > 0 && (
+      {view === "tech" && !isLoading && !error && techsToPrint.length > 0 && effectiveFocusedTechId === null && (
         <div data-testid="tech-view" className="space-y-6">
           {regions.map((rg) => {
             const techsInRegion = rg.technicians.filter(
@@ -2694,6 +3368,7 @@ export default function ScheduleBoard() {
                                     onResizeStart={() => startPlaceholderDrag(phj, "resize")}
                                     onDragEnd={endDrag}
                                     isDragging={draggingPlaceholderId === phj.id}
+                                    dimmed={!!activeSearch && !placeholderJobMatchesSearch(phj, activeSearch, tech.resource_name)}
                                   />
                                 ),
                               })),
@@ -2918,9 +3593,14 @@ export default function ScheduleBoard() {
                               aria-hidden="true"
                             />
                             <div className="min-w-0">
-                              <div className="text-sm font-medium text-foreground truncate">
+                              <button
+                                type="button"
+                                onClick={() => focusTech(tech.technician_id)}
+                                className="text-sm font-medium text-foreground truncate text-left w-full hover:text-primary hover:underline transition-colors"
+                                title="View stacked calendar for this technician"
+                              >
                                 {tech.resource_name ?? "Unassigned"}
-                              </div>
+                              </button>
                               {(() => {
                                 const blkMins = techBlockMinutes(tech.technician_id);
                                 const jobMins = techUtilMinutes(tech.technician_id);
@@ -3036,6 +3716,7 @@ export default function ScheduleBoard() {
                                     onResizeStart={() => startPlaceholderDrag(phj, "resize")}
                                     onDragEnd={endDrag}
                                     isDragging={draggingPlaceholderId === phj.id}
+                                    dimmed={!!activeSearch && !placeholderJobMatchesSearch(phj, activeSearch, tech.resource_name)}
                                   />
                                 ),
                               })),
@@ -3209,6 +3890,11 @@ export default function ScheduleBoard() {
                               job={job}
                               bucketIdx={bi}
                               onSchedule={handleScheduleUnscheduled}
+                              highlighted={
+                                highlightedUnscheduledId !== null &&
+                                (job.work_order_id === highlightedUnscheduledId ||
+                                  job.work_order_number === highlightedUnscheduledId)
+                              }
                             />
                           ))}
                         </div>

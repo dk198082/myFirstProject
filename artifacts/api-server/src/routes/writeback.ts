@@ -931,6 +931,7 @@ const createPlaceholderJobSchema = z.object({
   city: z.string().nullable().optional(),
   state: z.string().nullable().optional(),
   service_location_id: z.string().nullable().optional(),
+  color_index: z.number().int().min(0).max(14).nullable().optional(),
   start_time: z.string().min(1),
   end_time: z.string().min(1),
   notes: z.string().nullable().optional(),
@@ -955,7 +956,7 @@ router.get("/wb/placeholder-jobs", async (req, res) => {
     }
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const r = await localPool.query(
-      `SELECT id, technician_id, title, customer_name, city, state, service_location_id, start_time, end_time, notes, status, created_at
+      `SELECT id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at
        FROM placeholder_jobs ${where} ORDER BY start_time`,
       params,
     );
@@ -968,6 +969,7 @@ router.get("/wb/placeholder-jobs", async (req, res) => {
         city: row.city ?? null,
         state: row.state ?? null,
         service_location_id: row.service_location_id ?? null,
+        color_index: row.color_index ?? null,
         start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
         end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
         notes: row.notes ?? null,
@@ -980,19 +982,246 @@ router.get("/wb/placeholder-jobs", async (req, res) => {
   }
 });
 
+router.get("/wb/search", async (req, res) => {
+  const q = ((req.query.q as string | undefined) ?? "").trim();
+  if (q.length < 2) {
+    res.status(400).json({ error: "Query must be at least 2 characters" });
+    return;
+  }
+  const pattern = `%${q}%`;
+  const today = new Date().toISOString().slice(0, 10);
+
+  try {
+    // 1a. Pre-fetch technician IDs whose name matches the query (best-effort, CRM only).
+    //     Needed before 1b so potential jobs surface when searching by tech name.
+    let matchingTechIds: string[] = [];
+    if (isCrmConfigured()) {
+      try {
+        const techIdResult = await getCrmPool().query<{ technician_id: string }>(
+          `SELECT bookableresourceid::text AS technician_id
+           FROM crm.bookableresource
+           WHERE name ILIKE $1
+             AND COALESCE(is_deleted, false) = false`,
+          [pattern],
+        );
+        matchingTechIds = techIdResult.rows.map((r) => r.technician_id);
+      } catch {
+        /* CRM unavailable — tech-name search for potential jobs degraded gracefully */
+      }
+    }
+
+    // 1b + 2: potential jobs and CRM scheduled bookings run in parallel.
+    type ScheduledRow = {
+      booking_id: string;
+      work_order_number: string | null;
+      customer_name: string | null;
+      city: string | null;
+      state: string | null;
+      technician_id: string | null;
+      technician_name: string | null;
+      start_time: Date | string;
+    };
+
+    const scheduledPromise: Promise<ScheduledRow[]> = isCrmConfigured()
+      ? getCrmPool()
+          .query<ScheduledRow>(
+            `SELECT
+               b.bookableresourcebookingid::text AS booking_id,
+               wo.msdyn_name AS work_order_number,
+               COALESCE(
+                 acc.name,
+                 wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue'
+               ) AS customer_name,
+               wo.msdyn_city AS city,
+               wo.msdyn_stateorprovince AS state,
+               b.resource::text AS technician_id,
+               COALESCE(
+                 br.name,
+                 b.raw_json->>'_resource_value@OData.Community.Display.V1.FormattedValue'
+               ) AS technician_name,
+               b.starttime AS start_time
+             FROM crm.booking b
+             JOIN crm.workorder wo
+               ON wo.msdyn_workorderid = b.msdyn_workorder
+              AND COALESCE(wo.is_deleted, false) = false
+             LEFT JOIN crm.account acc
+               ON acc.accountid = wo.msdyn_serviceaccount
+              AND COALESCE(acc.is_deleted, false) = false
+             LEFT JOIN crm.bookableresource br
+               ON br.bookableresourceid = b.resource
+              AND COALESCE(br.is_deleted, false) = false
+             WHERE b.starttime >= $1::date
+               AND COALESCE(b.is_deleted, false) = false
+               AND COALESCE(b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue', '') NOT ILIKE 'cancel%'
+               AND (
+                 wo.msdyn_name ILIKE $2 OR
+                 COALESCE(acc.name, wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue') ILIKE $2 OR
+                 wo.msdyn_city ILIKE $2 OR
+                 wo.msdyn_stateorprovince ILIKE $2 OR
+                 COALESCE(br.name, b.raw_json->>'_resource_value@OData.Community.Display.V1.FormattedValue') ILIKE $2
+               )
+             ORDER BY b.starttime ASC`,
+            [today, pattern],
+          )
+          .then((r) => r.rows)
+          .catch(() => [] as ScheduledRow[])
+      : Promise.resolve([] as ScheduledRow[]);
+
+    const phPromise = localPool.query<{
+      id: number;
+      technician_id: string | null;
+      title: string | null;
+      customer_name: string | null;
+      city: string | null;
+      state: string | null;
+      status: string | null;
+      start_time: Date | string;
+    }>(
+      `SELECT id, technician_id, title, customer_name, city, state, status, start_time
+       FROM placeholder_jobs
+       WHERE end_time > $1::date
+         AND (
+           customer_name ILIKE $2 OR
+           city ILIKE $2 OR
+           state ILIKE $2 OR
+           status ILIKE $2 OR
+           title ILIKE $2 OR
+           (cardinality($3::text[]) > 0 AND technician_id = ANY($3::text[]))
+         )
+       ORDER BY start_time ASC`,
+      [today, pattern, matchingTechIds],
+    );
+
+    // 1c. Unscheduled CRM work orders (no booking yet).
+    type UnscheduledSearchRow = {
+      work_order_id: string;
+      work_order_number: string | null;
+      customer_name: string | null;
+      city: string | null;
+      state: string | null;
+      due_date: string | null;
+    };
+
+    const unscheduledPromise: Promise<UnscheduledSearchRow[]> = isCrmConfigured()
+      ? getCrmPool()
+          .query<UnscheduledSearchRow>(
+            `SELECT
+               wo.msdyn_workorderid::text AS work_order_id,
+               wo.msdyn_name              AS work_order_number,
+               COALESCE(
+                 acc.name,
+                 wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue'
+               )                          AS customer_name,
+               wo.msdyn_city              AS city,
+               wo.msdyn_stateorprovince   AS state,
+               due.due_date::text         AS due_date
+             FROM crm.workorder wo
+             LEFT JOIN crm.account acc
+               ON acc.accountid = wo.msdyn_serviceaccount
+              AND COALESCE(acc.is_deleted, false) = false
+             LEFT JOIN LATERAL (
+               SELECT MIN(woce.cf_nextcalibrationdate) AS due_date
+               FROM crm.cf_workordercustomerequipment woce
+               WHERE woce.workorderid = wo.msdyn_workorderid
+                 AND COALESCE(woce.is_deleted, false) = false
+             ) due ON true
+             WHERE wo.raw_json->>'msdyn_systemstatus@OData.Community.Display.V1.FormattedValue' = 'Unscheduled'
+               AND COALESCE(wo.is_deleted, false) = false
+               AND (
+                 wo.msdyn_name ILIKE $1 OR
+                 COALESCE(acc.name, wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue') ILIKE $1 OR
+                 wo.msdyn_city ILIKE $1 OR
+                 wo.msdyn_stateorprovince ILIKE $1
+               )
+             ORDER BY due.due_date ASC NULLS LAST, wo.msdyn_name ASC`,
+            [pattern],
+          )
+          .then((r) => r.rows)
+          .catch(() => [] as UnscheduledSearchRow[])
+      : Promise.resolve([] as UnscheduledSearchRow[]);
+
+    const [phResult, scheduledRows, unscheduledRows] = await Promise.all([phPromise, scheduledPromise, unscheduledPromise]);
+
+    // 3. Resolve technician names for potential jobs from CRM (best-effort)
+    const phTechIds = [
+      ...new Set(phResult.rows.map((r) => r.technician_id).filter((id): id is string => !!id)),
+    ];
+    const phTechNames = new Map<string, string>();
+    if (phTechIds.length > 0 && isCrmConfigured()) {
+      try {
+        const tnResult = await getCrmPool().query<{ technician_id: string; resource_name: string | null }>(
+          `SELECT bookableresourceid::text AS technician_id, name AS resource_name
+           FROM crm.bookableresource
+           WHERE bookableresourceid::text = ANY($1::text[])
+             AND COALESCE(is_deleted, false) = false`,
+          [phTechIds],
+        );
+        for (const row of tnResult.rows) {
+          if (row.resource_name) phTechNames.set(row.technician_id, row.resource_name);
+        }
+      } catch {
+        /* CRM unavailable — tech names omitted, not a fatal error */
+      }
+    }
+
+    const toDateStr = (v: Date | string) =>
+      (v instanceof Date ? v.toISOString() : String(v)).slice(0, 10);
+
+    const results = [
+      ...phResult.rows.map((row) => ({
+        type: "potential" as const,
+        id: String(row.id),
+        work_order_number: null as string | null,
+        customer_name: row.customer_name ?? null,
+        city: row.city ?? null,
+        state: row.state ?? null,
+        technician_id: row.technician_id ?? null,
+        technician_name: row.technician_id ? (phTechNames.get(row.technician_id) ?? null) : null,
+        start_date: toDateStr(row.start_time),
+      })),
+      ...scheduledRows.map((row) => ({
+        type: "scheduled" as const,
+        id: row.booking_id,
+        work_order_number: row.work_order_number ?? null,
+        customer_name: row.customer_name ?? null,
+        city: row.city ?? null,
+        state: row.state ?? null,
+        technician_id: row.technician_id ?? null,
+        technician_name: row.technician_name ?? null,
+        start_date: toDateStr(row.start_time),
+      })),
+      ...unscheduledRows.map((row) => ({
+        type: "unscheduled" as const,
+        id: row.work_order_id,
+        work_order_number: row.work_order_number ?? null,
+        customer_name: row.customer_name ?? null,
+        city: row.city ?? null,
+        state: row.state ?? null,
+        technician_id: null as string | null,
+        technician_name: null as string | null,
+        start_date: row.due_date?.slice(0, 10) ?? today,
+      })),
+    ].sort((a, b) => a.start_date.localeCompare(b.start_date));
+
+    res.json(results);
+  } catch (err) {
+    handleWbError(req, res, err, "Search failed", "Search failed");
+  }
+});
+
 router.post("/wb/placeholder-jobs", async (req, res) => {
   const parsed = createPlaceholderJobSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
     return;
   }
-  const { technician_id, title, customer_name, city, state, service_location_id, start_time, end_time, notes, status } = parsed.data;
+  const { technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status } = parsed.data;
   try {
     const r = await localPool.query(
-      `INSERT INTO placeholder_jobs (technician_id, title, customer_name, city, state, service_location_id, start_time, end_time, notes, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING id, technician_id, title, customer_name, city, state, service_location_id, start_time, end_time, notes, status, created_at`,
-      [technician_id, title, customer_name ?? null, city ?? null, state ?? null, service_location_id ?? null, start_time, end_time, notes ?? null, status ?? null],
+      `INSERT INTO placeholder_jobs (technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at`,
+      [technician_id, title, customer_name ?? null, city ?? null, state ?? null, service_location_id ?? null, color_index ?? null, start_time, end_time, notes ?? null, status ?? null],
     );
     const row = r.rows[0];
     res.status(201).json({
@@ -1003,6 +1232,7 @@ router.post("/wb/placeholder-jobs", async (req, res) => {
       city: row.city ?? null,
       state: row.state ?? null,
       service_location_id: row.service_location_id ?? null,
+      color_index: row.color_index ?? null,
       start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
       end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
       notes: row.notes ?? null,
@@ -1022,6 +1252,7 @@ const updatePlaceholderJobSchema = z
     city: z.string().nullable().optional(),
     state: z.string().nullable().optional(),
     service_location_id: z.string().nullable().optional(),
+    color_index: z.number().int().min(0).max(14).nullable().optional(),
     start_time: z.string().min(1).optional(),
     end_time: z.string().min(1).optional(),
     notes: z.string().nullable().optional(),
@@ -1042,7 +1273,7 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
     return;
   }
-  const { technician_id, title, customer_name, city, state, service_location_id, start_time, end_time, notes, status } = parsed.data;
+  const { technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status } = parsed.data;
   try {
     const sets: string[] = [];
     const vals: unknown[] = [];
@@ -1052,6 +1283,7 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
     if (city !== undefined) { sets.push(`city = $${vals.push(city)}`); }
     if (state !== undefined) { sets.push(`state = $${vals.push(state)}`); }
     if (service_location_id !== undefined) { sets.push(`service_location_id = $${vals.push(service_location_id)}`); }
+    if (color_index !== undefined) { sets.push(`color_index = $${vals.push(color_index)}`); }
     if (start_time !== undefined) { sets.push(`start_time = $${vals.push(start_time)}`); }
     if (end_time !== undefined) { sets.push(`end_time = $${vals.push(end_time)}`); }
     if (notes !== undefined) { sets.push(`notes = $${vals.push(notes)}`); }
@@ -1062,7 +1294,7 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
     }
     vals.push(id);
     const r = await localPool.query(
-      `UPDATE placeholder_jobs SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, title, customer_name, city, state, service_location_id, start_time, end_time, notes, status, created_at`,
+      `UPDATE placeholder_jobs SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at`,
       vals,
     );
     if (r.rows.length === 0) {
@@ -1078,6 +1310,7 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
       city: row.city ?? null,
       state: row.state ?? null,
       service_location_id: row.service_location_id ?? null,
+      color_index: row.color_index ?? null,
       start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
       end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
       notes: row.notes ?? null,

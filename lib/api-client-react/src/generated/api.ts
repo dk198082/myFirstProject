@@ -47,6 +47,7 @@ import type {
   ResourceUtilizationResponse,
   ScheduleBlock,
   ScheduleBoard,
+  SearchWbJobsParams,
   ServiceOrderReport,
   Technician,
   TechnicianJobsResponse,
@@ -56,6 +57,7 @@ import type {
   UpdateScheduleBlock,
   WbBookingUpdate,
   WbSaveResult,
+  WbSearchResult,
   WbServiceLocation,
   WbServiceLocationDetail,
   WbSyncRequest,
@@ -1121,6 +1123,90 @@ export const useDeleteWbPlaceholderJob = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getDeleteWbPlaceholderJobMutationOptions(options));
     }
+
+export const getSearchWbJobsUrl = (params: SearchWbJobsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/wb/search?${stringifiedParams}` : `/api/wb/search`
+}
+
+/**
+ * @summary Search all future scheduled and potential jobs
+ */
+export const searchWbJobs = async (params: SearchWbJobsParams, options?: RequestInit): Promise<WbSearchResult[]> => {
+
+  return customFetch<WbSearchResult[]>(getSearchWbJobsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSearchWbJobsQueryKey = (params?: SearchWbJobsParams,) => {
+    return [
+    `/api/wb/search`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSearchWbJobsQueryOptions = <TData = Awaited<ReturnType<typeof searchWbJobs>>, TError = ErrorType<ErrorResponse>>(params: SearchWbJobsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchWbJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSearchWbJobsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchWbJobs>>> = ({ signal }) => searchWbJobs(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchWbJobs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SearchWbJobsQueryResult = NonNullable<Awaited<ReturnType<typeof searchWbJobs>>>
+export type SearchWbJobsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Search all future scheduled and potential jobs
+ */
+
+export function useSearchWbJobs<TData = Awaited<ReturnType<typeof searchWbJobs>>, TError = ErrorType<ErrorResponse>>(
+ params: SearchWbJobsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof searchWbJobs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSearchWbJobsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getListWbServiceLocationsUrl = (params?: ListWbServiceLocationsParams,) => {
   const normalizedParams = new URLSearchParams();

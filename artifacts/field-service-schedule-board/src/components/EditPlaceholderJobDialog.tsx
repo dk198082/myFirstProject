@@ -28,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ServiceLocationPicker } from "@/components/ServiceLocationPicker";
+import { ChipColorPicker } from "@/components/ChipColorPicker";
 
 interface ServiceLocationValue {
   id: string;
@@ -63,7 +64,6 @@ export function EditPlaceholderJobDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [title, setTitle] = useState(job.title);
   const [serviceLocation, setServiceLocation] = useState<ServiceLocationValue | null>(
     // Initialize from service_location_id alone; customer_name may be blank but
     // the ID must be preserved so saves don't accidentally unlink CRM jobs.
@@ -78,6 +78,7 @@ export function EditPlaceholderJobDialog({
   const [startTime, setStartTime] = useState(toLocalInput(job.start_time));
   const [endTime, setEndTime] = useState(toLocalInput(job.end_time));
   const [notes, setNotes] = useState(job.notes ?? "");
+  const [colorIndex, setColorIndex] = useState<number | null>(job.color_index ?? null);
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getListWbPlaceholderJobsQueryKey() });
@@ -126,10 +127,7 @@ export function EditPlaceholderJobDialog({
   };
 
   const submit = () => {
-    if (!title.trim()) {
-      toast({ title: "Title required", description: "Please enter a job title.", variant: "destructive" });
-      return;
-    }
+
     const start = fromLocalInput(startTime);
     const end = fromLocalInput(endTime);
     if (!start || !end) {
@@ -139,7 +137,7 @@ export function EditPlaceholderJobDialog({
     updateMutation.mutate({
       id: job.id,
       data: {
-        title: title.trim(),
+        title: job.title,
         customer_name: customerName.trim() || null,
         city: city.trim() || null,
         state: state.trim() || null,
@@ -148,6 +146,7 @@ export function EditPlaceholderJobDialog({
         end_time: end,
         notes: notes.trim() || null,
         status: (jobStatus || null) as Parameters<typeof updateMutation.mutate>[0]["data"]["status"],
+        color_index: colorIndex,
       },
     });
   };
@@ -156,26 +155,13 @@ export function EditPlaceholderJobDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-sm overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-sm flex flex-col max-h-[90vh]">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Edit placeholder job</DialogTitle>
           <DialogDescription>{technicianName} · Not yet confirmed in CRM</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2 min-w-0 overflow-hidden">
-          <div className="space-y-1.5 min-w-0">
-            <Label htmlFor="ph-edit-title">
-              Title <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="ph-edit-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full min-w-0"
-              autoFocus
-            />
-          </div>
-
+        <div className="space-y-4 py-2 min-w-0 overflow-y-auto flex-1 pr-1">
           <div className="relative">
             <ServiceLocationPicker
               label="Service location"
@@ -254,6 +240,8 @@ export function EditPlaceholderJobDialog({
             />
           </div>
 
+          <ChipColorPicker value={colorIndex} onChange={setColorIndex} />
+
           <div className="space-y-1.5">
             <Label htmlFor="ph-edit-notes">
               Notes <span className="text-muted-foreground">(optional)</span>
@@ -268,7 +256,7 @@ export function EditPlaceholderJobDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 flex-row flex-wrap justify-between sm:justify-between sm:space-x-0">
+        <DialogFooter className="gap-2 flex-row flex-wrap justify-between sm:justify-between sm:space-x-0 shrink-0">
           <Button
             variant="ghost"
             className="text-destructive hover:text-destructive"
