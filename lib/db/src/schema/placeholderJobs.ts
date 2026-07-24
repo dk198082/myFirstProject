@@ -1,4 +1,5 @@
 import {
+  pgSchema,
   pgTable,
   serial,
   smallint,
@@ -9,7 +10,9 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const placeholderJobsTable = pgTable(
+const crm = pgSchema("crm");
+
+export const placeholderJobsTable = crm.table(
   "placeholder_jobs",
   {
     id: serial("id").primaryKey(),
