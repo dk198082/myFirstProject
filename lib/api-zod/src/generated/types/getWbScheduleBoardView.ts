@@ -12,4 +12,5 @@ export type GetWbScheduleBoardView = typeof GetWbScheduleBoardView[keyof typeof 
 export const GetWbScheduleBoardView = {
   week: 'week',
   month: 'month',
+  stacked: 'stacked',
 } as const;

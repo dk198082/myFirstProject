@@ -931,8 +931,8 @@ export const GetScheduleBoardResponse = zod.object({
  * @summary Get the d365crm schedule board (weekly or monthly) grouped by region (territory) then technician (resource)
  */
 export const GetWbScheduleBoardQueryParams = zod.object({
-  "start": zod.coerce.string().optional().describe('ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month.'),
-  "view": zod.enum(['week', 'month']).optional().describe('Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.'),
+  "start": zod.coerce.string().optional().describe('ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month, for stacked view the Monday of the first week.'),
+  "view": zod.enum(['week', 'month', 'stacked']).optional().describe('Range type: `week` (7 days), `month` (calendar month), or `stacked` (12 weeks \/ 84 days aligned to Monday — used by the single-tech stacked-weeks view). Defaults to `week`.'),
   "groupBy": zod.enum(['tech-region', 'service-location']).optional().describe('Grouping mode: `tech-region` (default) groups by the technician\'s CRM territory; `service-location` groups by the work order\'s state\/city.')
 })
 

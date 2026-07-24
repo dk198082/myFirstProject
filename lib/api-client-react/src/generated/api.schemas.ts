@@ -1053,11 +1053,11 @@ export const GetScheduleBoardGroupBy = {
 
 export type GetWbScheduleBoardParams = {
 /**
- * ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month.
+ * ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month, for stacked view the Monday of the first week.
  */
 start?: string;
 /**
- * Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`.
+ * Range type: `week` (7 days), `month` (calendar month), or `stacked` (12 weeks / 84 days aligned to Monday — used by the single-tech stacked-weeks view). Defaults to `week`.
  */
 view?: GetWbScheduleBoardView;
 /**
@@ -1072,6 +1072,7 @@ export type GetWbScheduleBoardView = typeof GetWbScheduleBoardView[keyof typeof 
 export const GetWbScheduleBoardView = {
   week: 'week',
   month: 'month',
+  stacked: 'stacked',
 } as const;
 
 export type GetWbScheduleBoardGroupBy = typeof GetWbScheduleBoardGroupBy[keyof typeof GetWbScheduleBoardGroupBy];

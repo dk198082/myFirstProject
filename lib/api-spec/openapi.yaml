@@ -840,14 +840,14 @@ paths:
           required: false
           schema:
             type: string
-          description: ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month.
+          description: ISO date (YYYY-MM-DD); for week view this is Monday, for month view any day in the target month, for stacked view the Monday of the first week.
         - name: view
           in: query
           required: false
           schema:
             type: string
-            enum: [week, month]
-          description: "Range type: `week` (7 days) or `month` (calendar month). Defaults to `week`."
+            enum: [week, month, stacked]
+          description: "Range type: `week` (7 days), `month` (calendar month), or `stacked` (12 weeks / 84 days aligned to Monday — used by the single-tech stacked-weeks view). Defaults to `week`."
         - name: groupBy
           in: query
           required: false
