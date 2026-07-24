@@ -966,7 +966,7 @@ router.get("/wb/placeholder-jobs", async (req, res) => {
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const r = await localPool.query(
       `SELECT id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at
-       FROM placeholder_jobs ${where} ORDER BY start_time`,
+       FROM crm.placeholder_jobs ${where} ORDER BY start_time`,
       params,
     );
     res.json(
