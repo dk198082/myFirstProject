@@ -3,6 +3,12 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import { getCrmPool, isCrmConfigured, isCrmUnavailableError } from "../lib/crmDb.js";
 import { localPool } from "../lib/localDb.js";
+import {
+  mirrorPlaceholderJobUpsert,
+  mirrorPlaceholderJobDelete,
+  mirrorScheduleBlockUpsert,
+  mirrorScheduleBlockDelete,
+} from "../lib/crmMirror.js";
 import { isDataverseConfigured, patchBooking, createBooking } from "../lib/dataverse.js";
 
 // Shared error handler for /wb/* routes. When the failure is the CRM database
@@ -690,6 +696,7 @@ router.post("/wb/schedule-blocks", async (req, res) => {
       [technician_id, block_type, title ?? null, start_time, end_time, notes ?? null],
     );
     const row = r.rows[0];
+    void mirrorScheduleBlockUpsert(req.log, row);
     res.status(201).json({
       id: row.id,
       technician_id: row.technician_id,
@@ -739,6 +746,7 @@ router.patch("/wb/schedule-blocks/:id", async (req, res) => {
       res.status(404).json({ error: "Block not found" });
       return;
     }
+    void mirrorScheduleBlockUpsert(req.log, r.rows[0]);
     res.json(r.rows[0]);
   } catch (err) {
     handleWbError(req, res, err, "Failed to update schedule block", "Failed to update schedule block");
@@ -760,6 +768,7 @@ router.delete("/wb/schedule-blocks/:id", async (req, res) => {
       res.status(404).json({ error: "Block not found" });
       return;
     }
+    void mirrorScheduleBlockDelete(req.log, id);
     res.status(204).send();
   } catch (err) {
     handleWbError(req, res, err, "Failed to delete schedule block", "Failed to delete schedule block");
@@ -1224,6 +1233,7 @@ router.post("/wb/placeholder-jobs", async (req, res) => {
       [technician_id, title, customer_name ?? null, city ?? null, state ?? null, service_location_id ?? null, color_index ?? null, start_time, end_time, notes ?? null, status ?? null],
     );
     const row = r.rows[0];
+    void mirrorPlaceholderJobUpsert(req.log, row);
     res.status(201).json({
       id: row.id,
       technician_id: row.technician_id,
@@ -1302,6 +1312,7 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
       return;
     }
     const row = r.rows[0];
+    void mirrorPlaceholderJobUpsert(req.log, row);
     res.json({
       id: row.id,
       technician_id: row.technician_id,
@@ -1337,6 +1348,7 @@ router.delete("/wb/placeholder-jobs/:id", async (req, res) => {
       res.status(404).json({ error: "Placeholder job not found" });
       return;
     }
+    void mirrorPlaceholderJobDelete(req.log, id);
     res.status(204).send();
   } catch (err) {
     handleWbError(req, res, err, "Failed to delete placeholder job", "Failed to delete placeholder job");
@@ -1408,7 +1420,8 @@ function tsParts(v: Date | string | null | undefined): {
 
 router.get("/wb/schedule-board", async (req, res) => {
   const viewRaw = (req.query.view as string | undefined) ?? "week";
-  const view: "week" | "month" = viewRaw === "month" ? "month" : "week";
+  const view: "week" | "month" | "stacked" =
+    viewRaw === "month" ? "month" : viewRaw === "stacked" ? "stacked" : "week";
 
   const groupByRaw = (req.query.groupBy as string | undefined) ?? "tech-region";
   const groupBy: "tech-region" | "service-location" =
@@ -1426,6 +1439,14 @@ router.get("/wb/schedule-board", async (req, res) => {
   if (view === "month") {
     start = new Date(Date.UTC(seed.getUTCFullYear(), seed.getUTCMonth(), 1));
     endDate = new Date(Date.UTC(seed.getUTCFullYear(), seed.getUTCMonth() + 1, 1));
+  } else if (view === "stacked") {
+    // Align to the Monday of the given week, then span 12 weeks (84 days).
+    const dow = seed.getUTCDay();
+    const daysToMon = dow === 0 ? -6 : 1 - dow;
+    start = new Date(seed);
+    start.setUTCDate(start.getUTCDate() + daysToMon);
+    endDate = new Date(start);
+    endDate.setUTCDate(endDate.getUTCDate() + 182); // 26 weeks
   } else {
     start = seed;
     endDate = new Date(start);
