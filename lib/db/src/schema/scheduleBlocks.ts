@@ -1,4 +1,5 @@
 import {
+  pgSchema,
   pgTable,
   serial,
   smallint,
@@ -11,7 +12,10 @@ import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const scheduleBlocksTable = pgTable(
+const crm = pgSchema("crm");
+
+export const scheduleBlocksTable = crm.table(
+
   "schedule_blocks",
   {
     id: serial("id").primaryKey(),
