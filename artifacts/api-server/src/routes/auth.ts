@@ -44,12 +44,12 @@ router.get("/login", async (req, res) => {
     redirectUri: REDIRECT_URI,
     state,
   });
-
   res.redirect(authUrl);
 });
 
 router.get("/auth/callback", async (req, res) => {
   if (!isAuthConfigured()) {
+    
     res.status(503).send("Azure auth is not configured");
     return;
   }
