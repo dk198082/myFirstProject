@@ -252,6 +252,7 @@ export const ListWbScheduleBlocksResponseItem = zod.object({
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
+  "color_index": zod.number().nullish().describe('0-15 palette index; null = match region default colour'),
   "created_at": zod.string()
 })
 export const ListWbScheduleBlocksResponse = zod.array(ListWbScheduleBlocksResponseItem)
@@ -266,7 +267,8 @@ export const CreateWbScheduleBlockBody = zod.object({
   "title": zod.string().nullish().describe('Custom title (only used when block_type is \"custom\")'),
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "color_index": zod.number().nullish().describe('0-15 palette index; null = match region default colour')
 })
 
 
@@ -283,7 +285,8 @@ export const UpdateWbScheduleBlockBody = zod.object({
   "title": zod.string().nullish().describe('Custom title (only used when block_type is \"custom\")'),
   "start_time": zod.string().optional().describe('ISO 8601 timestamp'),
   "end_time": zod.string().optional().describe('ISO 8601 timestamp'),
-  "notes": zod.string().nullish()
+  "notes": zod.string().nullish(),
+  "color_index": zod.number().nullish().describe('0-15 palette index; null to reset to region default colour')
 })
 
 export const UpdateWbScheduleBlockResponse = zod.object({
@@ -294,6 +297,7 @@ export const UpdateWbScheduleBlockResponse = zod.object({
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
+  "color_index": zod.number().nullish().describe('0-15 palette index; null = match region default colour'),
   "created_at": zod.string()
 })
 
@@ -342,7 +346,7 @@ export const CreateWbPlaceholderJobBody = zod.object({
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
   "service_location_id": zod.string().nullish().describe('CRM account ID of the linked service location'),
-  "color_index": zod.number().nullish().describe('0–14 palette index; null = match technician swimlane colour'),
+  "color_index": zod.number().nullish().describe('0–15 palette index; null = match region default colour'),
   "start_time": zod.string().describe('ISO 8601 timestamp'),
   "end_time": zod.string().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),
@@ -364,7 +368,7 @@ export const UpdateWbPlaceholderJobBody = zod.object({
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
   "service_location_id": zod.string().nullish().describe('CRM account ID of the linked service location (null to clear)'),
-  "color_index": zod.number().nullish().describe('0–14 palette index; null to reset to technician swimlane colour'),
+  "color_index": zod.number().nullish().describe('0–15 palette index; null to reset to region default colour'),
   "start_time": zod.string().optional().describe('ISO 8601 timestamp'),
   "end_time": zod.string().optional().describe('ISO 8601 timestamp'),
   "notes": zod.string().nullish(),

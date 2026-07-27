@@ -22,7 +22,7 @@ export interface UpdatePlaceholderJob {
      */
   service_location_id?: string | null;
   /**
-     * 0–14 palette index; null to reset to technician swimlane colour
+     * 0–15 palette index; null to reset to region default colour
      * @nullable
      */
   color_index?: number | null;

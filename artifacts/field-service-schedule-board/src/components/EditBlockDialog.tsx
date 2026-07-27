@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Loader2, Car, Sun, Pencil, CalendarIcon } from "lucide-react";
+import { ChipColorPicker } from "@/components/ChipColorPicker";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -167,10 +168,13 @@ function DateTimePicker({
 export function EditBlockDialog({
   block,
   technicianName,
+  defaultColorIndex = null,
   onClose,
 }: {
   block: ScheduleBlock;
   technicianName: string;
+  /** Palette index to pre-select when block has no saved colour override. */
+  defaultColorIndex?: number | null;
   onClose: () => void;
 }) {
   const { toast } = useToast();
@@ -183,6 +187,7 @@ export function EditBlockDialog({
   const [startTime, setStartTime] = useState(toLocalInput(block.start_time));
   const [endTime, setEndTime] = useState(toLocalInput(block.end_time));
   const [notes, setNotes] = useState(block.notes ?? "");
+  const [colorIndex, setColorIndex] = useState<number | null>(block.color_index ?? defaultColorIndex);
 
   const blockLabel =
     blockType === "drive_time" ? "Drive time" : blockType === "pto" ? "PTO" : customTitle.trim() || "Custom block";
@@ -230,6 +235,7 @@ export function EditBlockDialog({
         start_time: start,
         end_time: end,
         notes: notes.trim() || null,
+        color_index: colorIndex,
       },
     });
   };
@@ -326,6 +332,8 @@ export function EditBlockDialog({
               className="resize-none"
             />
           </div>
+
+          <ChipColorPicker value={colorIndex} onChange={setColorIndex} />
         </div>
 
         <DialogFooter className="gap-2 flex-row flex-wrap justify-end sm:space-x-0">

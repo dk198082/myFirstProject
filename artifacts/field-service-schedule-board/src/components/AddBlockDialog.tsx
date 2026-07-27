@@ -51,12 +51,15 @@ export function AddBlockDialog({
   technicianId,
   technicianName,
   date,
+  defaultColorIndex = null,
   onClose,
 }: {
   technicianId: string;
   technicianName: string;
   /** ISO date string "YYYY-MM-DD" */
   date: string;
+  /** Pre-selected palette index — defaults to the technician's region colour. */
+  defaultColorIndex?: number | null;
   onClose: () => void;
 }) {
   const { toast } = useToast();
@@ -72,7 +75,7 @@ export function AddBlockDialog({
   const [startTime, setStartTime] = useState(`${date}T09:00`);
   const [endTime, setEndTime] = useState(entryType === "potential_job" ? `${date}T11:00` : `${date}T17:00`);
   const [notes, setNotes] = useState("");
-  const [colorIndex, setColorIndex] = useState<number | null>(null);
+  const [colorIndex, setColorIndex] = useState<number | null>(defaultColorIndex);
 
   const blockLabel =
     entryType === "drive_time"
@@ -179,6 +182,7 @@ export function AddBlockDialog({
         start_time: start,
         end_time: end,
         notes: notes.trim() || null,
+        color_index: colorIndex,
       },
     });
   };
@@ -350,9 +354,7 @@ export function AddBlockDialog({
             />
           </div>
 
-          {entryType === "potential_job" && (
-            <ChipColorPicker value={colorIndex} onChange={setColorIndex} />
-          )}
+          <ChipColorPicker value={colorIndex} onChange={setColorIndex} />
 
           <div className="space-y-1.5">
             <Label htmlFor="block-notes">Notes <span className="text-muted-foreground">(optional)</span></Label>

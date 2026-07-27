@@ -21,4 +21,9 @@ export interface CreateScheduleBlock {
   end_time: string;
   /** @nullable */
   notes?: string | null;
+  /**
+     * 0-15 palette index; null = match region default colour
+     * @nullable
+     */
+  color_index?: number | null;
 }

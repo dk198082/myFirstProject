@@ -28,3 +28,5 @@ almost certainly fine — the problem is purely that the flow was attempted in-f
 (`https://<dev-domain>/`) and sign in there, not the embedded preview.
 
 Keep the two frontends' `useAuth.tsx` login logic identical.
+
+**Update (session cookies in the preview iframe):** SameSite=Lax session cookies are withheld by browsers inside the embedded Replit preview (third-party context), which made the preview look logged out even with a valid session. Fix in api-server session config: dev uses `sameSite: "none"` + `secure: true` (Replit proxy is HTTPS, trust proxy enabled) so the preview iframe sends the cookie; production keeps `lax` + `secure: "auto"`. Sessions are also `rolling: true` with 30-day maxAge so active users are never logged out.

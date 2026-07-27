@@ -21,4 +21,9 @@ export interface UpdateScheduleBlock {
   end_time?: string;
   /** @nullable */
   notes?: string | null;
+  /**
+     * 0-15 palette index; null to reset to region default colour
+     * @nullable
+     */
+  color_index?: number | null;
 }

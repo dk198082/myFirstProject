@@ -78,16 +78,30 @@ app.use(
     secret: sessionSecret ?? "insecure-dev-session-secret",
     resave: false,
     saveUninitialized: false,
+    // Refresh the cookie expiry on every request so active users are never
+    // logged out; only 30 days of inactivity ends a session.
+    rolling: true,
     cookie: {
-      secure: "auto",
       httpOnly: true,
-      // "lax" works for same-origin deployment (default; see STATIC_DIR
-      // below). Only set COOKIE_SAME_SITE=none (and CORS_ORIGIN above) if the
-      // frontend is deployed to a different Azure host than this API — the
-      // frontend must also send fetch(..., { credentials: "include" }) in
+      maxAge: 1000 * 60 * 60 * 24 * 30,
+      // Development: the app is used inside the Replit preview iframe, where
+      // the browser treats it as third-party and withholds SameSite=Lax
+      // cookies. SameSite=None (which requires Secure) lets the embedded
+      // preview send the session cookie. The dev domain is always HTTPS via
+      // the Replit proxy (trust proxy is enabled above).
+      // Production: keep the stricter Lax + auto-secure behavior by default.
+      // Only set COOKIE_SAME_SITE=none (and CORS_ORIGIN above) in production
+      // if the frontend is deployed to a different Azure host than this API —
+      // the frontend must also send fetch(..., { credentials: "include" }) in
       // that case, or the browser will never attach the session cookie.
-      sameSite: (process.env.COOKIE_SAME_SITE as "lax" | "none" | "strict") ?? "lax",
-      maxAge: 1000 * 60 * 60 * 8,
+      ...(process.env.NODE_ENV === "production"
+        ? {
+            secure: "auto" as const,
+            sameSite:
+              (process.env.COOKIE_SAME_SITE as "lax" | "none" | "strict") ??
+              ("lax" as const),
+          }
+        : { secure: true, sameSite: "none" as const }),
     },
   }),
 );

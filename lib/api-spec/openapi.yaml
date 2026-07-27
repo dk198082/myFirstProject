@@ -1103,6 +1103,9 @@ components:
           description: ISO 8601 timestamp
         notes:
           type: ["string", "null"]
+        color_index:
+          type: ["integer", "null"]
+          description: 0-15 palette index; null = match region default colour
         created_at:
           type: string
 
@@ -1126,6 +1129,9 @@ components:
           description: ISO 8601 timestamp
         notes:
           type: ["string", "null"]
+        color_index:
+          type: ["integer", "null"]
+          description: 0-15 palette index; null = match region default colour
 
     UpdateScheduleBlock:
       type: object
@@ -1146,6 +1152,9 @@ components:
           description: ISO 8601 timestamp
         notes:
           type: ["string", "null"]
+        color_index:
+          type: ["integer", "null"]
+          description: 0-15 palette index; null to reset to region default colour
 
     PlaceholderJobStatus:
       type: string
@@ -1213,7 +1222,7 @@ components:
           description: CRM account ID of the linked service location
         color_index:
           type: ["integer", "null"]
-          description: 0–14 palette index; null = match technician swimlane colour
+          description: 0–15 palette index; null = match region default colour
         start_time:
           type: string
           description: ISO 8601 timestamp
@@ -1245,7 +1254,7 @@ components:
           description: CRM account ID of the linked service location (null to clear)
         color_index:
           type: ["integer", "null"]
-          description: 0–14 palette index; null to reset to technician swimlane colour
+          description: 0–15 palette index; null to reset to region default colour
         start_time:
           type: string
           description: ISO 8601 timestamp

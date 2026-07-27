@@ -79,6 +79,11 @@ export interface ScheduleBlock {
   end_time: string;
   /** @nullable */
   notes?: string | null;
+  /**
+     * 0-15 palette index; null = match region default colour
+     * @nullable
+     */
+  color_index?: number | null;
   created_at: string;
 }
 
@@ -105,6 +110,11 @@ export interface CreateScheduleBlock {
   end_time: string;
   /** @nullable */
   notes?: string | null;
+  /**
+     * 0-15 palette index; null = match region default colour
+     * @nullable
+     */
+  color_index?: number | null;
 }
 
 export type UpdateScheduleBlockBlockType = typeof UpdateScheduleBlockBlockType[keyof typeof UpdateScheduleBlockBlockType];
@@ -130,6 +140,11 @@ export interface UpdateScheduleBlock {
   end_time?: string;
   /** @nullable */
   notes?: string | null;
+  /**
+     * 0-15 palette index; null to reset to region default colour
+     * @nullable
+     */
+  color_index?: number | null;
 }
 
 export type PlaceholderJobStatus = typeof PlaceholderJobStatus[keyof typeof PlaceholderJobStatus];
@@ -189,7 +204,7 @@ export interface CreatePlaceholderJob {
      */
   service_location_id?: string | null;
   /**
-     * 0–14 palette index; null = match technician swimlane colour
+     * 0–15 palette index; null = match region default colour
      * @nullable
      */
   color_index?: number | null;
@@ -217,7 +232,7 @@ export interface UpdatePlaceholderJob {
      */
   service_location_id?: string | null;
   /**
-     * 0–14 palette index; null to reset to technician swimlane colour
+     * 0–15 palette index; null to reset to region default colour
      * @nullable
      */
   color_index?: number | null;

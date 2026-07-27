@@ -90,6 +90,7 @@ export interface ScheduleBlockRow {
   start_time: Date | string;
   end_time: Date | string;
   notes: string | null;
+  color_index: number | null;
   created_at: Date | string;
 }
 
@@ -97,8 +98,8 @@ export function mirrorScheduleBlockUpsert(log: LogFn, row: ScheduleBlockRow): Pr
   return mirror(log, `schedule_blocks upsert id=${row.id}`, () =>
     getCrmPool().query(
       `INSERT INTO crm.schedule_blocks
-         (id, technician_id, block_type, title, start_time, end_time, notes, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         (id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        ON CONFLICT (id) DO UPDATE SET
          technician_id = EXCLUDED.technician_id,
          block_type = EXCLUDED.block_type,
@@ -106,6 +107,7 @@ export function mirrorScheduleBlockUpsert(log: LogFn, row: ScheduleBlockRow): Pr
          start_time = EXCLUDED.start_time,
          end_time = EXCLUDED.end_time,
          notes = EXCLUDED.notes,
+         color_index = EXCLUDED.color_index,
          created_at = EXCLUDED.created_at`,
       [
         row.id,
@@ -115,6 +117,7 @@ export function mirrorScheduleBlockUpsert(log: LogFn, row: ScheduleBlockRow): Pr
         row.start_time,
         row.end_time,
         row.notes ?? null,
+        row.color_index ?? null,
         row.created_at,
       ],
     ),

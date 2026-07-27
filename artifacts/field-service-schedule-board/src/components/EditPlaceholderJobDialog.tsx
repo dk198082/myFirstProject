@@ -2,7 +2,9 @@ import { useState } from "react";
 import {
   useUpdateWbPlaceholderJob,
   useDeleteWbPlaceholderJob,
+  useGetWbServiceLocation,
   getListWbPlaceholderJobsQueryKey,
+  getGetWbServiceLocationQueryKey,
   type PlaceholderJob,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -25,8 +27,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 import { ServiceLocationPicker } from "@/components/ServiceLocationPicker";
 import { ChipColorPicker } from "@/components/ChipColorPicker";
 
@@ -55,10 +58,13 @@ function fromLocalInput(local: string): string | null {
 export function EditPlaceholderJobDialog({
   job,
   technicianName,
+  defaultColorIndex = null,
   onClose,
 }: {
   job: PlaceholderJob;
   technicianName: string;
+  /** Palette index to pre-select when job has no saved colour override. */
+  defaultColorIndex?: number | null;
   onClose: () => void;
 }) {
   const { toast } = useToast();
@@ -78,7 +84,18 @@ export function EditPlaceholderJobDialog({
   const [startTime, setStartTime] = useState(toLocalInput(job.start_time));
   const [endTime, setEndTime] = useState(toLocalInput(job.end_time));
   const [notes, setNotes] = useState(job.notes ?? "");
-  const [colorIndex, setColorIndex] = useState<number | null>(job.color_index ?? null);
+  const [colorIndex, setColorIndex] = useState<number | null>(job.color_index ?? defaultColorIndex);
+
+  const { data: locDetail } = useGetWbServiceLocation(
+    job.service_location_id ?? "",
+    {
+      query: {
+        queryKey: getGetWbServiceLocationQueryKey(job.service_location_id ?? ""),
+        enabled: !!job.service_location_id,
+        staleTime: 5 * 60_000,
+      },
+    },
+  );
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getListWbPlaceholderJobsQueryKey() });
@@ -168,6 +185,19 @@ export function EditPlaceholderJobDialog({
               value={serviceLocation}
               onChange={handleLocationChange}
             />
+            {job.service_location_id && (
+              <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+                <span>ID: {locDetail?.service_loc_id ?? serviceLocation?.service_loc_id ?? job.service_location_id}</span>
+                <Link
+                  href={`/service-location/${job.service_location_id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-0.5 text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  View details
+                </Link>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5 min-w-0">

@@ -627,6 +627,7 @@ const createScheduleBlockSchema = z.object({
   start_time: z.string().min(1),
   end_time: z.string().min(1),
   notes: z.string().nullable().optional(),
+  color_index: z.number().int().min(0).max(15).nullable().optional(),
 });
 
 const updateScheduleBlockSchema = z
@@ -637,6 +638,7 @@ const updateScheduleBlockSchema = z
     start_time: z.string().min(1).optional(),
     end_time: z.string().min(1).optional(),
     notes: z.string().nullable().optional(),
+    color_index: z.number().int().min(0).max(15).nullable().optional(),
   })
   .refine((v) => Object.values(v).some((x) => x !== undefined), {
     message: "No fields to update",
@@ -660,8 +662,8 @@ router.get("/wb/schedule-blocks", async (req, res) => {
     }
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const r = await localPool.query(
-      `SELECT id, technician_id, block_type, title, start_time, end_time, notes, created_at
-       FROM crm.schedule_blocks ${where} ORDER BY start_time`,
+      `SELECT id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at
+       FROM schedule_blocks ${where} ORDER BY start_time`,
       params,
     );
     res.json(
@@ -673,6 +675,7 @@ router.get("/wb/schedule-blocks", async (req, res) => {
         start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
         end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
         notes: row.notes ?? null,
+        color_index: row.color_index ?? null,
         created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
       })),
     );
@@ -687,13 +690,13 @@ router.post("/wb/schedule-blocks", async (req, res) => {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
     return;
   }
-  const { technician_id, block_type, title, start_time, end_time, notes } = parsed.data;
+  const { technician_id, block_type, title, start_time, end_time, notes, color_index } = parsed.data;
   try {
     const r = await localPool.query(
-      `INSERT INTO crm.schedule_blocks (technician_id, block_type, title, start_time, end_time, notes)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, technician_id, block_type, title, start_time, end_time, notes, created_at`,
-      [technician_id, block_type, title ?? null, start_time, end_time, notes ?? null],
+      `INSERT INTO schedule_blocks (technician_id, block_type, title, start_time, end_time, notes, color_index)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at`,
+      [technician_id, block_type, title ?? null, start_time, end_time, notes ?? null, color_index ?? null],
     );
     const row = r.rows[0];
     void mirrorScheduleBlockUpsert(req.log, row);
@@ -705,6 +708,7 @@ router.post("/wb/schedule-blocks", async (req, res) => {
       start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
       end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
       notes: row.notes ?? null,
+      color_index: row.color_index ?? null,
       created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
     });
   } catch (err) {
@@ -723,7 +727,7 @@ router.patch("/wb/schedule-blocks/:id", async (req, res) => {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
     return;
   }
-  const { technician_id, block_type, title, start_time, end_time, notes } = parsed.data;
+  const { technician_id, block_type, title, start_time, end_time, notes, color_index } = parsed.data;
   try {
     const sets: string[] = [];
     const vals: unknown[] = [];
@@ -733,21 +737,33 @@ router.patch("/wb/schedule-blocks/:id", async (req, res) => {
     if (start_time !== undefined) { sets.push(`start_time = $${vals.push(start_time)}`); }
     if (end_time !== undefined) { sets.push(`end_time = $${vals.push(end_time)}`); }
     if (notes !== undefined) { sets.push(`notes = $${vals.push(notes)}`); }
+    if (color_index !== undefined) { sets.push(`color_index = $${vals.push(color_index)}`); }
     if (sets.length === 0) {
       res.status(400).json({ error: "No fields to update" });
       return;
     }
     vals.push(id);
     const r = await localPool.query(
-      `UPDATE crm.schedule_blocks SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, block_type, title, start_time, end_time, notes, created_at`,
+      `UPDATE schedule_blocks SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at`,
       vals,
     );
     if (r.rows.length === 0) {
       res.status(404).json({ error: "Block not found" });
       return;
     }
-    void mirrorScheduleBlockUpsert(req.log, r.rows[0]);
-    res.json(r.rows[0]);
+    const row = r.rows[0];
+    void mirrorScheduleBlockUpsert(req.log, row);
+    res.json({
+      id: row.id,
+      technician_id: row.technician_id,
+      block_type: row.block_type,
+      title: row.title ?? null,
+      start_time: row.start_time instanceof Date ? row.start_time.toISOString() : row.start_time,
+      end_time: row.end_time instanceof Date ? row.end_time.toISOString() : row.end_time,
+      notes: row.notes ?? null,
+      color_index: row.color_index ?? null,
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    });
   } catch (err) {
     handleWbError(req, res, err, "Failed to update schedule block", "Failed to update schedule block");
   }
@@ -761,7 +777,7 @@ router.delete("/wb/schedule-blocks/:id", async (req, res) => {
   }
   try {
     const r = await localPool.query(
-      `DELETE FROM crm.schedule_blocks WHERE id = $1 RETURNING id`,
+      `DELETE FROM schedule_blocks WHERE id = $1 RETURNING id`,
       [id],
     );
     if (r.rows.length === 0) {
@@ -940,7 +956,7 @@ const createPlaceholderJobSchema = z.object({
   city: z.string().nullable().optional(),
   state: z.string().nullable().optional(),
   service_location_id: z.string().nullable().optional(),
-  color_index: z.number().int().min(0).max(14).nullable().optional(),
+  color_index: z.number().int().min(0).max(15).nullable().optional(),
   start_time: z.string().min(1),
   end_time: z.string().min(1),
   notes: z.string().nullable().optional(),
@@ -966,7 +982,7 @@ router.get("/wb/placeholder-jobs", async (req, res) => {
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const r = await localPool.query(
       `SELECT id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at
-       FROM crm.placeholder_jobs ${where} ORDER BY start_time`,
+       FROM placeholder_jobs ${where} ORDER BY start_time`,
       params,
     );
     res.json(
@@ -1087,7 +1103,7 @@ router.get("/wb/search", async (req, res) => {
       start_time: Date | string;
     }>(
       `SELECT id, technician_id, title, customer_name, city, state, status, start_time
-       FROM crm.placeholder_jobs
+       FROM placeholder_jobs
        WHERE end_time > $1::date
          AND (
            customer_name ILIKE $2 OR
@@ -1227,7 +1243,7 @@ router.post("/wb/placeholder-jobs", async (req, res) => {
   const { technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status } = parsed.data;
   try {
     const r = await localPool.query(
-      `INSERT INTO crm.placeholder_jobs (technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status)
+      `INSERT INTO placeholder_jobs (technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at`,
       [technician_id, title, customer_name ?? null, city ?? null, state ?? null, service_location_id ?? null, color_index ?? null, start_time, end_time, notes ?? null, status ?? null],
@@ -1262,7 +1278,7 @@ const updatePlaceholderJobSchema = z
     city: z.string().nullable().optional(),
     state: z.string().nullable().optional(),
     service_location_id: z.string().nullable().optional(),
-    color_index: z.number().int().min(0).max(14).nullable().optional(),
+    color_index: z.number().int().min(0).max(15).nullable().optional(),
     start_time: z.string().min(1).optional(),
     end_time: z.string().min(1).optional(),
     notes: z.string().nullable().optional(),
@@ -1304,7 +1320,7 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
     }
     vals.push(id);
     const r = await localPool.query(
-      `UPDATE crm.placeholder_jobs SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at`,
+      `UPDATE placeholder_jobs SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at`,
       vals,
     );
     if (r.rows.length === 0) {
@@ -1341,7 +1357,7 @@ router.delete("/wb/placeholder-jobs/:id", async (req, res) => {
   }
   try {
     const r = await localPool.query(
-      `DELETE FROM crm.placeholder_jobs WHERE id = $1 RETURNING id`,
+      `DELETE FROM placeholder_jobs WHERE id = $1 RETURNING id`,
       [id],
     );
     if (r.rows.length === 0) {
@@ -2565,7 +2581,7 @@ router.get("/wb/resource-utilization", async (req, res) => {
     // just like real bookings, using the same per-day 8h cap. They live in the
     // local Postgres DB (not CRM), so they're merged in here after the CRM query.
     const placeholderResult = await localPool.query(
-      `SELECT technician_id, start_time, end_time FROM crm.placeholder_jobs
+      `SELECT technician_id, start_time, end_time FROM placeholder_jobs
        WHERE start_time < $2::date AND end_time > $1::date`,
       [rangeStart, rangeEnd],
     );

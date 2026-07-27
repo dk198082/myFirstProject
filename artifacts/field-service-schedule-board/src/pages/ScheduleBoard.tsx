@@ -193,24 +193,25 @@ const TECH_PALETTE = [
   { chip: "bg-sky-100    text-sky-900    border-sky-400    hover:bg-sky-200", dot: "bg-sky-500" },
   { chip: "bg-yellow-100 text-yellow-900 border-yellow-500 hover:bg-yellow-200", dot: "bg-yellow-500" },
   { chip: "bg-red-100    text-red-900    border-red-400    hover:bg-red-200", dot: "bg-red-500" },
+  { chip: "bg-gray-100  text-gray-700   border-gray-300   hover:bg-gray-200", dot: "bg-gray-400" },
 ];
 
-function hashStr(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
 
-function techColor(technicianId: string | null | undefined) {
-  if (!technicianId) return TECH_PALETTE[0];
-  return TECH_PALETTE[hashStr(technicianId) % TECH_PALETTE.length];
-}
+// Fixed region → palette-index map.  R99 uses index 15 (gray).
+const REGION_COLOR_MAP: Record<string, number> = {
+  R1: 0,   // blue
+  R2: 13,  // yellow
+  R3: 4,   // violet / purple
+  R4: 1,   // emerald / green
+  R5: 8,   // orange
+  R8: 14,  // red
+  R99: 15, // gray
+};
 
-// Region colors reuse the technician palette, hashed on the region id, so each
-// region gets a stable, distinct tint used on its capacity hover readout.
-function regionColor(regionId: string | null | undefined) {
-  if (!regionId) return TECH_PALETTE[0];
-  return TECH_PALETTE[hashStr(regionId) % TECH_PALETTE.length];
+function regionPaletteEntry(regionName: string | null | undefined) {
+  if (!regionName) return TECH_PALETTE[0];
+  const idx = REGION_COLOR_MAP[regionName] ?? 0;
+  return TECH_PALETTE[idx] ?? TECH_PALETTE[0];
 }
 
 function cancelledChipColor() {
@@ -240,6 +241,7 @@ type ScheduleJob = {
   span_start_day?: number | null;
   span_end_day?: number | null;
   equipment_names?: string[] | null;
+  notes?: string | null;
 };
 
 // Build the shape EditBookingDialog expects (WbWorkOrder) from a board tile.
@@ -361,6 +363,27 @@ function fmtBlockTime(iso: string): string {
   });
 }
 
+// Render chip notes: single-line notes stay one truncated row; notes with
+// line breaks (entered via Enter in the dialog textarea) render as a vertical
+// list, one truncated row per non-empty line.
+function ChipNotes({ notes, className }: { notes: string; className: string }) {
+  const lines = notes
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return null;
+  if (lines.length === 1) return <div className={className}>{lines[0]}</div>;
+  return (
+    <div className={className.replace(/\btruncate\b/, "").trim()}>
+      {lines.map((line, i) => (
+        <div key={i} className="truncate">
+          • {line}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function BlockChip({
   block,
   dayIso,
@@ -370,6 +393,7 @@ function BlockChip({
   onResizeStart,
   onDragEnd,
   isDragging,
+  regionName,
 }: {
   block: ScheduleBlock;
   /** The day cell this chip instance is rendered in (YYYY-MM-DD). */
@@ -380,6 +404,7 @@ function BlockChip({
   onResizeStart?: () => void;
   onDragEnd?: () => void;
   isDragging?: boolean;
+  regionName: string;
 }) {
   const isDriveTime = block.block_type === "drive_time";
   const isPTO = block.block_type === "pto";
@@ -396,11 +421,13 @@ function BlockChip({
       ) + 1
     : 1;
 
-  const chipCls = isDriveTime
-    ? "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600"
-    : isPTO
-    ? "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700"
-    : "bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-700";
+  // If a colour index is set, resolve it from the shared palette; otherwise fall
+  // back to the region colour.
+  const paletteOverride =
+    block.color_index != null
+      ? TECH_PALETTE[block.color_index]?.chip ?? null
+      : null;
+  const chipCls = paletteOverride ?? regionPaletteEntry(regionName).chip;
 
   const typeLabel = isDriveTime ? "Drive Time" : isPTO ? "PTO" : "Custom";
   const label = isDriveTime ? "Drive Time" : isPTO ? "PTO" : (block.title?.trim() || "Custom");
@@ -411,79 +438,81 @@ function BlockChip({
   const canDrag = !!onDragStart && (!dayIso || dayIso === startDay);
   const showResizeHandle = !!onResizeStart && (!dayIso || dayIso === endDay);
 
+  // HOVER DISABLED — to restore: replace <> with <Tooltip>, uncomment
+  // <TooltipTrigger asChild> / </TooltipTrigger>, and the <TooltipContent> block.
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div
-          role="button"
-          tabIndex={0}
-          draggable={canDrag}
-          onClick={onEdit}
-          onKeyDown={(e) => e.key === "Enter" && onEdit()}
-          onDragStart={(e) => {
-            if (!canDrag) {
-              e.preventDefault();
-              return;
-            }
-            onDragStart?.();
-            if (e.dataTransfer) {
-              e.dataTransfer.effectAllowed = "move";
-              e.dataTransfer.setData("text/plain", String(block.id));
-            }
-          }}
-          onDragEnd={() => onDragEnd?.()}
-          className={`relative w-full rounded border text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:brightness-95 transition-[filter] ${chipCls} ${isDragging ? "opacity-40" : ""}`}
-        >
-          <div className="flex items-center gap-1">
-            {isDriveTime ? (
-              <Car className="h-3 w-3 shrink-0" />
-            ) : isPTO ? (
-              <Sun className="h-3 w-3 shrink-0" />
-            ) : (
-              <Pencil className="h-3 w-3 shrink-0" />
-            )}
-            <span className="font-semibold truncate">{label}</span>
-            <button
-              type="button"
-              className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              aria-label="Remove block"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-          <div className="opacity-80 truncate">
-            {isMultiDay ? `${dayCount} days` : duration}
-          </div>
-          {block.notes && (
-            <div className="opacity-60 truncate">{block.notes}</div>
+    <>
+      {/* <TooltipTrigger asChild> */}
+      <div
+        role="button"
+        tabIndex={0}
+        draggable={canDrag}
+        onClick={onEdit}
+        onKeyDown={(e) => e.key === "Enter" && onEdit()}
+        onDragStart={(e) => {
+          if (!canDrag) {
+            e.preventDefault();
+            return;
+          }
+          onDragStart?.();
+          if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", String(block.id));
+          }
+        }}
+        onDragEnd={() => onDragEnd?.()}
+        className={`relative w-full rounded border text-[11px] px-1.5 py-1 leading-tight cursor-pointer hover:brightness-95 transition-[filter] ${chipCls} ${isDragging ? "opacity-40" : ""}`}
+      >
+        <div className="flex items-center gap-1">
+          {isDriveTime ? (
+            <Car className="h-3 w-3 shrink-0" />
+          ) : isPTO ? (
+            <Sun className="h-3 w-3 shrink-0" />
+          ) : (
+            <Pencil className="h-3 w-3 shrink-0" />
           )}
-          {showResizeHandle && (
-            <div
-              draggable
-              onDragStart={(e) => {
-                e.stopPropagation();
-                onResizeStart?.();
-                if (e.dataTransfer) {
-                  e.dataTransfer.effectAllowed = "move";
-                  e.dataTransfer.setData("text/plain", String(block.id));
-                }
-              }}
-              onDragEnd={(e) => {
-                e.stopPropagation();
-                onDragEnd?.();
-              }}
-              onClick={(e) => e.stopPropagation()}
-              className="absolute inset-y-0 right-0 w-2 cursor-ew-resize rounded-r bg-current opacity-0 hover:opacity-30 transition-opacity"
-              title="Drag onto another day to extend or shorten this block"
-              aria-label="Resize block"
-            />
-          )}
+          <span className="font-semibold truncate">{label}</span>
+          <button
+            type="button"
+            className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            aria-label="Remove block"
+          >
+            <X className="h-3 w-3" />
+          </button>
         </div>
-      </TooltipTrigger>
+        <div className="opacity-80 truncate">
+          {isMultiDay ? `${dayCount} days` : duration}
+        </div>
+        {block.notes && (
+          <ChipNotes notes={block.notes} className="opacity-60 truncate" />
+        )}
+        {showResizeHandle && (
+          <div
+            draggable
+            onDragStart={(e) => {
+              e.stopPropagation();
+              onResizeStart?.();
+              if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", String(block.id));
+              }
+            }}
+            onDragEnd={(e) => {
+              e.stopPropagation();
+              onDragEnd?.();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="absolute inset-y-0 right-0 w-2 cursor-ew-resize rounded-r bg-current opacity-0 hover:opacity-30 transition-opacity"
+            title="Drag onto another day to extend or shorten this block"
+            aria-label="Resize block"
+          />
+        )}
+      </div>
+      {/* </TooltipTrigger>
       <TooltipContent side="top" className="max-w-[260px]">
         <div className="space-y-0.5">
           <div className="font-semibold">{label}</div>
@@ -504,7 +533,8 @@ function BlockChip({
           {block.notes && <div className="text-xs opacity-80">{block.notes}</div>}
         </div>
       </TooltipContent>
-    </Tooltip>
+      </Tooltip> */}
+    </>
   );
 }
 
@@ -519,6 +549,7 @@ function PlaceholderJobChip({
   onDragEnd,
   isDragging,
   dimmed,
+  regionName,
 }: {
   job: PlaceholderJob;
   /** The day cell this chip instance is rendered in (YYYY-MM-DD). */
@@ -531,10 +562,11 @@ function PlaceholderJobChip({
   onDragEnd?: () => void;
   isDragging?: boolean;
   dimmed?: boolean;
+  regionName: string;
 }) {
   const colorCls = job.color_index != null
-    ? TECH_PALETTE[job.color_index]?.chip ?? techColor(technicianId).chip
-    : techColor(technicianId).chip;
+    ? TECH_PALETTE[job.color_index]?.chip ?? regionPaletteEntry(regionName).chip
+    : regionPaletteEntry(regionName).chip;
   const duration = fmtBlockDuration(job.start_time, job.end_time);
   const location = [job.city, job.state].filter(Boolean).join(", ");
 
@@ -557,82 +589,88 @@ function PlaceholderJobChip({
   // When a service location is linked, prefetch its detail (equipment, contact)
   // so the rich tooltip is ready on hover. Cache is shared across all chips for
   // the same location, so a repeated location only fetches once.
+  // Fetch is disabled while the tooltip is hidden to avoid silent wasted traffic.
   const { data: locDetail } = useGetWbServiceLocation(
     job.service_location_id ?? "",
     {
       query: {
         queryKey: getGetWbServiceLocationQueryKey(job.service_location_id ?? ""),
-        enabled: !!job.service_location_id,
+        enabled: false, // re-enable with tooltip (see HOVER DISABLED comment above)
         staleTime: 5 * 60_000,
       },
     },
   );
-
+  // HOVER DISABLED — to restore: replace <> with <Tooltip>, uncomment
+  // <TooltipTrigger asChild> / </TooltipTrigger>, both <TooltipContent> blocks,
+  // and flip enabled back to `!!job.service_location_id` below.
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
+    <>
+      {/* <TooltipTrigger asChild> */}
+      <div
+        role="button"
+        tabIndex={0}
+        draggable={canDrag}
+        onClick={onEdit}
+        onKeyDown={(e) => e.key === "Enter" && onEdit()}
+        onDragStart={(e) => {
+          if (!canDrag) {
+            e.preventDefault();
+            return;
+          }
+          onDragStart?.();
+          if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", String(job.id));
+          }
+        }}
+        onDragEnd={() => onDragEnd?.()}
+        className={`relative w-full rounded border border-dashed text-[11px] px-1.5 py-1 leading-tight cursor-pointer transition-colors overflow-hidden ${colorCls} ${isDragging ? "opacity-40" : ""} ${dimmed ? "opacity-20" : ""}`}
+      >
+        {/* Diagonal stripe overlay — marks this as a potential job */}
         <div
-          role="button"
-          tabIndex={0}
-          draggable={canDrag}
-          onClick={onEdit}
-          onKeyDown={(e) => e.key === "Enter" && onEdit()}
-          onDragStart={(e) => {
-            if (!canDrag) {
-              e.preventDefault();
-              return;
-            }
-            onDragStart?.();
-            if (e.dataTransfer) {
-              e.dataTransfer.effectAllowed = "move";
-              e.dataTransfer.setData("text/plain", String(job.id));
-            }
+          className="absolute inset-0 pointer-events-none"
+          style={{ backgroundImage: "repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 5px)" }}
+        />
+        <button
+          type="button"
+          className="absolute top-0.5 right-0.5 z-10 opacity-40 hover:opacity-100 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
           }}
-          onDragEnd={() => onDragEnd?.()}
-          className={`relative w-full rounded border border-dashed text-[11px] px-1.5 py-1 leading-tight cursor-pointer transition-colors overflow-hidden ${colorCls} ${isDragging ? "opacity-40" : ""} ${dimmed ? "opacity-20" : ""}`}
+          aria-label="Remove placeholder job"
         >
-          {/* Diagonal stripe overlay — marks this as a potential job */}
+          <X className="h-3 w-3" />
+        </button>
+        <div className="relative opacity-90 truncate pr-3">{job.customer_name || job.title}</div>
+        {location && <div className="relative opacity-70 truncate">{location}</div>}
+        {job.status && <div className="relative opacity-60 truncate">{job.status}</div>}
+        {job.notes && (
+          <ChipNotes notes={job.notes} className="relative opacity-60 truncate" />
+        )}
+        {showResizeHandle && (
           <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ backgroundImage: "repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 5px)" }}
-          />
-          <button
-            type="button"
-            className="absolute top-0.5 right-0.5 z-10 opacity-40 hover:opacity-100 transition-opacity"
-            onClick={(e) => {
+            draggable
+            onDragStart={(e) => {
               e.stopPropagation();
-              onDelete();
+              onResizeStart?.();
+              if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", String(job.id));
+              }
             }}
-            aria-label="Remove placeholder job"
-          >
-            <X className="h-3 w-3" />
-          </button>
-          <div className="relative opacity-90 truncate pr-3">{job.customer_name || job.title}</div>
-          {location && <div className="relative opacity-70 truncate">{location}</div>}
-          {job.status && <div className="relative opacity-60 truncate">{job.status}</div>}
-          {showResizeHandle && (
-            <div
-              draggable
-              onDragStart={(e) => {
-                e.stopPropagation();
-                onResizeStart?.();
-                if (e.dataTransfer) {
-                  e.dataTransfer.effectAllowed = "move";
-                  e.dataTransfer.setData("text/plain", String(job.id));
-                }
-              }}
-              onDragEnd={(e) => {
-                e.stopPropagation();
-                onDragEnd?.();
-              }}
-              onClick={(e) => e.stopPropagation()}
-              className="absolute inset-y-0 right-0 w-2 cursor-ew-resize rounded-r bg-current opacity-0 hover:opacity-30 transition-opacity"
-              title="Drag onto another day to extend or shorten this placeholder job"
-              aria-label="Resize placeholder job"
-            />
-          )}
-        </div>
-      </TooltipTrigger>
+            onDragEnd={(e) => {
+              e.stopPropagation();
+              onDragEnd?.();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="absolute inset-y-0 right-0 w-2 cursor-ew-resize rounded-r bg-current opacity-0 hover:opacity-30 transition-opacity"
+            title="Drag onto another day to extend or shorten this placeholder job"
+            aria-label="Resize placeholder job"
+          />
+        )}
+      </div>
+      {/* </TooltipTrigger>
 
       {job.service_location_id ? (
         // Rich tooltip for CRM-linked placeholder jobs (matches JobChip structure).
@@ -732,7 +770,8 @@ function PlaceholderJobChip({
           </div>
         </TooltipContent>
       )}
-    </Tooltip>
+      </Tooltip> */}
+    </>
   );
 }
 
@@ -822,6 +861,7 @@ function JobChip({
             : fmtDuration(job.crmstarttime, job.crmendtime) || chipTimeLabel(job)}
         </div>
       )}
+      {!compact && job.notes && <div className="opacity-70 truncate">{job.notes}</div>}
     </button>
   );
 
@@ -1373,18 +1413,21 @@ export default function ScheduleBoard() {
     technicianId: string;
     technicianName: string;
     date: string;
+    regionName: string;
   } | null>(null);
 
   // Block being edited (or null when dialog is closed).
   const [editingBlock, setEditingBlock] = useState<{
     block: ScheduleBlock;
     technicianName: string;
+    regionName: string;
   } | null>(null);
 
   // Placeholder job being edited (or null when dialog is closed).
   const [editingPlaceholder, setEditingPlaceholder] = useState<{
     job: PlaceholderJob;
     technicianName: string;
+    regionName: string;
   } | null>(null);
 
   // Per-booking-id set of chips that are still syncing from CRM after a direct save.
@@ -1474,15 +1517,35 @@ export default function ScheduleBoard() {
     pos: "above" | "below";
   } | null>(null);
 
+  // Default type tier within a cell: Scheduled Jobs first, Potential Jobs
+  // second, blocks (Drive Time / PTO / Custom) last — regardless of creation
+  // order. Chip keys are prefixed by type ("job:", "ph:", "block:").
+  const chipTypeTier = (key: string): number => {
+    if (key.startsWith("job:")) return 0;
+    if (key.startsWith("ph:")) return 1;
+    return 2; // block:*
+  };
+
   const applyChipOrder = <T extends { key: string }>(orderKey: string, items: T[]): T[] => {
     const order = chipOrder[orderKey];
-    if (!order) return items;
+    if (!order) {
+      // No manual order saved: stable sort by type tier so chips keep their
+      // default relative order within each tier.
+      return [...items].sort((a, b) => chipTypeTier(a.key) - chipTypeTier(b.key));
+    }
     const idx = new Map(order.map((k, i) => [k, i]));
-    // Stable sort: chips without a saved position keep their default relative
-    // order and go after the explicitly ordered ones.
-    return [...items].sort(
-      (a, b) => (idx.get(a.key) ?? order.length) - (idx.get(b.key) ?? order.length),
-    );
+    // Manually ordered chips come first in their saved positions. Chips
+    // without a saved position go after them, ordered by type tier (jobs →
+    // potential jobs → blocks) and otherwise keeping their default relative
+    // order.
+    return [...items].sort((a, b) => {
+      const ai = idx.get(a.key);
+      const bi = idx.get(b.key);
+      if (ai != null && bi != null) return ai - bi;
+      if (ai != null) return -1;
+      if (bi != null) return 1;
+      return chipTypeTier(a.key) - chipTypeTier(b.key);
+    });
   };
 
   const draggedChipKey = (): string | null => {
@@ -1635,8 +1698,16 @@ export default function ScheduleBoard() {
     );
   };
 
-  // Tech view reuses month data from the API.
-  const apiView: "week" | "month" = view === "week" ? "week" : "month";
+  // True whenever the board is showing a single-tech focused stacked view —
+  // either via explicit click-to-focus or checkbox narrowed to exactly 1 tech.
+  // Declared here (before apiView and dayCount) because both depend on it.
+  const isSingleTechFocused =
+    focusedTechId !== null ||
+    (view === "tech" && selectedTechIds !== null && selectedTechIds.size === 1);
+
+  // Tech view uses "stacked" (12 weeks) when focused on a single tech, "month" otherwise.
+  const apiView: "week" | "month" | "stacked" =
+    view === "week" ? "week" : isSingleTechFocused ? "stacked" : "month";
   const { data, isLoading, error } = useGetWbScheduleBoard({
     start,
     view: apiView,
@@ -1872,7 +1943,7 @@ export default function ScheduleBoard() {
     view: utilView,
   });
 
-  const dayCount = data?.day_count ?? (view === "week" ? 7 : 30);
+  const dayCount = data?.day_count ?? (view === "week" ? 7 : isSingleTechFocused ? 84 : 30);
   const rangeStart = data?.range_start ?? start;
 
   const dayHeaders = useMemo(
@@ -2128,27 +2199,40 @@ export default function ScheduleBoard() {
       return next;
     });
   };
-  const selectAllRegions = () => setSelectedRegions(null);
+  const selectAllRegions = () => {
+    setSelectedRegions(null);
+    setSelectedTechIds(null);
+    setFocusedTechId(null);
+  };
   const clearRegions = () => setSelectedRegions(new Set());
   const isRegionSelected = (id: string) => selectedRegions === null || selectedRegions.has(id);
 
-  // True whenever the board is showing a single-tech focused stacked view —
-  // either via explicit click-to-focus or checkbox narrowed to exactly 1 tech.
-  // Used early (before the full effectiveFocusedTechId memo) to drive navigation.
-  const isSingleTechFocused =
-    focusedTechId !== null ||
-    (view === "tech" && selectedTechIds !== null && selectedTechIds.size === 1);
-
+  // Stacked view pages 13 weeks (91 days) at a time — half the 26-week window —
+  // so paging always shows some overlap with the previous period.
   const goPrev = () =>
-    setStart(view === "week" || isSingleTechFocused ? addDaysISO(start, -7) : addMonthsISO(start, -1));
-  const goNext = () =>
-    setStart(view === "week" || isSingleTechFocused ? addDaysISO(start, 7) : addMonthsISO(start, 1));
-  const goToday = () =>
     setStart(
-      view === "week" || isSingleTechFocused
-        ? startOfWeekISO(new Date())
-        : startOfMonthISO(new Date()),
+      view === "week" ? addDaysISO(start, -7) :
+      isSingleTechFocused ? addDaysISO(start, -91) :
+      addMonthsISO(start, -1),
     );
+  const goNext = () =>
+    setStart(
+      view === "week" ? addDaysISO(start, 7) :
+      isSingleTechFocused ? addDaysISO(start, 91) :
+      addMonthsISO(start, 1),
+    );
+  // In stacked mode: reset the view to the first week of the current month and
+  // clear the scroll flag so the auto-scroll fires again to bring today into view.
+  const goToday = () => {
+    if (isSingleTechFocused) {
+      setStart(startOfWeekISO(new Date(startOfMonthISO(new Date()))));
+      hasScrolledToTodayRef.current = false;
+    } else {
+      setStart(
+        view === "week" ? startOfWeekISO(new Date()) : startOfMonthISO(new Date()),
+      );
+    }
+  };
 
   const onChangeView = (next: ViewMode) => {
     if (next === view) return;
@@ -2162,7 +2246,11 @@ export default function ScheduleBoard() {
   const focusTech = (techId: string) => {
     setFocusedTechId(techId);
     if (view !== "tech") {
-      setStart(startOfWeekISO(new Date(start + "T00:00:00Z")));
+      // Always anchor to the Monday of the first week of the current month so
+      // the stacked grid includes any prior-month boundary days (e.g. June 29-30
+      // when July starts on Wednesday). Today's week is reached via auto-scroll.
+      setStart(startOfWeekISO(new Date(startOfMonthISO(new Date()))));
+      hasScrolledToTodayRef.current = false;
       setView("tech");
     }
   };
@@ -2256,9 +2344,12 @@ export default function ScheduleBoard() {
   const stackedColMinWidth = 160 + stackedColNames.length * 160;
   const stackedColTemplate = `160px repeat(${stackedColNames.length}, minmax(160px, 1fr))`;
 
-  // Drop selected tech ids that no longer exist after region/month change
+  // Drop selected tech ids that no longer exist after region/month change.
+  // Guard allTechs.length === 0: data is transiently empty while a new week/month
+  // fetch is in flight (no placeholderData on the query), so we must not treat a
+  // temporarily empty roster as "all IDs are invalid" and wipe the filter.
   useEffect(() => {
-    if (selectedTechIds === null) return;
+    if (selectedTechIds === null || allTechs.length === 0) return;
     const validIds = new Set(allTechs.map((t) => t.id));
     let changed = false;
     const next = new Set<string>();
@@ -2280,6 +2371,32 @@ export default function ScheduleBoard() {
       setFocusedTechId(null);
     }
   }, [focusedTechId, selectedTechIds]);
+
+  // Monday ISO of the current calendar week — used to identify today's row.
+  const todayWeekMonday = startOfWeekISO(new Date());
+
+  // Refs for the scrollable stacked calendar.
+  // hasScrolledToTodayRef is reset to false in focusTech (on stacked entry) and
+  // in goToday (stacked mode) so the auto-scroll useEffect below fires each time.
+  const hasScrolledToTodayRef = useRef(false);
+  const todayStackedRowRef = useRef<HTMLDivElement | null>(null);
+
+  // Scroll to today's week row the first time the stacked grid is populated.
+  // Uses a short delay so the DOM is fully painted before scrollIntoView fires.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (
+      effectiveFocusedTechId !== null &&
+      stackedWeeks.length > 0 &&
+      !hasScrolledToTodayRef.current
+    ) {
+      hasScrolledToTodayRef.current = true;
+      timer = setTimeout(() => {
+        todayStackedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }
+    return () => { if (timer !== undefined) clearTimeout(timer); };
+  }, [effectiveFocusedTechId, stackedWeeks.length]);
 
   // Headers for the Calendar view — Mon–Fri by default, all 7 days when showWeekends is on
   const weekdayHeaders = useMemo(
@@ -2338,7 +2455,7 @@ export default function ScheduleBoard() {
                   {focusedTechData.tech.resource_name}
                   {" · "}
                 </span>
-                {fmtRangeLabel(start, 7, "week")}
+                {fmtRangeLabel(rangeStart, dayCount, "week")}
               </>
             ) : (
               fmtRangeLabel(rangeStart, dayCount, view)
@@ -2556,7 +2673,7 @@ export default function ScheduleBoard() {
           </span>
           {allTechs.map((t) => {
             const active = isTechSelected(t.id);
-            const palette = techColor(t.id);
+            const palette = regionPaletteEntry(t.region);
             return (
               <button
                 key={t.id}
@@ -2752,7 +2869,7 @@ export default function ScheduleBoard() {
             </Button>
             <div className="flex items-center gap-2">
               <span
-                className={`h-3 w-3 rounded-full ${techColor(effectiveFocusedTechId).dot}`}
+                className={`h-3 w-3 rounded-full ${regionPaletteEntry(focusedTechData.region).dot}`}
                 aria-hidden
               />
               <span className="text-lg font-semibold">
@@ -2762,15 +2879,32 @@ export default function ScheduleBoard() {
                 {focusedTechData.region}
               </Badge>
             </div>
+            {/* Inline date navigation — keeps controls visible while scrolling the 12-week grid */}
+            <div className="flex items-center gap-1 ml-auto">
+              <Button variant="outline" size="icon" onClick={goPrev} aria-label="Previous 12 weeks">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={goToday}>
+                Today
+              </Button>
+              <Button variant="outline" size="icon" onClick={goNext} aria-label="Next 12 weeks">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
-          {/* Stacked weeks grid */}
-          <Card className="overflow-hidden border-2 border-foreground/80 shadow-sm print:shadow-none bg-white">
-            <CardContent className="p-0 overflow-x-auto">
+          {/* Stacked weeks grid — CardContent is the scroll container (overflow-y: auto +
+              max-height) so mouse-wheel scrolls through the 26 weeks. The Card must NOT
+              carry overflow-hidden or it clips the CardContent scrollbar. */}
+          <Card className="border-2 border-foreground/80 shadow-sm print:shadow-none bg-white">
+            <CardContent
+              className="p-0 overflow-x-auto overflow-y-auto"
+              style={{ maxHeight: "75vh" }}
+            >
               <div style={{ minWidth: `${stackedColMinWidth}px` }}>
-                {/* Column headers: "Week" + day names */}
+                {/* Column headers: "Week" + day names — sticky within CardContent scroll container */}
                 <div
-                  className="grid bg-white border-b-2 border-foreground/80"
+                  className="grid bg-white border-b-2 border-foreground/80 sticky top-0 z-10"
                   style={{ gridTemplateColumns: stackedColTemplate }}
                 >
                   <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-foreground/60 border-r border-foreground/40">
@@ -2793,7 +2927,7 @@ export default function ScheduleBoard() {
                       (dh) => new Date(dh.iso + "T00:00:00Z").getUTCDay() === targetDow,
                     ) ?? null,
                   );
-                  const palette = techColor(effectiveFocusedTechId);
+                  const palette = regionPaletteEntry(focusedTechData.region);
                   const tech = focusedTechData.tech;
                   const lastDay = days[days.length - 1];
                   const weekStart = new Date(mondayISO + "T00:00:00Z").toLocaleDateString("en-US", {
@@ -2871,6 +3005,7 @@ export default function ScheduleBoard() {
                   return (
                     <div
                       key={mondayISO}
+                      ref={mondayISO === todayWeekMonday ? todayStackedRowRef : undefined}
                       className="grid border-b border-foreground/20 last:border-b-0"
                       style={{ gridTemplateColumns: stackedColTemplate }}
                       data-testid={`stacked-week-${mondayISO}`}
@@ -2981,6 +3116,7 @@ export default function ScheduleBoard() {
                                   setEditingBlock({
                                     block: blk,
                                     technicianName: tech.resource_name ?? "Unknown",
+                                    regionName: focusedTechData.region,
                                   })
                                 }
                                 onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
@@ -2988,6 +3124,7 @@ export default function ScheduleBoard() {
                                 onResizeStart={() => startBlockDrag(blk, "resize")}
                                 onDragEnd={endDrag}
                                 isDragging={draggingBlockId === blk.id}
+                                regionName={focusedTechData.region}
                               />
                             ),
                           })),
@@ -3002,6 +3139,7 @@ export default function ScheduleBoard() {
                                   setEditingPlaceholder({
                                     job: phj,
                                     technicianName: tech.resource_name ?? "Unknown",
+                                    regionName: focusedTechData.region,
                                   })
                                 }
                                 onDelete={() =>
@@ -3011,6 +3149,7 @@ export default function ScheduleBoard() {
                                 onResizeStart={() => startPlaceholderDrag(phj, "resize")}
                                 onDragEnd={endDrag}
                                 isDragging={draggingPlaceholderId === phj.id}
+                                regionName={focusedTechData.region}
                                 dimmed={
                                   !!activeSearch &&
                                   !placeholderJobMatchesSearch(
@@ -3053,6 +3192,7 @@ export default function ScheduleBoard() {
                                       technicianId: tech.technician_id,
                                       technicianName: tech.resource_name ?? "Unknown",
                                       date: dh.iso,
+                                      regionName: focusedTechData.region,
                                     })
                                 : undefined
                             }
@@ -3118,6 +3258,7 @@ export default function ScheduleBoard() {
                                     technicianId: tech.technician_id,
                                     technicianName: tech.resource_name ?? "Unknown",
                                     date: dh.iso,
+                                    regionName: focusedTechData.region,
                                   });
                                 }}
                               >
@@ -3191,7 +3332,7 @@ export default function ScheduleBoard() {
                         utilizedMinutes={regionUtilMinutes}
                         capacityMinutes={regionCapMinutes}
                         techCount={techsInRegion.length}
-                        colorClass={regionColor(rg.regionid_id).chip}
+                        colorClass={regionPaletteEntry(rg.region).chip}
                       />
                     </div>
                   )}
@@ -3220,7 +3361,7 @@ export default function ScheduleBoard() {
 
                     {/* One row per technician */}
                     {techsInRegion.map((tech) => {
-                      const palette = techColor(tech.technician_id);
+                      const palette = regionPaletteEntry(rg.region);
                       const jobsByWeekday = weekdayHeaders.map(({ dayIdx }) => {
                         const jobs = (tech.jobs as ScheduleJob[]).filter(
                           (j) => j.day_index === dayIdx,
@@ -3346,12 +3487,13 @@ export default function ScheduleBoard() {
                                   <BlockChip
                                     block={blk}
                                     dayIso={dh.iso}
-                                    onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
+                                    onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region })}
                                     onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
                                     onDragStart={() => startBlockDrag(blk, "move")}
                                     onResizeStart={() => startBlockDrag(blk, "resize")}
                                     onDragEnd={endDrag}
                                     isDragging={draggingBlockId === blk.id}
+                                    regionName={rg.region}
                                   />
                                 ),
                               })),
@@ -3362,12 +3504,13 @@ export default function ScheduleBoard() {
                                     job={phj}
                                     dayIso={dh.iso}
                                     technicianId={tech.technician_id}
-                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
+                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region })}
                                     onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
                                     onDragStart={() => startPlaceholderDrag(phj, "move")}
                                     onResizeStart={() => startPlaceholderDrag(phj, "resize")}
                                     onDragEnd={endDrag}
                                     isDragging={draggingPlaceholderId === phj.id}
+                                    regionName={rg.region}
                                     dimmed={!!activeSearch && !placeholderJobMatchesSearch(phj, activeSearch, tech.resource_name)}
                                   />
                                 ),
@@ -3387,6 +3530,7 @@ export default function ScheduleBoard() {
                                           technicianId: tech.technician_id,
                                           technicianName: tech.resource_name ?? "Unknown",
                                           date: dh.iso,
+                                          regionName: rg.region,
                                         })
                                     : undefined
                                 }
@@ -3449,6 +3593,7 @@ export default function ScheduleBoard() {
                                       technicianId: tech.technician_id,
                                       technicianName: tech.resource_name ?? "Unknown",
                                       date: dh.iso,
+                                      regionName: rg.region,
                                     });
                                   }}
                                 >
@@ -3531,7 +3676,7 @@ export default function ScheduleBoard() {
                         utilizedMinutes={regionUtilMinutes}
                         capacityMinutes={regionCapMinutes}
                         techCount={techsInRegion.length}
-                        colorClass={regionColor(rg.regionid_id).chip}
+                        colorClass={regionPaletteEntry(rg.region).chip}
                       />
                     </div>
                   )}
@@ -3564,7 +3709,7 @@ export default function ScheduleBoard() {
                       </div>
                     )}
                     {techsInRegion.map((tech) => {
-                      const palette = techColor(tech.technician_id);
+                      const palette = regionPaletteEntry(rg.region);
                       const jobsByDay: ScheduleJob[][] = Array.from({ length: dayCount }, () => []);
                       for (const j of tech.jobs as ScheduleJob[]) {
                         const idx = Math.max(0, Math.min(dayCount - 1, j.day_index ?? 0));
@@ -3694,12 +3839,13 @@ export default function ScheduleBoard() {
                                   <BlockChip
                                     block={blk}
                                     dayIso={dayHeaders[i].iso}
-                                    onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown" })}
+                                    onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region })}
                                     onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
                                     onDragStart={() => startBlockDrag(blk, "move")}
                                     onResizeStart={() => startBlockDrag(blk, "resize")}
                                     onDragEnd={endDrag}
                                     isDragging={draggingBlockId === blk.id}
+                                    regionName={rg.region}
                                   />
                                 ),
                               })),
@@ -3710,12 +3856,13 @@ export default function ScheduleBoard() {
                                     job={phj}
                                     dayIso={dayHeaders[i].iso}
                                     technicianId={tech.technician_id}
-                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown" })}
+                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region })}
                                     onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
                                     onDragStart={() => startPlaceholderDrag(phj, "move")}
                                     onResizeStart={() => startPlaceholderDrag(phj, "resize")}
                                     onDragEnd={endDrag}
                                     isDragging={draggingPlaceholderId === phj.id}
+                                    regionName={rg.region}
                                     dimmed={!!activeSearch && !placeholderJobMatchesSearch(phj, activeSearch, tech.resource_name)}
                                   />
                                 ),
@@ -3735,6 +3882,7 @@ export default function ScheduleBoard() {
                                           technicianId: tech.technician_id,
                                           technicianName: tech.resource_name ?? "Unknown",
                                           date: dayHeaders[i].iso,
+                                          regionName: rg.region,
                                         })
                                     : undefined
                                 }
@@ -3793,6 +3941,7 @@ export default function ScheduleBoard() {
                                       technicianId: tech.technician_id,
                                       technicianName: tech.resource_name ?? "Unknown",
                                       date: dayHeaders[i].iso,
+                                      regionName: rg.region,
                                     });
                                   }}
                                 >
@@ -4047,7 +4196,7 @@ export default function ScheduleBoard() {
                           utilizedMinutes={totalUtil}
                           capacityMinutes={totalCap}
                           techCount={techs.length}
-                          colorClass={regionColor(rg.regionid_id).chip}
+                          colorClass={regionPaletteEntry(rg.region).chip}
                         />
                         <span className={`text-sm font-bold tabular-nums ${rc.text}`}>{regionPct}% avg</span>
                       </div>
@@ -4105,6 +4254,7 @@ export default function ScheduleBoard() {
           technicianId={addingBlock.technicianId}
           technicianName={addingBlock.technicianName}
           date={addingBlock.date}
+          defaultColorIndex={REGION_COLOR_MAP[addingBlock.regionName] ?? 0}
           onClose={() => setAddingBlock(null)}
         />
       )}
@@ -4112,6 +4262,7 @@ export default function ScheduleBoard() {
         <EditBlockDialog
           block={editingBlock.block}
           technicianName={editingBlock.technicianName}
+          defaultColorIndex={REGION_COLOR_MAP[editingBlock.regionName] ?? 0}
           onClose={() => setEditingBlock(null)}
         />
       )}
@@ -4119,6 +4270,7 @@ export default function ScheduleBoard() {
         <EditPlaceholderJobDialog
           job={editingPlaceholder.job}
           technicianName={editingPlaceholder.technicianName}
+          defaultColorIndex={REGION_COLOR_MAP[editingPlaceholder.regionName] ?? 0}
           onClose={() => setEditingPlaceholder(null)}
         />
       )}

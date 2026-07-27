@@ -83,6 +83,7 @@ export default function ServiceLocationDetail() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
+                  <Row label="Service Location ID" value={loc.service_loc_id} />
                   <Row label="Name" value={loc.name} />
                   <Row label="Address" value={loc.address} />
                   <Row label="City" value={loc.city} />
