@@ -7,7 +7,6 @@ node_modules
 # Not needed in the image / not relevant to a container build.
 .git
 .gitignore
-archive
 attached_assets
 docs
 *.md

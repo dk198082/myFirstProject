@@ -207,7 +207,7 @@ router.get("/wb/work-orders", async (req, res) => {
         `
         SELECT DISTINCT ON (booking_id)
                id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error
-        FROM crm.booking_writebacks
+        FROM booking_writebacks
         WHERE booking_id = ANY($1::text[]) AND status = 'queued'
         ORDER BY booking_id, created_at DESC
         `,
@@ -276,7 +276,7 @@ router.patch("/wb/bookings/:bookingId", async (req, res) => {
     const workOrderId = existing.rows[0].work_order_id;
 
     const insert = await localPool.query<WritebackRow>(
-      `INSERT INTO crm.booking_writebacks
+      `INSERT INTO booking_writebacks
         (booking_id, work_order_id, start_time, end_time, technician_id, status)
        VALUES ($1, $2, $3, $4, $5, 'queued')
        RETURNING id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error`,
@@ -328,7 +328,7 @@ router.post("/wb/work-orders/:workOrderId/booking", async (req, res) => {
     }
 
     const insert = await localPool.query<WritebackRow>(
-      `INSERT INTO crm.booking_writebacks
+      `INSERT INTO booking_writebacks
         (booking_id, work_order_id, start_time, end_time, technician_id, status)
        VALUES ($1, $2, $3, $4, $5, 'queued')
        RETURNING id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error`,
@@ -663,7 +663,7 @@ router.get("/wb/schedule-blocks", async (req, res) => {
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const r = await localPool.query(
       `SELECT id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at
-       FROM crm.schedule_blocks ${where} ORDER BY start_time`,
+       FROM schedule_blocks ${where} ORDER BY start_time`,
       params,
     );
     res.json(
@@ -693,7 +693,7 @@ router.post("/wb/schedule-blocks", async (req, res) => {
   const { technician_id, block_type, title, start_time, end_time, notes, color_index } = parsed.data;
   try {
     const r = await localPool.query(
-      `INSERT INTO crm.schedule_blocks (technician_id, block_type, title, start_time, end_time, notes, color_index)
+      `INSERT INTO schedule_blocks (technician_id, block_type, title, start_time, end_time, notes, color_index)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at`,
       [technician_id, block_type, title ?? null, start_time, end_time, notes ?? null, color_index ?? null],
@@ -744,7 +744,7 @@ router.patch("/wb/schedule-blocks/:id", async (req, res) => {
     }
     vals.push(id);
     const r = await localPool.query(
-      `UPDATE crm.schedule_blocks SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at`,
+      `UPDATE schedule_blocks SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at`,
       vals,
     );
     if (r.rows.length === 0) {
@@ -777,7 +777,7 @@ router.delete("/wb/schedule-blocks/:id", async (req, res) => {
   }
   try {
     const r = await localPool.query(
-      `DELETE FROM crm.schedule_blocks WHERE id = $1 RETURNING id`,
+      `DELETE FROM schedule_blocks WHERE id = $1 RETURNING id`,
       [id],
     );
     if (r.rows.length === 0) {
@@ -982,7 +982,7 @@ router.get("/wb/placeholder-jobs", async (req, res) => {
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const r = await localPool.query(
       `SELECT id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at
-       FROM crm.placeholder_jobs ${where} ORDER BY start_time`,
+       FROM placeholder_jobs ${where} ORDER BY start_time`,
       params,
     );
     res.json(
@@ -1103,7 +1103,7 @@ router.get("/wb/search", async (req, res) => {
       start_time: Date | string;
     }>(
       `SELECT id, technician_id, title, customer_name, city, state, status, start_time
-       FROM crm.placeholder_jobs
+       FROM placeholder_jobs
        WHERE end_time > $1::date
          AND (
            customer_name ILIKE $2 OR
@@ -1243,7 +1243,7 @@ router.post("/wb/placeholder-jobs", async (req, res) => {
   const { technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status } = parsed.data;
   try {
     const r = await localPool.query(
-      `INSERT INTO crm.placeholder_jobs (technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status)
+      `INSERT INTO placeholder_jobs (technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at`,
       [technician_id, title, customer_name ?? null, city ?? null, state ?? null, service_location_id ?? null, color_index ?? null, start_time, end_time, notes ?? null, status ?? null],
@@ -1320,7 +1320,7 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
     }
     vals.push(id);
     const r = await localPool.query(
-      `UPDATE crm.placeholder_jobs SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at`,
+      `UPDATE placeholder_jobs SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at`,
       vals,
     );
     if (r.rows.length === 0) {
@@ -1357,7 +1357,7 @@ router.delete("/wb/placeholder-jobs/:id", async (req, res) => {
   }
   try {
     const r = await localPool.query(
-      `DELETE FROM crm.placeholder_jobs WHERE id = $1 RETURNING id`,
+      `DELETE FROM placeholder_jobs WHERE id = $1 RETURNING id`,
       [id],
     );
     if (r.rows.length === 0) {
@@ -1375,7 +1375,7 @@ router.get("/wb/writebacks", async (req, res) => {
   try {
     const r = await localPool.query<WritebackRow>(
       `SELECT id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error
-       FROM crm.booking_writebacks
+       FROM booking_writebacks
        ORDER BY created_at DESC
        LIMIT 200`,
     );
@@ -1389,7 +1389,7 @@ router.get("/wb/writebacks", async (req, res) => {
 router.delete("/wb/writebacks/queued", async (req, res) => {
   try {
     const r = await localPool.query<{ count: string }>(
-      `DELETE FROM crm.booking_writebacks WHERE status = 'queued' RETURNING id`,
+      `DELETE FROM booking_writebacks WHERE status = 'queued' RETURNING id`,
     );
     res.json({ deleted: r.rowCount ?? 0 });
   } catch (err) {
@@ -1623,7 +1623,7 @@ router.get("/wb/schedule-board", async (req, res) => {
           `
           SELECT DISTINCT ON (booking_id)
                  booking_id, start_time, end_time, technician_id
-          FROM crm.booking_writebacks
+          FROM booking_writebacks
           WHERE booking_id = ANY($1::text[]) AND status = 'queued'
           ORDER BY booking_id, created_at DESC
           `,
@@ -2009,7 +2009,7 @@ router.get("/wb/schedule-board", async (req, res) => {
         `
         SELECT DISTINCT ON (booking_id)
                booking_id, start_time, end_time, technician_id
-        FROM crm.booking_writebacks
+        FROM booking_writebacks
         WHERE booking_id = ANY($1::text[]) AND status = 'queued'
         ORDER BY booking_id, created_at DESC
         `,
@@ -2581,7 +2581,7 @@ router.get("/wb/resource-utilization", async (req, res) => {
     // just like real bookings, using the same per-day 8h cap. They live in the
     // local Postgres DB (not CRM), so they're merged in here after the CRM query.
     const placeholderResult = await localPool.query(
-      `SELECT technician_id, start_time, end_time FROM crm.placeholder_jobs
+      `SELECT technician_id, start_time, end_time FROM placeholder_jobs
        WHERE start_time < $2::date AND end_time > $1::date`,
       [rangeStart, rangeEnd],
     );
@@ -3151,10 +3151,10 @@ router.post("/wb/sync", async (req, res) => {
     }
 
     const queued = await localPool.query<WritebackRow>(
-      `UPDATE crm.booking_writebacks
+      `UPDATE booking_writebacks
        SET status = 'processing'
        WHERE id IN (
-         SELECT id FROM crm.booking_writebacks
+         SELECT id FROM booking_writebacks
          WHERE ${eligibility}
          ORDER BY created_at ASC
          FOR UPDATE SKIP LOCKED
@@ -3189,7 +3189,7 @@ router.post("/wb/sync", async (req, res) => {
           });
         }
         await localPool.query(
-          `UPDATE crm.booking_writebacks SET status = 'synced', synced_at = now(), error = NULL WHERE id = $1`,
+          `UPDATE booking_writebacks SET status = 'synced', synced_at = now(), error = NULL WHERE id = $1`,
           [row.id],
         );
         syncedCount += 1;
@@ -3197,7 +3197,7 @@ router.post("/wb/sync", async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
         await localPool.query(
-          `UPDATE crm.booking_writebacks SET status = 'failed', error = $2 WHERE id = $1`,
+          `UPDATE booking_writebacks SET status = 'failed', error = $2 WHERE id = $1`,
           [row.id, message],
         );
         failedCount += 1;
@@ -3217,4 +3217,159 @@ router.post("/wb/sync", async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Admin: compare Replit source-of-truth tables with the CRM mirror and upsert
+// any rows that are missing or different. Safe to run multiple times (idempotent).
+// GET /wb/admin/sync-mirror?dry_run=true  — report only, no writes
+// POST /wb/admin/sync-mirror              — compare + upsert divergent rows
+// ---------------------------------------------------------------------------
+router.get("/wb/admin/sync-mirror", async (req, res) => {
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "CRM database not configured (D365CRM_DATABASE_URL missing)" });
+    return;
+  }
+  try {
+    const crmPool = getCrmPool();
+
+    // Fetch all rows from both source tables
+    const [pjSource, sbSource, pjMirrorIds, sbMirrorIds] = await Promise.all([
+      localPool.query<{ id: number; technician_id: string; title: string; customer_name: string | null; city: string | null; state: string | null; service_location_id: string | null; color_index: number | null; start_time: Date; end_time: Date; notes: string | null; status: string | null; created_at: Date }>(
+        `SELECT id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at FROM placeholder_jobs ORDER BY id`
+      ),
+      localPool.query<{ id: number; technician_id: string; block_type: string; title: string | null; start_time: Date; end_time: Date; notes: string | null; color_index: number | null; created_at: Date }>(
+        `SELECT id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at FROM schedule_blocks ORDER BY id`
+      ),
+      crmPool.query<{ id: number }>(`SELECT id FROM crm.placeholder_jobs`),
+      crmPool.query<{ id: number }>(`SELECT id FROM crm.schedule_blocks`),
+    ]);
+
+    const mirrorPjIds = new Set(pjMirrorIds.rows.map((r) => r.id));
+    const mirrorSbIds = new Set(sbMirrorIds.rows.map((r) => r.id));
+
+    const pjMissing = pjSource.rows.filter((r) => !mirrorPjIds.has(r.id));
+    const sbMissing = sbSource.rows.filter((r) => !mirrorSbIds.has(r.id));
+
+    res.json({
+      placeholder_jobs: {
+        source_count: pjSource.rows.length,
+        mirror_count: pjMirrorIds.rows.length,
+        missing_in_mirror: pjMissing.length,
+        missing_ids: pjMissing.map((r) => r.id),
+      },
+      schedule_blocks: {
+        source_count: sbSource.rows.length,
+        mirror_count: sbMirrorIds.rows.length,
+        missing_in_mirror: sbMissing.length,
+        missing_ids: sbMissing.map((r) => r.id),
+      },
+      action: "Use POST /wb/admin/sync-mirror to upsert all missing rows",
+    });
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to compare mirror tables", "Failed to compare mirror tables");
+  }
+});
+
+router.post("/wb/admin/sync-mirror", async (req, res) => {
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "CRM database not configured (D365CRM_DATABASE_URL missing)" });
+    return;
+  }
+  try {
+    const crmPool = getCrmPool();
+
+    // Fetch all rows from Replit source-of-truth
+    const [pjSource, sbSource] = await Promise.all([
+      localPool.query<{ id: number; technician_id: string; title: string; customer_name: string | null; city: string | null; state: string | null; service_location_id: string | null; color_index: number | null; start_time: Date; end_time: Date; notes: string | null; status: string | null; created_at: Date }>(
+        `SELECT id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at FROM placeholder_jobs ORDER BY id`
+      ),
+      localPool.query<{ id: number; technician_id: string; block_type: string; title: string | null; start_time: Date; end_time: Date; notes: string | null; color_index: number | null; created_at: Date }>(
+        `SELECT id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at FROM schedule_blocks ORDER BY id`
+      ),
+    ]);
+
+    // Upsert all rows from both tables into crm mirror (idempotent — ON CONFLICT DO UPDATE)
+    let pjUpserted = 0;
+    let pjErrors = 0;
+    for (const row of pjSource.rows) {
+      try {
+        await crmPool.query(
+          `INSERT INTO crm.placeholder_jobs
+             (id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+           ON CONFLICT (id) DO UPDATE SET
+             technician_id = EXCLUDED.technician_id,
+             title = EXCLUDED.title,
+             customer_name = EXCLUDED.customer_name,
+             city = EXCLUDED.city,
+             state = EXCLUDED.state,
+             service_location_id = EXCLUDED.service_location_id,
+             color_index = EXCLUDED.color_index,
+             start_time = EXCLUDED.start_time,
+             end_time = EXCLUDED.end_time,
+             notes = EXCLUDED.notes,
+             status = EXCLUDED.status,
+             created_at = EXCLUDED.created_at`,
+          [row.id, row.technician_id, row.title, row.customer_name ?? null, row.city ?? null, row.state ?? null, row.service_location_id ?? null, row.color_index ?? null, row.start_time, row.end_time, row.notes ?? null, row.status ?? null, row.created_at],
+        );
+        pjUpserted++;
+      } catch (e) {
+        pjErrors++;
+        req.log.warn({ err: e, id: row.id }, "sync-mirror: placeholder_jobs upsert failed");
+      }
+    }
+
+    let sbUpserted = 0;
+    let sbErrors = 0;
+    for (const row of sbSource.rows) {
+      try {
+        await crmPool.query(
+          `INSERT INTO crm.schedule_blocks
+             (id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+           ON CONFLICT (id) DO UPDATE SET
+             technician_id = EXCLUDED.technician_id,
+             block_type = EXCLUDED.block_type,
+             title = EXCLUDED.title,
+             start_time = EXCLUDED.start_time,
+             end_time = EXCLUDED.end_time,
+             notes = EXCLUDED.notes,
+             color_index = EXCLUDED.color_index,
+             created_at = EXCLUDED.created_at`,
+          [row.id, row.technician_id, row.block_type, row.title ?? null, row.start_time, row.end_time, row.notes ?? null, row.color_index ?? null, row.created_at],
+        );
+        sbUpserted++;
+      } catch (e) {
+        sbErrors++;
+        req.log.warn({ err: e, id: row.id }, "sync-mirror: schedule_blocks upsert failed");
+      }
+    }
+
+    // Verify post-sync counts
+    const [pjMirrorCount, sbMirrorCount] = await Promise.all([
+      crmPool.query<{ cnt: string }>(`SELECT COUNT(*) AS cnt FROM crm.placeholder_jobs`),
+      crmPool.query<{ cnt: string }>(`SELECT COUNT(*) AS cnt FROM crm.schedule_blocks`),
+    ]);
+
+    res.json({
+      placeholder_jobs: {
+        source_count: pjSource.rows.length,
+        upserted: pjUpserted,
+        errors: pjErrors,
+        mirror_count_after: Number(pjMirrorCount.rows[0]?.cnt ?? 0),
+        in_sync: pjErrors === 0 && Number(pjMirrorCount.rows[0]?.cnt ?? 0) >= pjSource.rows.length,
+      },
+      schedule_blocks: {
+        source_count: sbSource.rows.length,
+        upserted: sbUpserted,
+        errors: sbErrors,
+        mirror_count_after: Number(sbMirrorCount.rows[0]?.cnt ?? 0),
+        in_sync: sbErrors === 0 && Number(sbMirrorCount.rows[0]?.cnt ?? 0) >= sbSource.rows.length,
+      },
+    });
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to sync mirror tables", "Failed to sync mirror tables");
+  }
+});
+
 export default router;
+
