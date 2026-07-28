@@ -1,6 +1,4 @@
 import "dotenv/config";
-console.log("D365CRM_DATABASE_URL =", process.env.D365CRM_DATABASE_URL);
-console.log("DATABASE_URL =", process.env.DATABASE_URL);
 import app from "./app";
 import { logger } from "./lib/logger";
 

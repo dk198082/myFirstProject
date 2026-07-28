@@ -11,13 +11,6 @@ export function isDataverseConfigured(): boolean {
   return Boolean(TENANT_ID && CLIENT_ID && CLIENT_SECRET && DATAVERSE_URL);
 }
 
-console.log({
-  TENANT_ID: !!process.env.TENANT_ID,
-  CLIENT_ID: !!process.env.CLIENT_ID,
-  CLIENT_SECRET: !!process.env.CLIENT_SECRET,
-  DATAVERSE_URL: process.env.DATAVERSE_URL,
-});
-
 function requireConfig(): {
   tenantId: string;
   clientId: string;
