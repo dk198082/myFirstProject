@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BookingNote,
   CreatePlaceholderJob,
   CreateScheduleBlock,
   DashboardSummary,
@@ -36,6 +37,7 @@ import type {
   GetWbResourceUtilizationParams,
   GetWbScheduleBoardParams,
   HealthStatus,
+  ListWbBookingNotesParams,
   ListWbPlaceholderJobsParams,
   ListWbScheduleBlocksParams,
   ListWbServiceLocationsParams,
@@ -55,6 +57,7 @@ import type {
   UnscheduledJobsResponse,
   UpdatePlaceholderJob,
   UpdateScheduleBlock,
+  UpsertBookingNote,
   WbBookingUpdate,
   WbSaveResult,
   WbSearchResult,
@@ -1368,6 +1371,309 @@ export function useGetWbServiceLocation<TData = Awaited<ReturnType<typeof getWbS
 
 
 
+
+export const getListWbBookingNotesUrl = (params?: ListWbBookingNotesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/wb/booking-notes?${stringifiedParams}` : `/api/wb/booking-notes`
+}
+
+/**
+ * @summary Batch-fetch dispatcher notes for a set of CRM booking IDs
+ */
+export const listWbBookingNotes = async (params?: ListWbBookingNotesParams, options?: RequestInit): Promise<BookingNote[]> => {
+
+  return customFetch<BookingNote[]>(getListWbBookingNotesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWbBookingNotesQueryKey = (params?: ListWbBookingNotesParams,) => {
+    return [
+    `/api/wb/booking-notes`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListWbBookingNotesQueryOptions = <TData = Awaited<ReturnType<typeof listWbBookingNotes>>, TError = ErrorType<unknown>>(params?: ListWbBookingNotesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbBookingNotes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWbBookingNotesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWbBookingNotes>>> = ({ signal }) => listWbBookingNotes(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWbBookingNotes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWbBookingNotesQueryResult = NonNullable<Awaited<ReturnType<typeof listWbBookingNotes>>>
+export type ListWbBookingNotesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Batch-fetch dispatcher notes for a set of CRM booking IDs
+ */
+
+export function useListWbBookingNotes<TData = Awaited<ReturnType<typeof listWbBookingNotes>>, TError = ErrorType<unknown>>(
+ params?: ListWbBookingNotesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWbBookingNotes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWbBookingNotesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetWbBookingNoteUrl = (bookingId: string,) => {
+
+
+
+
+  return `/api/wb/booking-notes/${bookingId}`
+}
+
+/**
+ * @summary Get the dispatcher note for a single CRM booking
+ */
+export const getWbBookingNote = async (bookingId: string, options?: RequestInit): Promise<BookingNote> => {
+
+  return customFetch<BookingNote>(getGetWbBookingNoteUrl(bookingId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWbBookingNoteQueryKey = (bookingId: string,) => {
+    return [
+    `/api/wb/booking-notes/${bookingId}`
+    ] as const;
+    }
+
+
+export const getGetWbBookingNoteQueryOptions = <TData = Awaited<ReturnType<typeof getWbBookingNote>>, TError = ErrorType<unknown>>(bookingId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbBookingNote>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWbBookingNoteQueryKey(bookingId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWbBookingNote>>> = ({ signal }) => getWbBookingNote(bookingId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(bookingId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWbBookingNote>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWbBookingNoteQueryResult = NonNullable<Awaited<ReturnType<typeof getWbBookingNote>>>
+export type GetWbBookingNoteQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the dispatcher note for a single CRM booking
+ */
+
+export function useGetWbBookingNote<TData = Awaited<ReturnType<typeof getWbBookingNote>>, TError = ErrorType<unknown>>(
+ bookingId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbBookingNote>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWbBookingNoteQueryOptions(bookingId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpsertWbBookingNoteUrl = (bookingId: string,) => {
+
+
+
+
+  return `/api/wb/booking-notes/${bookingId}`
+}
+
+/**
+ * @summary Create or update the dispatcher note for a CRM booking
+ */
+export const upsertWbBookingNote = async (bookingId: string,
+    upsertBookingNote: UpsertBookingNote, options?: RequestInit): Promise<BookingNote> => {
+
+  return customFetch<BookingNote>(getUpsertWbBookingNoteUrl(bookingId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      upsertBookingNote,)
+  }
+);}
+
+
+
+
+export const getUpsertWbBookingNoteMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertWbBookingNote>>, TError,{bookingId: string;data: BodyType<UpsertBookingNote>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof upsertWbBookingNote>>, TError,{bookingId: string;data: BodyType<UpsertBookingNote>}, TContext> => {
+
+const mutationKey = ['upsertWbBookingNote'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof upsertWbBookingNote>>, {bookingId: string;data: BodyType<UpsertBookingNote>}> = (props) => {
+          const {bookingId,data} = props ?? {};
+
+          return  upsertWbBookingNote(bookingId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpsertWbBookingNoteMutationResult = NonNullable<Awaited<ReturnType<typeof upsertWbBookingNote>>>
+    export type UpsertWbBookingNoteMutationBody = BodyType<UpsertBookingNote>
+    export type UpsertWbBookingNoteMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Create or update the dispatcher note for a CRM booking
+ */
+export const useUpsertWbBookingNote = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertWbBookingNote>>, TError,{bookingId: string;data: BodyType<UpsertBookingNote>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof upsertWbBookingNote>>,
+        TError,
+        {bookingId: string;data: BodyType<UpsertBookingNote>},
+        TContext
+      > => {
+      return useMutation(getUpsertWbBookingNoteMutationOptions(options));
+    }
+
+export const getDeleteWbBookingNoteUrl = (bookingId: string,) => {
+
+
+
+
+  return `/api/wb/booking-notes/${bookingId}`
+}
+
+/**
+ * @summary Delete the dispatcher note for a CRM booking
+ */
+export const deleteWbBookingNote = async (bookingId: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteWbBookingNoteUrl(bookingId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteWbBookingNoteMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWbBookingNote>>, TError,{bookingId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteWbBookingNote>>, TError,{bookingId: string}, TContext> => {
+
+const mutationKey = ['deleteWbBookingNote'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteWbBookingNote>>, {bookingId: string}> = (props) => {
+          const {bookingId} = props ?? {};
+
+          return  deleteWbBookingNote(bookingId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteWbBookingNoteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteWbBookingNote>>>
+
+    export type DeleteWbBookingNoteMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete the dispatcher note for a CRM booking
+ */
+export const useDeleteWbBookingNote = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteWbBookingNote>>, TError,{bookingId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteWbBookingNote>>,
+        TError,
+        {bookingId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteWbBookingNoteMutationOptions(options));
+    }
 
 export const getListWbWritebacksUrl = () => {
 

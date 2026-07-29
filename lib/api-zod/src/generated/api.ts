@@ -495,6 +495,61 @@ export const GetWbServiceLocationResponse = zod.object({
 
 
 /**
+ * @summary Batch-fetch dispatcher notes for a set of CRM booking IDs
+ */
+export const ListWbBookingNotesQueryParams = zod.object({
+  "bookingIds": zod.coerce.string().optional().describe('Comma-separated list of CRM booking IDs (msdyn_bookingid)')
+})
+
+export const ListWbBookingNotesResponseItem = zod.object({
+  "booking_id": zod.string(),
+  "note": zod.string().nullish(),
+  "updated_at": zod.string().nullish()
+})
+export const ListWbBookingNotesResponse = zod.array(ListWbBookingNotesResponseItem)
+
+
+/**
+ * @summary Get the dispatcher note for a single CRM booking
+ */
+export const GetWbBookingNoteParams = zod.object({
+  "bookingId": zod.coerce.string()
+})
+
+export const GetWbBookingNoteResponse = zod.object({
+  "booking_id": zod.string(),
+  "note": zod.string().nullish(),
+  "updated_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Create or update the dispatcher note for a CRM booking
+ */
+export const UpsertWbBookingNoteParams = zod.object({
+  "bookingId": zod.coerce.string()
+})
+
+export const UpsertWbBookingNoteBody = zod.object({
+  "note": zod.string()
+})
+
+export const UpsertWbBookingNoteResponse = zod.object({
+  "booking_id": zod.string(),
+  "note": zod.string().nullish(),
+  "updated_at": zod.string().nullish()
+})
+
+
+/**
+ * @summary Delete the dispatcher note for a CRM booking
+ */
+export const DeleteWbBookingNoteParams = zod.object({
+  "bookingId": zod.coerce.string()
+})
+
+
+/**
  * @summary List all staged write-back entries (queued and synced), most recent first
  */
 export const ListWbWritebacksResponseItem = zod.object({
@@ -869,6 +924,7 @@ export const GetResourceUtilizationResponse = zod.object({
   "technician_id": zod.string(),
   "resource_name": zod.string().nullish(),
   "utilized_minutes": zod.number(),
+  "placeholder_minutes": zod.number().optional().describe('Portion of utilized_minutes contributed by placeholder (potential) jobs'),
   "capacity_minutes": zod.number(),
   "utilization_pct": zod.number(),
   "job_count": zod.number()
@@ -1075,6 +1131,7 @@ export const GetWbResourceUtilizationResponse = zod.object({
   "technician_id": zod.string(),
   "resource_name": zod.string().nullish(),
   "utilized_minutes": zod.number(),
+  "placeholder_minutes": zod.number().optional().describe('Portion of utilized_minutes contributed by placeholder (potential) jobs'),
   "capacity_minutes": zod.number(),
   "utilization_pct": zod.number(),
   "job_count": zod.number()

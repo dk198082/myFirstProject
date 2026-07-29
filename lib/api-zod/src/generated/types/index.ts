@@ -8,6 +8,7 @@
 
 export * from './bestFitTech';
 export * from './booking';
+export * from './bookingNote';
 export * from './contact';
 export * from './countByLabel';
 export * from './countByRegion';
@@ -37,6 +38,7 @@ export * from './getWbScheduleBoardParams';
 export * from './getWbScheduleBoardView';
 export * from './healthStatus';
 export * from './job';
+export * from './listWbBookingNotesParams';
 export * from './listWbPlaceholderJobsParams';
 export * from './listWbScheduleBlocksParams';
 export * from './listWbServiceLocationsParams';
@@ -70,6 +72,7 @@ export * from './unscheduledJobsResponse';
 export * from './updatePlaceholderJob';
 export * from './updateScheduleBlock';
 export * from './updateScheduleBlockBlockType';
+export * from './upsertBookingNote';
 export * from './utilizationRegion';
 export * from './utilizationTech';
 export * from './wbBookingUpdate';

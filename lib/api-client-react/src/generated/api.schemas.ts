@@ -851,6 +851,8 @@ export interface UtilizationTech {
   /** @nullable */
   resource_name?: string | null;
   utilized_minutes: number;
+  /** Portion of utilized_minutes contributed by placeholder (potential) jobs */
+  placeholder_minutes?: number;
   capacity_minutes: number;
   utilization_pct: number;
   job_count: number;
@@ -916,6 +918,16 @@ export interface WeeklyApprovedReport {
   total: number;
   week_numbers: number[];
   approvers: WeeklyApprovedRow[];
+}
+
+export interface BookingNote {
+  booking_id: string;
+  note?: string | null;
+  updated_at?: string | null;
+}
+
+export interface UpsertBookingNote {
+  note: string;
 }
 
 export type WbSearchResultType = typeof WbSearchResultType[keyof typeof WbSearchResultType];
@@ -994,6 +1006,13 @@ search?: string;
  * @maximum 100
  */
 limit?: number;
+};
+
+export type ListWbBookingNotesParams = {
+/**
+ * Comma-separated list of CRM booking IDs (msdyn_bookingid)
+ */
+bookingIds?: string;
 };
 
 export type DeleteWbQueuedWritebacks200 = {

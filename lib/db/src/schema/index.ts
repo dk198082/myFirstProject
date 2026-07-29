@@ -20,3 +20,4 @@
 export * from "./scheduleBlocks";
 export * from "./placeholderJobs";
 export * from "./appUser";
+export * from "./bookingNotes";

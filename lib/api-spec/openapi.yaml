@@ -526,6 +526,89 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /wb/booking-notes:
+    get:
+      operationId: listWbBookingNotes
+      tags: [writeback]
+      summary: Batch-fetch dispatcher notes for a set of CRM booking IDs
+      parameters:
+        - name: bookingIds
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of CRM booking IDs (msdyn_bookingid)
+      responses:
+        "200":
+          description: Notes for the requested bookings (only IDs that have a note are returned)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookingNote"
+
+  /wb/booking-notes/{bookingId}:
+    get:
+      operationId: getWbBookingNote
+      tags: [writeback]
+      summary: Get the dispatcher note for a single CRM booking
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Booking note (note is null when none has been saved)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingNote"
+    put:
+      operationId: upsertWbBookingNote
+      tags: [writeback]
+      summary: Create or update the dispatcher note for a CRM booking
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertBookingNote"
+      responses:
+        "200":
+          description: Saved note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingNote"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteWbBookingNote
+      tags: [writeback]
+      summary: Delete the dispatcher note for a CRM booking
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
   /wb/writebacks:
     get:
       operationId: listWbWritebacks
@@ -2130,6 +2213,9 @@ components:
           type: ["string", "null"]
         utilized_minutes:
           type: integer
+        placeholder_minutes:
+          type: integer
+          description: Portion of utilized_minutes contributed by placeholder (potential) jobs
         capacity_minutes:
           type: integer
         utilization_pct:
@@ -2316,6 +2402,28 @@ components:
         - total
         - week_numbers
         - approvers
+
+    BookingNote:
+      type: object
+      properties:
+        booking_id:
+          type: string
+        note:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          nullable: true
+      required:
+        - booking_id
+
+    UpsertBookingNote:
+      type: object
+      properties:
+        note:
+          type: string
+      required:
+        - note
 
     WbSearchResult:
       type: object

@@ -11,6 +11,8 @@ export interface UtilizationTech {
   /** @nullable */
   resource_name?: string | null;
   utilized_minutes: number;
+  /** Portion of utilized_minutes contributed by placeholder (potential) jobs */
+  placeholder_minutes?: number;
   capacity_minutes: number;
   utilization_pct: number;
   job_count: number;
