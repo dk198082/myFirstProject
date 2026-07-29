@@ -1,4 +1,5 @@
 import {
+  pgSchema,
   pgTable,
   serial,
   text,
@@ -8,7 +9,9 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const bookingNotesTable = pgTable(
+const crm = pgSchema("crm");
+
+export const bookingNotesTable = crm.table(
   "booking_notes",
   {
     id: serial("id").primaryKey(),
