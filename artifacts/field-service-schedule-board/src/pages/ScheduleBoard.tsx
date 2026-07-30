@@ -11,6 +11,8 @@ import {
   useDeleteWbPlaceholderJob,
   useUpdateWbPlaceholderJob,
   useSearchWbJobs,
+  useListWbBookingNotes,
+  getListWbBookingNotesQueryKey,
   getSearchWbJobsQueryKey,
   getListWbWorkOrdersQueryKey,
   getGetWbScheduleBoardQueryKey,
@@ -788,6 +790,7 @@ function JobChip({
   showEquipment,
   showDuration = true,
   dimmed,
+  localNote,
 }: {
   job: ScheduleJob;
   compact: boolean;
@@ -803,6 +806,8 @@ function JobChip({
   showDuration?: boolean;
   /** Fades the chip when a search is active and this job doesn't match. */
   dimmed?: boolean;
+  /** Dispatcher note stored locally (not from CRM). */
+  localNote?: string | null;
 }) {
   const isCancelled = (job.system_status ?? "").toLowerCase() === "cancelled";
   const spanStart = job.span_start_day ?? job.day_index;
@@ -862,6 +867,9 @@ function JobChip({
         </div>
       )}
       {!compact && job.notes && <div className="opacity-70 truncate">{job.notes}</div>}
+      {!compact && localNote && (
+        <ChipNotes notes={localNote} className="opacity-75 truncate border-t border-current/20 mt-0.5 pt-0.5 italic" />
+      )}
     </button>
   );
 
@@ -930,6 +938,12 @@ function JobChip({
               Double-booked — time conflict
             </div>
           )}
+          {localNote && (
+            <div className="border-t border-current/20 pt-1.5 space-y-0.5">
+              <span className="font-medium opacity-70">Note:</span>
+              <div className="opacity-90 whitespace-pre-wrap">{localNote}</div>
+            </div>
+          )}
           {job.work_order_id && (
             <div className="pt-1">
               <Link
@@ -993,6 +1007,7 @@ function CapacityTooltipContent({
   capacityMinutes,
   colorClass,
   jobMinutes,
+  potentialMinutes,
   driveTimeMinutes,
   ptoMinutes,
 }: {
@@ -1000,6 +1015,7 @@ function CapacityTooltipContent({
   capacityMinutes: number;
   colorClass?: string;
   jobMinutes?: number;
+  potentialMinutes?: number;
   driveTimeMinutes?: number;
   ptoMinutes?: number;
 }) {
@@ -1008,7 +1024,10 @@ function CapacityTooltipContent({
   const colors = utilColors(pct);
   const labelCls = colorClass ? "font-medium opacity-70" : "font-medium text-muted-foreground";
   const hasBreakdown =
-    (jobMinutes ?? 0) > 0 || (driveTimeMinutes ?? 0) > 0 || (ptoMinutes ?? 0) > 0;
+    (jobMinutes ?? 0) > 0 ||
+    (potentialMinutes ?? 0) > 0 ||
+    (driveTimeMinutes ?? 0) > 0 ||
+    (ptoMinutes ?? 0) > 0;
   return (
     <TooltipContent
       side="top"
@@ -1026,6 +1045,12 @@ function CapacityTooltipContent({
               <div className="flex justify-between gap-4">
                 <span className={labelCls}>↳ Jobs:</span>
                 <span>{fmtMins(jobMinutes!)}</span>
+              </div>
+            )}
+            {(potentialMinutes ?? 0) > 0 && (
+              <div className="flex justify-between gap-4">
+                <span className={labelCls}>↳ Potential:</span>
+                <span>{fmtMins(potentialMinutes!)}</span>
               </div>
             )}
             {(driveTimeMinutes ?? 0) > 0 && (
@@ -1104,6 +1129,7 @@ function CapacityBadge({
   capacityMinutes,
   colorClass,
   jobMinutes,
+  potentialMinutes,
   driveTimeMinutes,
   ptoMinutes,
 }: {
@@ -1111,6 +1137,7 @@ function CapacityBadge({
   capacityMinutes: number;
   colorClass?: string;
   jobMinutes?: number;
+  potentialMinutes?: number;
   driveTimeMinutes?: number;
   ptoMinutes?: number;
 }) {
@@ -1136,6 +1163,7 @@ function CapacityBadge({
         capacityMinutes={capacityMinutes}
         colorClass={colorClass}
         jobMinutes={jobMinutes}
+        potentialMinutes={potentialMinutes}
         driveTimeMinutes={driveTimeMinutes}
         ptoMinutes={ptoMinutes}
       />
@@ -1717,6 +1745,39 @@ export default function ScheduleBoard() {
   const { data: unscheduledData } = useGetWbUnscheduledJobs();
   const unscheduledJobs = unscheduledData?.jobs ?? [];
 
+  // Collect all CRM booking IDs visible on the board, then batch-fetch local notes.
+  const allBoardBookingIds = useMemo(() => {
+    if (!data) return [];
+    const ids: string[] = [];
+    for (const rg of data.regions ?? []) {
+      for (const tech of rg.technicians ?? []) {
+        for (const job of tech.jobs ?? []) {
+          if (job.booking_id) ids.push(job.booking_id);
+        }
+      }
+    }
+    return ids;
+  }, [data]);
+
+  const notesQueryParams = useMemo(
+    () => ({ bookingIds: allBoardBookingIds.join(",") }),
+    [allBoardBookingIds],
+  );
+  const { data: notesData } = useListWbBookingNotes(notesQueryParams, {
+    query: {
+      queryKey: getListWbBookingNotesQueryKey(notesQueryParams),
+      enabled: allBoardBookingIds.length > 0,
+      staleTime: 30_000,
+    },
+  });
+  const notesByBookingId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const n of notesData ?? []) {
+      if (n.booking_id && n.note) map.set(n.booking_id, n.note);
+    }
+    return map;
+  }, [notesData]);
+
   const rangeStartForBlocks = data?.range_start ?? start;
   const endDateForBlocks = useMemo(
     () => addDaysISO(rangeStartForBlocks, data?.day_count ?? 7),
@@ -2088,8 +2149,10 @@ export default function ScheduleBoard() {
     techUtilMinutesById.get(technicianId) ?? 0;
 
   // Per-technician Drive Time + PTO block minutes, summed across the whole range.
+  // Split block minutes by explicit type so Custom blocks can be excluded
+  // from utilization (they are visual annotations, not booked time).
   const blockMinutesByTech = useMemo(() => {
-    const m = new Map<string, { driveTime: number; pto: number }>();
+    const m = new Map<string, { driveTime: number; pto: number; custom: number }>();
     for (const block of blocks) {
       const dur = Math.max(
         0,
@@ -2097,18 +2160,37 @@ export default function ScheduleBoard() {
           (new Date(block.end_time).getTime() - new Date(block.start_time).getTime()) / 60000,
         ),
       );
-      const cur = m.get(block.technician_id) ?? { driveTime: 0, pto: 0 };
+      const cur = m.get(block.technician_id) ?? { driveTime: 0, pto: 0, custom: 0 };
       if (block.block_type === "drive_time") cur.driveTime += dur;
-      else cur.pto += dur;
+      else if (block.block_type === "pto") cur.pto += dur;
+      else cur.custom += dur;
       m.set(block.technician_id, { ...cur });
     }
     return m;
   }, [blocks]);
 
   const techBlockMinutes = (technicianId: string) =>
-    blockMinutesByTech.get(technicianId) ?? { driveTime: 0, pto: 0 };
+    blockMinutesByTech.get(technicianId) ?? { driveTime: 0, pto: 0, custom: 0 };
 
-  // Total utilization = CRM jobs + local Drive Time + PTO blocks.
+  // Potential (placeholder) job minutes per technician, as reported by the
+  // utilization endpoint. The endpoint already folds these into
+  // utilized_minutes, so they must NOT be re-added client-side — this value is
+  // only used to break the total down (Jobs vs Potential) in the UI.
+  const placeholderMinutesByTech = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of utilData?.regions ?? []) {
+      for (const t of r.technicians ?? []) {
+        m.set(t.technician_id, t.placeholder_minutes ?? 0);
+      }
+    }
+    return m;
+  }, [utilData]);
+
+  const techPlaceholderMinutes = (technicianId: string) =>
+    placeholderMinutesByTech.get(technicianId) ?? 0;
+
+  // Total utilization = utilized_minutes (CRM jobs + Potential Jobs, summed
+  // server-side) + Drive Time + PTO. Custom blocks are deliberately excluded.
   const techTotalUtilMinutes = (technicianId: string) => {
     const { driveTime, pto } = techBlockMinutes(technicianId);
     return techUtilMinutes(technicianId) + driveTime + pto;
@@ -2985,20 +3067,43 @@ export default function ScheduleBoard() {
                               60000,
                           ),
                         );
-                        return b.block_type === "drive_time"
-                          ? { ...acc, driveTime: acc.driveTime + dur }
-                          : { ...acc, pto: acc.pto + dur };
+                        if (b.block_type === "drive_time")
+                          return { ...acc, driveTime: acc.driveTime + dur };
+                        if (b.block_type === "pto") return { ...acc, pto: acc.pto + dur };
+                        return { ...acc, custom: acc.custom + dur };
                       },
-                      { driveTime: 0, pto: 0 },
+                      { driveTime: 0, pto: 0, custom: 0 },
+                    );
+                  // Potential (placeholder) job minutes for this week — count
+                  // toward utilization; Custom blocks are excluded.
+                  const weekPhMins = placeholderJobs
+                    .filter(
+                      (j) =>
+                        j.technician_id === tech.technician_id &&
+                        weekIsos.has(j.start_time.slice(0, 10)),
+                    )
+                    .reduce(
+                      (s2, j) =>
+                        s2 +
+                        Math.max(
+                          0,
+                          Math.round(
+                            (new Date(j.end_time).getTime() -
+                              new Date(j.start_time).getTime()) /
+                              60000,
+                          ),
+                        ),
+                      0,
                     );
                   const weekCapMinutes = Math.round(
                     idleCapMinutes(tech.technician_id) /
                       Math.max(1, stackedWeeks.length),
                   );
                   const weekTotalMins =
-                    weekJobMins + weekBlkMins.driveTime + weekBlkMins.pto;
+                    weekJobMins + weekPhMins + weekBlkMins.driveTime + weekBlkMins.pto;
                   const weekHasAnyBooking =
                     weekJobs.length > 0 ||
+                    weekPhMins > 0 ||
                     weekBlkMins.driveTime > 0 ||
                     weekBlkMins.pto > 0;
 
@@ -3043,6 +3148,7 @@ export default function ScheduleBoard() {
                             capacityMinutes={weekCapMinutes}
                             colorClass={palette.chip}
                             jobMinutes={weekJobMins > 0 ? weekJobMins : undefined}
+                            potentialMinutes={weekPhMins > 0 ? weekPhMins : undefined}
                             driveTimeMinutes={
                               weekBlkMins.driveTime > 0
                                 ? weekBlkMins.driveTime
@@ -3103,6 +3209,7 @@ export default function ScheduleBoard() {
                                 dimmed={
                                   !!activeSearch && !jobMatchesSearch(j, activeSearch)
                                 }
+                                localNote={notesByBookingId.get(j.booking_id) ?? null}
                               />
                             ),
                           })),
@@ -3393,9 +3500,14 @@ export default function ScheduleBoard() {
                               </div>
                               {(() => {
                                 const blkMins = techBlockMinutes(tech.technician_id);
-                                const jobMins = techUtilMinutes(tech.technician_id);
-                                const totalMins = jobMins + blkMins.driveTime + blkMins.pto;
-                                const hasAnyBooking = tech.jobs.length > 0 || blkMins.driveTime > 0 || blkMins.pto > 0;
+                                // utilized_minutes from the API already includes potential-job
+                                // minutes; split them out for display only.
+                                const utilMins = techUtilMinutes(tech.technician_id);
+                                const phMins = Math.min(utilMins, techPlaceholderMinutes(tech.technician_id));
+                                const jobMins = utilMins - phMins;
+                                const totalMins = utilMins + blkMins.driveTime + blkMins.pto;
+                                const hasAnyBooking =
+                                  tech.jobs.length > 0 || phMins > 0 || blkMins.driveTime > 0 || blkMins.pto > 0;
                                 return (
                                   <>
                                     <div className="text-[10px] text-foreground/50">
@@ -3424,6 +3536,7 @@ export default function ScheduleBoard() {
                                         capacityMinutes={idleCapMinutes(tech.technician_id)}
                                         colorClass={palette.chip}
                                         jobMinutes={jobMins > 0 ? jobMins : undefined}
+                                        potentialMinutes={phMins > 0 ? phMins : undefined}
                                         driveTimeMinutes={blkMins.driveTime > 0 ? blkMins.driveTime : undefined}
                                         ptoMinutes={blkMins.pto > 0 ? blkMins.pto : undefined}
                                       />
@@ -3478,6 +3591,7 @@ export default function ScheduleBoard() {
                                     showEquipment
                                     showDuration={false}
                                     dimmed={!!activeSearch && !jobMatchesSearch(j, activeSearch)}
+                                    localNote={notesByBookingId.get(j.booking_id) ?? null}
                                   />
                                 ),
                               })),
@@ -3748,9 +3862,14 @@ export default function ScheduleBoard() {
                               </button>
                               {(() => {
                                 const blkMins = techBlockMinutes(tech.technician_id);
-                                const jobMins = techUtilMinutes(tech.technician_id);
-                                const totalMins = jobMins + blkMins.driveTime + blkMins.pto;
-                                const hasAnyBooking = tech.jobs.length > 0 || blkMins.driveTime > 0 || blkMins.pto > 0;
+                                // utilized_minutes from the API already includes potential-job
+                                // minutes; split them out for display only.
+                                const utilMins = techUtilMinutes(tech.technician_id);
+                                const phMins = Math.min(utilMins, techPlaceholderMinutes(tech.technician_id));
+                                const jobMins = utilMins - phMins;
+                                const totalMins = utilMins + blkMins.driveTime + blkMins.pto;
+                                const hasAnyBooking =
+                                  tech.jobs.length > 0 || phMins > 0 || blkMins.driveTime > 0 || blkMins.pto > 0;
                                 return (
                                   <>
                                     <div className="text-[10px] text-muted-foreground">
@@ -3779,6 +3898,7 @@ export default function ScheduleBoard() {
                                         capacityMinutes={idleCapMinutes(tech.technician_id)}
                                         colorClass={palette.chip}
                                         jobMinutes={jobMins > 0 ? jobMins : undefined}
+                                        potentialMinutes={phMins > 0 ? phMins : undefined}
                                         driveTimeMinutes={blkMins.driveTime > 0 ? blkMins.driveTime : undefined}
                                         ptoMinutes={blkMins.pto > 0 ? blkMins.pto : undefined}
                                       />
@@ -3830,6 +3950,7 @@ export default function ScheduleBoard() {
                                     isDragging={draggingId === j.booking_id}
                                     showEquipment={view === "week"}
                                     dimmed={!!activeSearch && !jobMatchesSearch(j, activeSearch)}
+                                    localNote={notesByBookingId.get(j.booking_id) ?? null}
                                   />
                                 ),
                               })),

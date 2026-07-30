@@ -1,12 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import {
   useSaveWbBooking,
   useSaveNewWbBooking,
   useListWbTechnicians,
+  useGetWbBookingNote,
+  useUpsertWbBookingNote,
   getListWbWorkOrdersQueryKey,
   getListWbWritebacksQueryKey,
   getGetWbScheduleBoardQueryKey,
   getGetWbUnscheduledJobsQueryKey,
+  getListWbBookingNotesQueryKey,
+  getGetWbBookingNoteQueryKey,
   type WbWorkOrder,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -33,7 +37,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Loader2, ExternalLink, CloudUpload, CalendarIcon } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, ExternalLink, CloudUpload, CalendarIcon, StickyNote, Check } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -221,6 +226,62 @@ export function EditBookingDialog({
 
   const isNew = !row.booking_id;
 
+  // ── Dispatcher notes (local, never written to CRM) ─────────────────────────
+  const { data: existingNote, isLoading: noteLoading } = useGetWbBookingNote(
+    row.booking_id ?? "",
+    {
+      query: {
+        queryKey: getGetWbBookingNoteQueryKey(row.booking_id ?? ""),
+        enabled: !isNew,
+        staleTime: 30_000,
+      },
+    },
+  );
+  const [note, setNote] = useState<string | null>(null);
+  const noteSavedRef = useRef(false);
+
+  // Seed the textarea once the existing note is loaded (only on first load)
+  const resolvedNote = note !== null ? note : (existingNote?.note ?? "");
+
+  const [noteSaveStatus, setNoteSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const upsertNoteMutation = useUpsertWbBookingNote({
+    mutation: {
+      onSuccess: () => {
+        setNoteSaveStatus("saved");
+        if (noteTimerRef.current) clearTimeout(noteTimerRef.current);
+        noteTimerRef.current = setTimeout(() => setNoteSaveStatus("idle"), 2000);
+        // Invalidate the board notes query so chips refresh
+        queryClient.invalidateQueries({ queryKey: getListWbBookingNotesQueryKey() });
+        if (row.booking_id) {
+          queryClient.invalidateQueries({
+            queryKey: getGetWbBookingNoteQueryKey(row.booking_id),
+          });
+        }
+      },
+    },
+  });
+
+  const saveNote = useCallback(
+    (value: string) => {
+      if (isNew || !row.booking_id) return;
+      setNoteSaveStatus("saving");
+      upsertNoteMutation.mutate({ bookingId: row.booking_id, data: { note: value } });
+    },
+    [isNew, row.booking_id, upsertNoteMutation],
+  );
+
+  const handleNoteBlur = () => {
+    const current = note !== null ? note : (existingNote?.note ?? "");
+    const original = existingNote?.note ?? "";
+    if (current !== original || !noteSavedRef.current) {
+      noteSavedRef.current = true;
+      saveNote(current);
+    }
+  };
+
+  // ── Booking save (CRM) ─────────────────────────────────────────────────────
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: getListWbWorkOrdersQueryKey() });
     queryClient.invalidateQueries({ queryKey: getListWbWritebacksQueryKey() });
@@ -351,6 +412,38 @@ export function EditBookingDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Dispatcher notes — local only, not written to CRM */}
+          {!isNew && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <StickyNote className="h-3.5 w-3.5 text-muted-foreground" />
+                <Label htmlFor="dispatcher-note">Dispatcher Note</Label>
+                {noteSaveStatus === "saving" && (
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground ml-auto" />
+                )}
+                {noteSaveStatus === "saved" && (
+                  <span className="ml-auto flex items-center gap-0.5 text-[10px] text-emerald-600 font-medium">
+                    <Check className="h-3 w-3" />
+                    Saved
+                  </span>
+                )}
+              </div>
+              <Textarea
+                id="dispatcher-note"
+                placeholder={noteLoading ? "Loading…" : "Add a note for this job (not sent to CRM)…"}
+                disabled={noteLoading}
+                value={resolvedNote}
+                onChange={(e) => setNote(e.target.value)}
+                onBlur={handleNoteBlur}
+                rows={3}
+                className="resize-none text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Notes are stored locally and never synced to Dynamics.
+              </p>
+            </div>
+          )}
 
           {row.work_order_id && (
             <Link
