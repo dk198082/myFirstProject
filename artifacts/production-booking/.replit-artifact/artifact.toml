@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/production-booking/"
+title = "Production Booking"
+version = "1.0.0"
+id = "artifacts/production-booking"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/production-booking/" ]
+localPort = 25619
+
+[services.development]
+run = "pnpm --filter @workspace/production-booking run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/production-booking", "run", "build" ]
+publicDir = "artifacts/production-booking/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25619"
+BASE_PATH = "/production-booking/"

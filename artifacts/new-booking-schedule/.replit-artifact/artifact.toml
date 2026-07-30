@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/new-booking-schedule/"
+title = "New Booking Schedule"
+version = "1.0.0"
+id = "artifacts/new-booking-schedule"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/new-booking-schedule/" ]
+localPort = 23641
+
+[services.development]
+run = "pnpm --filter @workspace/new-booking-schedule run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/new-booking-schedule", "run", "build" ]
+publicDir = "artifacts/new-booking-schedule/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23641"
+BASE_PATH = "/new-booking-schedule/"

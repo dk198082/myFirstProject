@@ -1,0 +1,17 @@
+- [D365 Azure source DB](d365-azure-source.md) — read-only D365FO data on Azure PG; how to connect/introspect and which creds live where.
+- [Shop-floor model tabs](shop-floor-model-tabs.md) — orders sorted to tabs by released-product Sales Classification 2='Machine' + Class3 (300SL/600SL/1000-2000SL/MetalsImpact).
+- [Monorepo lib codegen/build](monorepo-lib-build.md) — after editing lib/db schema or api-spec, rebuild lib declarations before leaf packages see new exports.
+- [Booking slot moves](booking-slot-moves.md) — moving a booking up/down must use the atomic POST /booking-slots/swap (one transaction), never chained client PATCHes.
+- [D365 resource name](d365-resource-name.md) — "resource performing operations" = requiredoperationsresourcegroupid (group IS the name); resourcename/resourceid empty for ~all orders.
+- [Shop-floor theming](shop-floor-theming.md) — apps are token-driven via :root in index.css; retheme = flip :root in both, then darken hardcoded text-*-300/400 accent classes in pages.
+- [Drizzle column renames](drizzle-column-rename.md) — drizzle-kit push can't rename columns in non-TTY post-merge; do ALTER TABLE RENAME COLUMN manually + restart API.
+- [production-board perf](production-board-slow.md) — two fixes: materialize filter-only table keys in a CTE (nested-loop rescan trap) AND bypass productionroutedetailsd365() with a direct staging aggregate; endpoint ~5s, now also returns consumedhours. D365 PG read-only.
+- [Schedule Board behavior](schedule-board-behavior.md) — Mon–Fri 8h (40h/wk cap); board = 13 pill groups (always shown, empty incl.) + one merged "Unallocated"; pill bar is the ONLY group filter.
+- [D365 prod-order pipeline](d365-prod-order-pipeline.md) — status 4=Started, 0-3=Booked, 5-7=historical backlog; naive ORDER BY date ASC LIMIT drops the live pipeline — order DESC.
+- [Board pick-remaining](board-pick-remaining.md) — card tooltip reads remaining DIRECTLY from remainingbomlinequantity+bomlineunitsymbol (don't recompute); SEPARATE cached /production-picking endpoint; group headers show groupname via /production-groups.
+- [Route function full-scan trap](route-details-function-slow.md) — productionroutedetailsd365() can't push order predicates (nested SRF+GROUP BY); for per-order route data query staging tables directly.
+- [Utilization worker attribution](utilization-worker-attribution.md) — posted hours follow the WORKER (route transactions toworker), not the order's group; map lives in the utilization route.
+- [SheetJS xlsx date cells](xlsx-date-cells.md) — json_to_sheet drops bare Date values on write; set date cells explicitly as {t:"d",v:Date,z:fmt} so Excel treats them as dates not text.
+- [D365 write-back](d365-write-back.md) — real-time D365 OData writes need a local overlay until the read-only staging mirror catches up; app must also be registered inside D365, not just AAD.
+- [SO-PO link in staging](so-po-link-staging.md) — reference = demandsalesordernumber THEN valid parentproductionordernumber; manual markings (e.g. 366221→SO700528) NOT in BYOD export → blank.
+- [Header staging fan-out](header-staging-fanout.md) — append-only table; many rows/order across export jobs. Status filters must run AFTER deduplication (CTE + tomodifieddatetime DESC), not before.

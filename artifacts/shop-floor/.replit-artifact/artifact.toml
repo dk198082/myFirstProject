@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Production Shop Floor"
+version = "1.0.0"
+id = "artifacts/shop-floor"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22578
+
+[services.development]
+run = "pnpm --filter @workspace/shop-floor run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/shop-floor", "run", "build" ]
+publicDir = "artifacts/shop-floor/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22578"
+BASE_PATH = "/"

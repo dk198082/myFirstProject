@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/mobile/"
+title = "Shop Floor Mobile"
+version = "1.0.0"
+id = "artifacts/shop-floor-mobile"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/mobile/" ]
+localPort = 22406
+
+[services.development]
+run = "pnpm --filter @workspace/shop-floor-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/shop-floor-mobile", "run", "build" ]
+publicDir = "artifacts/shop-floor-mobile/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22406"
+BASE_PATH = "/mobile/"

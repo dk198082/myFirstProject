@@ -1,0 +1,1732 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: production
+    description: Production shop floor operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /production-orders:
+    get:
+      operationId: getProductionOrders
+      tags: [production]
+      summary: Get production orders
+      description: Returns production orders for TOUS data area. Tries stored procedure productionordersd365us() first, falls back to direct table query.
+      parameters:
+        - name: fromDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter orders scheduled from this date
+        - name: toDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter orders scheduled to this date
+      responses:
+        "200":
+          description: List of production orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductionOrder"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /production-route-details:
+    get:
+      operationId: getProductionRouteDetails
+      tags: [production]
+      summary: Get production route details
+      description: Returns route/operation details via stored procedure productionroutedetailsd365
+      parameters:
+        - name: prodid
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by production order ID
+      responses:
+        "200":
+          description: List of route detail records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductionRouteDetail"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /production-board:
+    get:
+      operationId: getProductionBoard
+      tags: [production]
+      summary: Get board-view orders with resource (work center) assignment
+      description: >
+        Returns production orders enriched with their assigned resource from
+        the capacity reservation table. Orders with no reservation have a null
+        resourcecode and are considered unscheduled.
+      parameters:
+        - name: fromDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: productiongroupid
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of board orders with resource assignment
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BoardOrder"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /storeroom-request:
+    post:
+      operationId: sendStoreroomRequest
+      tags: [production]
+      summary: Send a part-request email to the storeroom
+      description: >
+        Sends an email to the storeroom inbox via Exchange Online (Microsoft
+        Graph) requesting parts for a production order. Requires the
+        STOREROOM_EMAIL and STOREROOM_SENDER_MAILBOX environment variables and
+        the Graph Mail.Send application permission on the Azure app
+        registration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreroomRequest"
+      responses:
+        "200":
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreroomRequestResult"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Exchange/Graph rejected the request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Storeroom email not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /calibration-request:
+    post:
+      operationId: sendCalibrationRequest
+      tags: [production]
+      summary: Send a calibration-ready email
+      description: >
+        Sends an email to BWood@tiniusolsen.com via Exchange Online indicating
+        that a production order is ready for calibration. The From address is
+        the caller's (logged-in user's) email. Subject and body are
+        auto-generated from the order details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalibrationRequest"
+      responses:
+        "200":
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalibrationRequestResult"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Exchange/Graph rejected the request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Sender email not provided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /production-route-transactions:
+    get:
+      operationId: getProductionRouteTransactions
+      tags: [production]
+      summary: Get posted-hours transactions for a production order
+      description: >
+        Returns each posted-hours transaction for the given production order,
+        joined to the worker name, operation name, posting date, and
+        production group (id + display name). Grouped by
+        (operationnumber, workername, date) and summed.
+      parameters:
+        - name: prodid
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of route transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RouteTransaction"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /production-groups:
+    get:
+      operationId: getProductionGroups
+      tags: [production]
+      summary: Get production group id -> display name lookup
+      description: >
+        Returns all production groups with their human-readable name from
+        costproductiongroupstaging. Used to label Schedule Board section headers.
+      responses:
+        "200":
+          description: List of production groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductionGroup"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /production-sync-status:
+    get:
+      operationId: getProductionSyncStatus
+      tags: [production]
+      summary: Get the latest D365 -> staging sync timestamp
+      description: >
+        Lightweight freshness probe returning only the most recent
+        syncstartdatetime across the production order header staging table.
+        Clients poll this cheaply and refetch full board data only when the
+        timestamp advances, so every user refreshes off the same trigger.
+      responses:
+        "200":
+          description: Latest staging sync timestamp
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductionSyncStatus"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /production-orders/{prodid}/production-group:
+    patch:
+      operationId: updateProductionGroup
+      tags: [production]
+      summary: Change a production order's production group (writes to D365)
+      description: >
+        Updates the production group of a production order in Dynamics 365
+        F&O in real time via the OData ProductionOrderHeaders entity, then
+        stores a local overlay so the Schedule Board reflects the change
+        immediately (the staging mirror only refreshes periodically).
+      parameters:
+        - name: prodid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductionGroupInput"
+      responses:
+        "200":
+          description: The updated assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateProductionGroupResult"
+        "400":
+          description: Invalid or unknown production group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: D365 rejected or failed the update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /unallocated-order-details:
+    get:
+      operationId: getUnallocatedOrderDetails
+      tags: [production]
+      summary: Get raw production-order data for the Unallocated grid
+      description: >
+        Returns every GenAssy / GenInstr production order (any status except
+        Created) with its released-product sales classifications, production
+        pool and scheduled quantity. Used by the Schedule Board Unallocated
+        section's data grid view.
+      responses:
+        "200":
+          description: List of unallocated production order detail rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UnallocatedOrderDetail"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /production-picking:
+    get:
+      operationId: getProductionPicking
+      tags: [production]
+      summary: Get remaining-to-pick BOM components per started order
+      description: >
+        For every started machine order on the Schedule Board, returns the BOM
+        component lines that still have quantity remaining to pick. Remaining is
+        read directly from remainingbomlinequantity (with bomlineunitsymbol as the
+        unit), summed per component; only non-zero lines are included. Cached
+        server-side; fetch separately from the board.
+      responses:
+        "200":
+          description: Remaining-to-pick components grouped by production order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PickRemaining"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /production-utilization:
+    get:
+      operationId: getProductionUtilization
+      tags: [production]
+      summary: Posted labor hours per day/operation/order for a week
+      description: >
+        Returns posted (registered) labor hours for the requested date window,
+        one row per production group / worker / order / route operation / day.
+        Sourced from production route transactions, which carry the worker who
+        posted the time. Hours are attributed to the group of the WORKER
+        (each board group is a person), regardless of which order they worked
+        on; postings by unmapped workers fall back to the order's production
+        group. Excludes the Warehouse Pick/Receive bookend operations, and
+        only rows with more than zero posted hours. Drives the weekly
+        Resource Utilization section.
+      parameters:
+        - name: fromDate
+          in: query
+          required: true
+          description: Inclusive start of the week window (yyyy-MM-dd).
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          required: true
+          description: Inclusive end of the week window (yyyy-MM-dd).
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Posted-hours rows for the window
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UtilizationEntry"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /production-summary:
+    get:
+      operationId: getProductionSummary
+      tags: [production]
+      summary: Get production summary with sales order context
+      description: >
+        Returns production orders enriched with linked sales order info.
+        Joins prodproductionorderheaderstaging with salesorderheaderv3staging
+        on demandsalesordernumber = salesordernumber. Filtered to dataareaid = TOUS.
+      parameters:
+        - name: fromDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: productiongroupid
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by production group (resource)
+        - name: prodid
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by production order number
+      responses:
+        "200":
+          description: List of enriched production summary records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductionSummary"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /production-kpi:
+    get:
+      operationId: getProductionKpi
+      tags: [production]
+      summary: Get per-order performance / delivery KPIs
+      description: >
+        Returns per-order performance / delivery KPIs for STARTED Machine orders
+        in the Assy/Inst production groups. Posting dates come from the route-card
+        production journal (postedtimestamp, isposted=1) EXCLUDING the warehouse
+        pick/receive operations. delivery and hours are the Schedule Board values
+        (route window end and total scheduled setup+process time). Only orders
+        with at least one non-warehouse posting are returned. firstposting /
+        lastposting bound the flow time; activedays counts distinct posting days.
+      parameters:
+        - name: fromDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Only include orders whose last posting is on or after this date
+        - name: toDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Only include orders whose last posting is on or before this date
+        - name: productiongroupid
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by production group (resource)
+        - name: prodid
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Restrict the result to a single production order number
+      responses:
+        "200":
+          description: List of per-order KPI records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KpiOrder"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /assignable-orders:
+    get:
+      operationId: getAssignableOrders
+      tags: [production]
+      summary: Get production orders that can be allocated to a booking slot
+      description: >
+        Returns production orders enriched with their model tab (derived from the
+        released product's Sales Classification 2 = 'Machine' and Sales
+        Classification 3 matching the tab), linked sales order, customer name,
+        production start and delivery dates. Only Machine items with a matching
+        classification are returned. Used by the booking allocation picker.
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by production order number, item, or customer (case-insensitive)
+        - name: tab
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter to a single model tab (300SL, 600SL, 1000/2000SL, MetalsImpact)
+      responses:
+        "200":
+          description: List of assignable orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssignableOrder"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /sales-orders:
+    get:
+      operationId: getSalesOrders
+      tags: [production]
+      summary: Search sales orders
+      description: >
+        Returns sales orders (number, customer name, requested shipping date) for
+        choosing or overriding the sales order assigned to a booking slot.
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by sales order number or customer name (case-insensitive)
+      responses:
+        "200":
+          description: List of sales orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SalesOrderRef"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /machine-orders:
+    get:
+      operationId: getMachineOrders
+      tags: [production]
+      summary: All machine production orders classified by model family
+      description: >
+        Returns every machine production order (Sales Classification 2 = 'Machine'
+        with a recognized Sales Classification 3), enriched with model tab,
+        production status, scheduled start, delivery date, resource group and
+        customer. Unlike /assignable-orders this does NOT exclude orders already
+        booked, so it can drive the read-only New Booking / Schedule cadence view.
+      responses:
+        "200":
+          description: List of machine orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssignableOrder"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /booking-slots:
+    get:
+      operationId: getBookingSlots
+      tags: [production]
+      summary: List booking slots for a tab
+      description: >
+        Returns the bi-weekly cadence of booking slots for a model tab, ordered by
+        slot index. If the tab has no slots yet, a default cadence is auto-seeded.
+      parameters:
+        - name: tab
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Model tab (300SL, 600SL, 1000/2000SL, MetalsImpact)
+      responses:
+        "200":
+          description: List of booking slots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookingSlot"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createBookingSlot
+      tags: [production]
+      summary: Add a booking slot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingSlotInput"
+      responses:
+        "201":
+          description: Created slot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingSlot"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /booking-slots/reset:
+    post:
+      operationId: resetBookingSlots
+      tags: [production]
+      summary: Regenerate the cadence for a tab
+      description: >
+        Deletes existing slots for the tab and regenerates a fresh bi-weekly
+        cadence. Clears all allocations for that tab.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetSlotsInput"
+      responses:
+        "200":
+          description: Regenerated slots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookingSlot"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /booking-slots/swap:
+    post:
+      operationId: swapBookingSlots
+      tags: [production]
+      summary: Swap the order allocation between two slots
+      description: >
+        Atomically swaps the production + sales order allocation between two
+        slots in a single transaction. Dates and durations stay fixed with each
+        slot — only the booking moves. Used to move a booking up or down the
+        calendar.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwapSlotsInput"
+      responses:
+        "200":
+          description: The two updated slots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookingSlot"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: One or both slots not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /booking-slots/{id}:
+    patch:
+      operationId: updateBookingSlot
+      tags: [production]
+      summary: Update a booking slot (shift date, change days, allocate or clear)
+      description: >
+        Updates only the fields provided. Send prodOrder/salesOrder plus snapshot
+        fields to allocate; send prodOrder=null to clear the allocation.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingSlotUpdate"
+      responses:
+        "200":
+          description: Updated slot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingSlot"
+        "404":
+          description: Slot not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteBookingSlot
+      tags: [production]
+      summary: Remove a booking slot
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Delete result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteResult"
+        "404":
+          description: Slot not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+
+    StoreroomRequest:
+      type: object
+      properties:
+        prodid:
+          type: string
+          description: Production order id the request relates to
+        subject:
+          type: string
+          maxLength: 300
+        message:
+          type: string
+          maxLength: 5000
+        requestedBy:
+          type: string
+          description: Optional name of the supervisor making the request
+        fromEmail:
+          type: string
+          description: Optional sender mailbox (overrides the configured default)
+        toEmail:
+          type: string
+          description: Optional recipient (overrides the default storeroom inbox)
+        cc:
+          type: array
+          items:
+            type: string
+          description: Additional CC recipients (merged with hardcoded defaults)
+      required:
+        - prodid
+        - subject
+        - message
+
+    CalibrationRequest:
+      type: object
+      properties:
+        prodid:
+          type: string
+        fromEmail:
+          type: string
+          description: Sender's email address (the logged-in user)
+        ordername:
+          type: string
+          description: Production order name / item name for the email body
+        productiongroupname:
+          type: string
+          description: Production group name for the email subject
+        subject:
+          type: string
+          description: Pre-formatted email subject line to send
+        demandsalesordernumber:
+          type: string
+          nullable: true
+          description: Linked reference sales order number, if any
+      required:
+        - prodid
+        - fromEmail
+
+    CalibrationRequestResult:
+      type: object
+      properties:
+        sent:
+          type: boolean
+      required:
+        - sent
+
+    StoreroomRequestResult:
+      type: object
+      properties:
+        sent:
+          type: boolean
+      required:
+        - sent
+
+    DeleteResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+
+    AssignableOrder:
+      type: object
+      properties:
+        prodid:
+          type: string
+        dataareaid:
+          type: string
+          nullable: true
+        itemid:
+          type: string
+          nullable: true
+        itemname:
+          type: string
+          nullable: true
+        productionstatus:
+          type: integer
+          nullable: true
+          description: "D365FO numeric status: 0=Created,1=Estimated,2=Scheduled,3=Released,4=Started,5=ReportedAsFinished,6=Ended,7=Ordered"
+        schedulefromdate:
+          type: string
+          nullable: true
+          description: Production start date
+        deliverydate:
+          type: string
+          nullable: true
+          description: Production delivery date
+        prodqty:
+          type: number
+          nullable: true
+        demandsalesordernumber:
+          type: string
+          nullable: true
+          description: Linked sales order number
+        pool:
+          type: string
+          nullable: true
+          description: Production pool from the production order header
+        productiongroup:
+          type: string
+          nullable: true
+          description: Production group from the production order header
+        customername:
+          type: string
+          nullable: true
+          description: Customer name from the linked sales order
+        confirmedshipdate:
+          type: string
+          nullable: true
+          description: Confirmed ship date from the linked sales order header
+        inpacking:
+          type: integer
+          nullable: true
+          description: In-packing flag from the linked sales order header (1=in packing)
+        tab:
+          type: string
+          nullable: true
+          description: Model tab derived from the released product's Sales Classification 2/3 (300SL, 600SL, 1000/2000SL, MetalsImpact)
+        resources:
+          type: string
+          nullable: true
+          description: Distinct resource groups (work centers) performing this order's route operations, comma-separated
+      required:
+        - prodid
+
+    SalesOrderRef:
+      type: object
+      properties:
+        salesordernumber:
+          type: string
+        customername:
+          type: string
+          nullable: true
+        customeraccount:
+          type: string
+          nullable: true
+        requestedshippingdate:
+          type: string
+          nullable: true
+        confirmedshipdate:
+          type: string
+          nullable: true
+          description: Confirmed ship date from the sales order header
+        inpacking:
+          type: integer
+          nullable: true
+          description: In-packing flag from the sales order header (1=in packing)
+      required:
+        - salesordernumber
+
+    BookingSlot:
+      type: object
+      properties:
+        id:
+          type: integer
+        tab:
+          type: string
+        slotIndex:
+          type: integer
+        productionStart:
+          type: string
+          nullable: true
+          description: Production start date (YYYY-MM-DD)
+        pickDays:
+          type: integer
+          minimum: 0
+        assyDays:
+          type: integer
+          minimum: 0
+        packDays:
+          type: integer
+          minimum: 0
+        prodOrder:
+          type: string
+          nullable: true
+          description: Allocated production order number
+        salesOrder:
+          type: string
+          nullable: true
+          description: Assigned sales order number
+        itemid:
+          type: string
+          nullable: true
+        itemname:
+          type: string
+          nullable: true
+        customername:
+          type: string
+          nullable: true
+        productionstatus:
+          type: integer
+          nullable: true
+        deliverydate:
+          type: string
+          nullable: true
+          description: Snapshot of the production delivery date (YYYY-MM-DD)
+        pool:
+          type: string
+          nullable: true
+          description: Snapshot of the production pool
+        productionGroup:
+          type: string
+          nullable: true
+          description: Snapshot of the production group
+        resources:
+          type: string
+          nullable: true
+          description: Snapshot of the resource groups (work centers) performing the order's operations
+        confirmedShipDate:
+          type: string
+          nullable: true
+          description: Snapshot of the sales order confirmed ship date (YYYY-MM-DD)
+        inPacking:
+          type: integer
+          nullable: true
+          description: Snapshot of the sales order in-packing flag (1=in packing)
+        progress:
+          type: object
+          additionalProperties:
+            type: boolean
+          description: >-
+            Completion flags for schedule milestones (pickStart, pickEnd,
+            assyStart, assyEnd, packStart, packEnd)
+        createdAt:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - tab
+        - slotIndex
+        - pickDays
+        - assyDays
+        - packDays
+
+    BookingSlotInput:
+      type: object
+      properties:
+        tab:
+          type: string
+        slotIndex:
+          type: integer
+        productionStart:
+          type: string
+          nullable: true
+        pickDays:
+          type: integer
+          minimum: 0
+        assyDays:
+          type: integer
+          minimum: 0
+        packDays:
+          type: integer
+          minimum: 0
+      required:
+        - tab
+
+    BookingSlotUpdate:
+      type: object
+      properties:
+        slotIndex:
+          type: integer
+        productionStart:
+          type: string
+          nullable: true
+        pickDays:
+          type: integer
+          minimum: 0
+        assyDays:
+          type: integer
+          minimum: 0
+        packDays:
+          type: integer
+          minimum: 0
+        prodOrder:
+          type: string
+          nullable: true
+        salesOrder:
+          type: string
+          nullable: true
+        itemid:
+          type: string
+          nullable: true
+        itemname:
+          type: string
+          nullable: true
+        customername:
+          type: string
+          nullable: true
+        productionstatus:
+          type: integer
+          nullable: true
+        deliverydate:
+          type: string
+          nullable: true
+        pool:
+          type: string
+          nullable: true
+        productionGroup:
+          type: string
+          nullable: true
+        resources:
+          type: string
+          nullable: true
+        confirmedShipDate:
+          type: string
+          nullable: true
+        inPacking:
+          type: integer
+          nullable: true
+        progress:
+          type: object
+          additionalProperties:
+            type: boolean
+
+    ResetSlotsInput:
+      type: object
+      properties:
+        tab:
+          type: string
+        startDate:
+          type: string
+          nullable: true
+          description: First slot date (YYYY-MM-DD); defaults to a recent Monday
+        count:
+          type: integer
+          nullable: true
+          description: Number of slots to generate
+        intervalDays:
+          type: integer
+          nullable: true
+          description: Days between slots (default 14)
+      required:
+        - tab
+
+    SwapSlotsInput:
+      type: object
+      properties:
+        sourceId:
+          type: integer
+          description: Id of the slot whose booking is moving
+        targetId:
+          type: integer
+          description: Id of the adjacent slot to swap with
+      required:
+        - sourceId
+        - targetId
+
+    ProductionOrder:
+      type: object
+      properties:
+        prodid:
+          type: string
+        dataareaid:
+          type: string
+        productiongroupid:
+          type: string
+        itemid:
+          type: string
+        itemname:
+          type: string
+        schedulefromdate:
+          type: string
+          nullable: true
+        scheduledenddate:
+          type: string
+          nullable: true
+        prodqty:
+          type: number
+          nullable: true
+        remaininventphysical:
+          type: number
+          nullable: true
+        productionstatus:
+          type: integer
+          nullable: true
+          description: "D365FO numeric status: 0=Created,1=Estimated,2=Scheduled,3=Released,4=Started,5=ReportedAsFinished,6=Ended,7=Ordered"
+        productionstatustext:
+          type: string
+          nullable: true
+          description: Human-readable status label from stored procedure
+        demandsalesordernumber:
+          type: string
+          nullable: true
+        siteid:
+          type: string
+          nullable: true
+        warehouseid:
+          type: string
+          nullable: true
+      required:
+        - prodid
+        - dataareaid
+
+    ProductionRouteDetail:
+      type: object
+      properties:
+        prodid:
+          type: string
+        dataareaid:
+          type: string
+        operationnumber:
+          type: string
+          nullable: true
+        operationname:
+          type: string
+          nullable: true
+        workcenterid:
+          type: string
+          nullable: true
+        schedulefromdate:
+          type: string
+          nullable: true
+        scheduledenddate:
+          type: string
+          nullable: true
+        setuptime:
+          type: number
+          nullable: true
+        processtime:
+          type: number
+          nullable: true
+        status:
+          type: integer
+          nullable: true
+      required:
+        - prodid
+        - dataareaid
+
+    BoardOrder:
+      type: object
+      properties:
+        prodid:
+          type: string
+        dataareaid:
+          type: string
+        productiongroupid:
+          type: string
+        itemid:
+          type: string
+          nullable: true
+        itemname:
+          type: string
+          nullable: true
+        productconfiguration:
+          type: string
+          nullable: true
+          description: Product configuration id for the produced item (D365 productconfigurationid).
+        schedulefromdate:
+          type: string
+          nullable: true
+        scheduledenddate:
+          type: string
+          nullable: true
+        prodqty:
+          type: number
+          nullable: true
+        productionstatus:
+          type: integer
+          nullable: true
+          description: "D365FO numeric status: 0=Created,1=Estimated,2=Scheduled,3=Released,4=Started,5=ReportedAsFinished,6=Ended,7=Ordered"
+        demandsalesordernumber:
+          type: string
+          nullable: true
+        demandproductionordernumber:
+          type: string
+          nullable: true
+          description: Reference number of the parent/linked production order (D365 demandproductionordernumber). Populated when this order was created to satisfy a parent work order.
+        syncstartdatetime:
+          type: string
+          nullable: true
+          description: Timestamp when D365 last synced this record to the PostgreSQL staging mirror.
+        productionpool:
+          type: string
+          nullable: true
+          description: Production pool id (D365 productionpoolid) the order belongs to.
+        resourcecode:
+          type: string
+          nullable: true
+          description: Work center / operations resource ID from capacity reservation. Null = unscheduled.
+        resourcename:
+          type: string
+          nullable: true
+          description: Display name of the resource from opres table. Often blank for machine/work-center resources.
+        workername:
+          type: string
+          nullable: true
+          description: "Assigned worker name(s) for the order, aggregated from route transactions joined to hcmworkerstaging. Multiple workers separated by '; '."
+        totalscheduledtime:
+          type: number
+          nullable: true
+          description: Total scheduled time (hours) for the order, summed from estimated setup + process time across route operations.
+        consumedhours:
+          type: number
+          nullable: true
+          description: Hours actually posted/registered so far across non-warehouse route operations. Compare against totalscheduledtime for % of duration consumed.
+        expectedconsumedhours:
+          type: number
+          nullable: true
+          description: >
+            Hours that SHOULD be posted by now if totalscheduledtime were spread
+            evenly across the Mon–Fri working days of the production window
+            (route start/end excluding warehouse bookend operations). 0 before
+            the window starts, equal to totalscheduledtime after it ends; the
+            current day counts proportionally by time of day. Null when the
+            window or total is unavailable.
+        salescustomeraccount:
+          type: string
+          nullable: true
+        customername:
+          type: string
+          nullable: true
+        confirmedshipdate:
+          type: string
+          nullable: true
+        groupsyncpending:
+          type: boolean
+          nullable: true
+          description: True while the order's production-group change has been written to D365 but the staging mirror hasn't reflected it yet (local override active). UI shows a sync indicator.
+      required:
+        - prodid
+        - dataareaid
+        - productiongroupid
+
+    RouteTransaction:
+      type: object
+      properties:
+        operationnumber:
+          type: string
+          nullable: true
+        operationname:
+          type: string
+          nullable: true
+        workername:
+          type: string
+          nullable: true
+          description: Name of the worker against whom hours are posted
+        postingdate:
+          type: string
+          nullable: true
+          description: Accounting date (YYYY-MM-DD)
+        postedhours:
+          type: number
+          nullable: true
+        productiongroupid:
+          type: string
+          nullable: true
+        groupname:
+          type: string
+          nullable: true
+          description: Human-readable production group display name
+      required:
+        - operationnumber
+
+    ProductionGroup:
+      type: object
+      properties:
+        groupid:
+          type: string
+        groupname:
+          type: string
+          nullable: true
+          description: Human-readable production group name; null if not set.
+      required:
+        - groupid
+
+    ProductionSyncStatus:
+      type: object
+      properties:
+        lastsync:
+          type: string
+          format: date-time
+          nullable: true
+          description: Most recent D365 -> staging sync start time; null if no data.
+        overlaylastupdated:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            Most recent local production-group override timestamp; null when no
+            overrides exist. Advances whenever any manager moves an order to a
+            different group, letting every client detect the change within one
+            probe cycle without waiting for the next D365 batch export.
+      required:
+        - lastsync
+
+    UpdateProductionGroupInput:
+      type: object
+      properties:
+        groupid:
+          type: string
+          description: The new production group id (must exist in D365).
+      required:
+        - groupid
+
+    UpdateProductionGroupResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        prodid:
+          type: string
+        groupid:
+          type: string
+      required:
+        - ok
+        - prodid
+        - groupid
+
+    UnallocatedOrderDetail:
+      type: object
+      properties:
+        productionordernumber:
+          type: string
+        itemnumber:
+          type: string
+          nullable: true
+        productionname:
+          type: string
+          nullable: true
+        productiongroup:
+          type: string
+          nullable: true
+        productionpool:
+          type: string
+          nullable: true
+        salesclassification1:
+          type: string
+          nullable: true
+        salesclassification2:
+          type: string
+          nullable: true
+        salesclassification3:
+          type: string
+          nullable: true
+        productionorderstatus:
+          type: integer
+          nullable: true
+          description: "D365FO numeric status: 0=Created,1=Estimated,2=Scheduled,3=Released,4=Started,5=ReportedAsFinished,6=Ended,7=Ordered"
+        quantity:
+          type: number
+          nullable: true
+          description: Scheduled quantity of the production order
+      required:
+        - productionordernumber
+
+    PickItem:
+      type: object
+      properties:
+        itemnumber:
+          type: string
+        description:
+          type: string
+          nullable: true
+          description: Item description / search name (ecoresreleasedproductv2staging.searchname).
+        remaining:
+          type: number
+          description: Remaining BOM line quantity still to pick (remainingbomlinequantity).
+        unit:
+          type: string
+          nullable: true
+          description: Unit symbol for the remaining quantity (bomlineunitsymbol).
+      required:
+        - itemnumber
+        - remaining
+
+    PickRemaining:
+      type: object
+      properties:
+        prodid:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PickItem"
+      required:
+        - prodid
+        - items
+
+    UtilizationEntry:
+      type: object
+      description: One day's posted labor hours for a single order/operation/resource.
+      properties:
+        productiongroupid:
+          type: string
+        resourcecode:
+          type: string
+          nullable: true
+        prodid:
+          type: string
+        itemname:
+          type: string
+          nullable: true
+        operationnumber:
+          type: integer
+          nullable: true
+        operationname:
+          type: string
+          nullable: true
+        day:
+          type: string
+          description: Calendar day of the posting (yyyy-MM-dd).
+        postedhours:
+          type: number
+      required:
+        - productiongroupid
+        - prodid
+        - day
+        - postedhours
+
+    KpiOrder:
+      type: object
+      properties:
+        prodid:
+          type: string
+        dataareaid:
+          type: string
+        productiongroupid:
+          type: string
+        itemid:
+          type: string
+          nullable: true
+        itemname:
+          type: string
+          nullable: true
+        productionstatus:
+          type: integer
+          nullable: true
+          description: "D365FO numeric status: 0=Created,1=Estimated,2=Scheduled,3=Released,4=Started,5=ReportedAsFinished,6=Ended,7=Ordered"
+        operation:
+          type: string
+          nullable: true
+          description: Dominant (most-posted-hours) non-warehouse route operation name for the order
+        hours:
+          type: number
+          nullable: true
+          description: Total scheduled hours (Schedule Board duration) = SUM(setup+process) over non-warehouse route operations
+        delivery:
+          type: string
+          nullable: true
+          description: Delivery date = Schedule Board route window end (MAX scheduled end of non-warehouse route operations)
+        firstposting:
+          type: string
+          nullable: true
+          description: Earliest non-warehouse journal posting timestamp (Start Post)
+        lastposting:
+          type: string
+          nullable: true
+          description: Latest non-warehouse journal posting timestamp (End Post)
+        activedays:
+          type: integer
+          nullable: true
+          description: Count of distinct calendar days with at least one non-warehouse posting
+        assemblehours:
+          type: number
+          nullable: true
+          description: Total posted (registered) hours on "Assemble / Build" route operations (all steps)
+      required:
+        - prodid
+        - dataareaid
+        - productiongroupid
+
+    ProductionSummary:
+      type: object
+      properties:
+        prodid:
+          type: string
+        dataareaid:
+          type: string
+        productiongroupid:
+          type: string
+        itemid:
+          type: string
+          nullable: true
+        itemname:
+          type: string
+          nullable: true
+        productconfiguration:
+          type: string
+          nullable: true
+          description: Product configuration id for the produced item (D365 productconfigurationid).
+        schedulefromdate:
+          type: string
+          nullable: true
+        scheduledenddate:
+          type: string
+          nullable: true
+        prodqty:
+          type: number
+          nullable: true
+        productionstatus:
+          type: integer
+          nullable: true
+          description: "D365FO numeric status: 0=Created,1=Estimated,2=Scheduled,3=Released,4=Started,5=ReportedAsFinished,6=Ended,7=Ordered"
+        demandsalesordernumber:
+          type: string
+          nullable: true
+        productionpool:
+          type: string
+          nullable: true
+          description: Production pool id (D365 productionpoolid).
+        resourcecode:
+          type: string
+          nullable: true
+          description: Work center / operations resource ID from capacity reservation.
+        salescustomeraccount:
+          type: string
+          nullable: true
+        customername:
+          type: string
+          nullable: true
+        salesorderdate:
+          type: string
+          nullable: true
+        confirmedshipdate:
+          type: string
+          nullable: true
+        salesorderstatus:
+          type: integer
+          nullable: true
+        remaininventphysical:
+          type: number
+          nullable: true
+          description: "Remaining quantity not yet reported as finished"
+        siteid:
+          type: string
+          nullable: true
+        warehouseid:
+          type: string
+          nullable: true
+      required:
+        - prodid
+        - dataareaid
+        - productiongroupid

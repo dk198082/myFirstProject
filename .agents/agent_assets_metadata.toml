@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "Aeh_zQqR_KOmlDCE5Xmfn"
+uri = "file://docs/d365-data-flow.md"
+type = "text"
+title = "Data Flow: Replit App ↔ D365 Finance & Operations"
