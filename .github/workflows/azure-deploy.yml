@@ -1,0 +1,53 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - tocrmpsLive
+
+env:
+  IMAGE_NAME: productionservicealendar
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: azure/docker-login@v2
+        with:
+          login-server: psacrprod.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+          -t psacrprod.azurecr.io/productionservicealendar:${{ github.sha }} \
+          -t psacrprod.azurecr.io/productionservicealendar:latest \
+          .
+
+      - name: Push Image
+        run: |
+          docker push psacrprod.azurecr.io/productionservicealendar:${{ github.sha }}
+          docker push psacrprod.azurecr.io/productionservicealendar:latest
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: productionservicealendar
+          images: psacrprod.azurecr.io/productionservicealendar:latest
