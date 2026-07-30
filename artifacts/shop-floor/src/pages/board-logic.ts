@@ -109,7 +109,9 @@ export function buildBoardData(
 
   // --- client-side filtering ---
   const searchLower = q.trim().toLowerCase();
-  const filtered = boardOrders.filter((o) => {
+  const safeBoardOrders = Array.isArray(boardOrders)
+        ? boardOrders: [];
+  const filtered = safeBoardOrders.filter((o) => {
     if (activeStatuses.length > 0 && !activeStatuses.includes(o.productionstatus as number)) return false;
     if (searchLower) {
       const id   = (o.prodid   as string ?? "").toLowerCase();

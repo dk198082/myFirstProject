@@ -62,6 +62,9 @@ export default function BookingBoard() {
   const allSlots = slots ?? [];
   // Scheduled orders (a production or sales order is allocated) that have a red,
   // overdue milestone.
+  console.log("allSlots =", allSlots);
+  console.log("isArray =", Array.isArray(allSlots));
+
   const lateCount = allSlots.filter(
     (s) => (s.prodOrder || s.salesOrder) && slotIsLate(s)
   ).length;

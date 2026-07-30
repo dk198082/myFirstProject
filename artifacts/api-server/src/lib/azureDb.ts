@@ -67,15 +67,14 @@ export async function getPool(): Promise<pg.Pool> {
     }
 
     activePool = new Pool({
-      host,
-      database,
-      user,
-      password,
-      port,
-      ssl: true,
-      max: 10,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 10_000,
+    host: "fs-postgresql-prod.postgres.database.azure.com",
+    port: 5432,
+    database: "d365crm",   // or d365crm if that's the correct DB
+    user: "crmadmin",
+    password: "Dynam!c$#^%@AxAptA",
+    ssl: {
+        rejectUnauthorized: false,
+       },
     });
 
     activePool.on("error", (err) =>

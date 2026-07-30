@@ -949,7 +949,10 @@ export function Dashboard() {
       return name;
     };
     const m: Record<string, string> = {};
-    for (const g of productionGroups ?? []) {
+    const safeGroups = Array.isArray(productionGroups)
+        ? productionGroups
+        : [];
+    for (const g of safeGroups ?? []) {
       if (g.groupname) m[g.groupid] = normalize(g.groupid, g.groupname);
     }
     return m;
@@ -960,7 +963,12 @@ export function Dashboard() {
   // order. All other D365 groups (incl. GenAssy/GenInstr) are excluded so
   // orders can't be moved off the board from here.
   const groupSelectOptions = useMemo(() => {
-    const byId = new Map((productionGroups ?? []).map((g) => [g.groupid, g]));
+    // const byId = new Map((productionGroups ?? []).map((g) => [g.groupid, g]));
+    const groups = Array.isArray(productionGroups)
+        ? productionGroups: [];
+          const byId = new Map(
+          groups.map((g) => [g.groupid, g])
+        );
     return FILTER_GROUPS.map(
       (id) => byId.get(id) ?? { groupid: id, groupname: undefined },
     );

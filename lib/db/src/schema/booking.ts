@@ -1,4 +1,5 @@
 import {
+  pgSchema,
   pgTable,
   serial,
   text,
@@ -10,6 +11,8 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
+const crm = pgSchema("crm");
+
 export type SlotProgress = {
   pickStart?: boolean;
   pickEnd?: boolean;
@@ -19,7 +22,7 @@ export type SlotProgress = {
   packEnd?: boolean;
 };
 
-export const bookingSlotsTable = pgTable("booking_slots", {
+export const bookingSlotsTable = crm.table("booking_slots", {
   id: serial("id").primaryKey(),
   tab: text("tab").notNull(),
   slotIndex: integer("slot_index").notNull().default(0),

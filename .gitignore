@@ -47,3 +47,13 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Environment files
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+node_modules/
+dist/
+artifacts/api-server/.env
