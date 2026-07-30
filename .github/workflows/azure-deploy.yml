@@ -10,7 +10,6 @@ permissions:
   contents: read
 
 env:
-  ACR_NAME: psacrprod
   REGISTRY: psacrprod.azurecr.io
   IMAGE_NAME: productionservicealendar
   WEBAPP_NAME: productionservicealendar
@@ -45,9 +44,15 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      - name: Configure Web App Container
+        run: |
+          az webapp config container set \
+            --name ${{ env.WEBAPP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --container-image-name ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Restart Web App
+        run: |
+          az webapp restart \
+            --name ${{ env.WEBAPP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }}
