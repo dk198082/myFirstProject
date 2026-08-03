@@ -13,47 +13,47 @@ RUN corepack enable \
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 
+# Applications
 COPY artifacts/api-server/package.json artifacts/api-server/package.json
 COPY artifacts/field-service-schedule-board/package.json artifacts/field-service-schedule-board/package.json
 
+# Workspace libraries (required by api-server)
+COPY lib/api-client-react/package.json lib/api-client-react/package.json
+COPY lib/api-spec/package.json lib/api-spec/package.json
+COPY lib/api-zod/package.json lib/api-zod/package.json
+COPY lib/auth-react/package.json lib/auth-react/package.json
+COPY lib/db/package.json lib/db/package.json
 
+# Scripts
+COPY scripts/package.json scripts/package.json
 
+# Install workspace dependencies
 RUN pnpm install --no-frozen-lockfile
 
 # --------------------------------------------------------------------
-# Copy source
+# Copy complete source
 # --------------------------------------------------------------------
 
 COPY . .
 
 # --------------------------------------------------------------------
-# Build-time variables
+# Build variables
 # --------------------------------------------------------------------
 
 ENV PORT=4173
 ENV BASE_PATH=/
 
 # --------------------------------------------------------------------
-# Build ONLY required libraries
-# --------------------------------------------------------------------
-
-RUN pnpm --filter @workspace/api-spec build
-RUN pnpm --filter @workspace/api-zod build
-RUN pnpm --filter @workspace/api-client-react build
-RUN pnpm --filter @workspace/db build
-RUN pnpm --filter @workspace/auth-react build
-
-# --------------------------------------------------------------------
 # Build frontend
 # --------------------------------------------------------------------
 
-RUN pnpm --filter @workspace/field-service-schedule-board build
+RUN pnpm --filter @workspace/field-service-schedule-board run build
 
 # --------------------------------------------------------------------
 # Build API
 # --------------------------------------------------------------------
 
-RUN pnpm --filter @workspace/api-server build
+RUN pnpm --filter @workspace/api-server run build
 
 # --------------------------------------------------------------------
 # Runtime
@@ -67,4 +67,4 @@ EXPOSE 8080
 
 WORKDIR /repo/artifacts/api-server
 
-CMD ["node","--enable-source-maps","dist/index.mjs"]
+CMD ["node", "--enable-source-maps", "dist/index.mjs"]
