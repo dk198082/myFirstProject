@@ -1,74 +1,76 @@
 # syntax=docker/dockerfile:1
-#
-# Builds ONE container that runs the Express API (artifacts/api-server) and
-# also serves the built frontend (artifacts/field-service-schedule-board) as
-# static files, so the whole app deploys as a single Azure App Service
-# (Web App for Containers) or Azure Container Apps instance.
-#
-# See AZURE_DEPLOYMENT.md for the required Azure resources and environment
-# variables (DATABASE_URL, SESSION_SECRET, CLIENT_ID/TENANT_ID/CLIENT_SECRET,
-# etc.) — none of those are baked into the image; they're supplied at deploy
-# time as App Settings / Container Apps secrets.
-#
-# This is a single-stage build (not multi-stage). pnpm workspaces hoist
-# dependencies via symlinks into a content-addressable store, which is fragile
-# to split across build/runtime stages with a plain `COPY`. Building and
-# running from the same image is a bit larger but reliable; shrink it later
-# with a multi-stage `pnpm deploy` step if image size becomes a problem.
 
 FROM node:24-bookworm-slim
 
 WORKDIR /repo
 
-RUN corepack enable
+RUN corepack enable \
+ && corepack prepare pnpm@11.10.0 --activate
 
-# Copy just the manifests first so `pnpm install` is cached across builds that
-# only change application source.
+# --------------------------------------------------------------------
+# Workspace manifests
+# --------------------------------------------------------------------
+
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+
 COPY artifacts/api-server/package.json artifacts/api-server/package.json
 COPY artifacts/field-service-schedule-board/package.json artifacts/field-service-schedule-board/package.json
-COPY artifacts/dynamics-write-back/package.json artifacts/dynamics-write-back/package.json
-COPY artifacts/mockup-sandbox/package.json artifacts/mockup-sandbox/package.json
+
 COPY lib/api-client-react/package.json lib/api-client-react/package.json
 COPY lib/api-spec/package.json lib/api-spec/package.json
 COPY lib/api-zod/package.json lib/api-zod/package.json
 COPY lib/auth-react/package.json lib/auth-react/package.json
 COPY lib/db/package.json lib/db/package.json
+
 COPY scripts/package.json scripts/package.json
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
-# Now copy the rest of the source and build everything.
+# --------------------------------------------------------------------
+# Copy source
+# --------------------------------------------------------------------
+
 COPY . .
 
-# vite.config.ts (all three frontend artifacts) requires PORT and BASE_PATH to
-# even *load* the config, for both `dev` and `build`. These two values are
-# only read at build time to bake the app's base URL into the built assets —
-# they do NOT affect the running container (that's controlled by PORT below
-# and the STATIC_DIR the Express server serves from). BASE_PATH=/ because the
-# API server serves the SPA from the site root.
+# --------------------------------------------------------------------
+# Build-time variables
+# --------------------------------------------------------------------
+
 ENV PORT=4173
 ENV BASE_PATH=/
 
-# Typechecks + builds every workspace package (api-server's esbuild bundle,
-# every Vite frontend, etc.) — see root package.json "build" script. Slightly
-# more than strictly required (it also builds dynamics-write-back and
-# mockup-sandbox, which this image doesn't serve) but keeps the Docker build
-# in lockstep with `pnpm run build`, the same command CI/local dev already use.
-RUN pnpm run build
+# --------------------------------------------------------------------
+# Build ONLY required libraries
+# --------------------------------------------------------------------
 
-# --- Runtime ---------------------------------------------------------------
+RUN pnpm --filter @workspace/api-spec build
+RUN pnpm --filter @workspace/api-zod build
+RUN pnpm --filter @workspace/api-client-react build
+RUN pnpm --filter @workspace/db build
+RUN pnpm --filter @workspace/auth-react build
+
+# --------------------------------------------------------------------
+# Build frontend
+# --------------------------------------------------------------------
+
+RUN pnpm --filter @workspace/field-service-schedule-board build
+
+# --------------------------------------------------------------------
+# Build API
+# --------------------------------------------------------------------
+
+RUN pnpm --filter @workspace/api-server build
+
+# --------------------------------------------------------------------
+# Runtime
+# --------------------------------------------------------------------
+
 ENV NODE_ENV=production
-# Azure App Service for Containers / Container Apps inject PORT themselves
-# (App Service defaults to 8080 for custom containers); this is just the
-# in-container default so `docker run -p 8080:8080` works out of the box.
 ENV PORT=8080
-# Tell the API server where the built SPA lives so it serves it itself
-# (see the STATIC_DIR block in artifacts/api-server/src/app.ts).
 ENV STATIC_DIR=/repo/artifacts/field-service-schedule-board/dist/public
 
 EXPOSE 8080
 
-# Azure App Service / Container Apps health probes can point at GET /api/healthz.
 WORKDIR /repo/artifacts/api-server
-CMD ["node", "--enable-source-maps", "./dist/index.mjs"]
+
+CMD ["node","--enable-source-maps","dist/index.mjs"]
