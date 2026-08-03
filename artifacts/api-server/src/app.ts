@@ -72,7 +72,6 @@ app.use(
     // expire, plus an index on expire, in every environment (dev and production).
     store: new PgSession({
       pool: localPool,
-      schemaName: "crm",
       tableName: "sessions",
       createTableIfMissing: false,
     }),
@@ -97,12 +96,12 @@ app.use(
       // that case, or the browser will never attach the session cookie.
       ...(process.env.NODE_ENV === "production"
         ? {
-            secure: "auto",
+            secure: "auto" as const,
             sameSite:
               (process.env.COOKIE_SAME_SITE as "lax" | "none" | "strict") ??
-              ("lax"),
+              ("lax" as const),
           }
-        : { secure: false, sameSite: "lax"})
+        : { secure: true, sameSite: "none" as const }),
     },
   }),
 );

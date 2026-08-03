@@ -18,17 +18,9 @@
 
 FROM node:24-bookworm-slim
 
-# esbuild-plugin-pino's pino-pretty transport is only used for human-readable
-# dev logs; keeping it out of the runtime dependency list would require a
-# second lockfile-aware install pass, so we simply don't set NODE_ENV=production
-# until after the build (root "build" script devDependencies like esbuild/vite
-# must be present during `pnpm install`/`pnpm run build`).
 WORKDIR /repo
 
 RUN corepack enable
-RUN corepack prepare pnpm@11.10.0 --activate
-
-
 
 # Copy just the manifests first so `pnpm install` is cached across builds that
 # only change application source.
@@ -44,7 +36,7 @@ COPY lib/auth-react/package.json lib/auth-react/package.json
 COPY lib/db/package.json lib/db/package.json
 COPY scripts/package.json scripts/package.json
 
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # Now copy the rest of the source and build everything.
 COPY . .
@@ -63,19 +55,7 @@ ENV BASE_PATH=/
 # more than strictly required (it also builds dynamics-write-back and
 # mockup-sandbox, which this image doesn't serve) but keeps the Docker build
 # in lockstep with `pnpm run build`, the same command CI/local dev already use.
-# Build only the libraries required by the deployed applications
-RUN pnpm --filter @workspace/api-spec run build || true
-RUN pnpm --filter @workspace/api-zod run build || true
-RUN pnpm --filter @workspace/api-client-react run build || true
-
-# Build the frontend
-RUN pnpm --filter @workspace/field-service-schedule-board run build
-
-# Build the API
-RUN pnpm --filter @workspace/api-server run build
-
-
-
+RUN pnpm run build
 
 # --- Runtime ---------------------------------------------------------------
 ENV NODE_ENV=production

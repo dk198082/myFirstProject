@@ -17,6 +17,19 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _on401: (() => void) | null = null;
+
+/**
+ * Register a callback that is invoked whenever any API response returns HTTP
+ * 401 Unauthorized.  Use this to drive UI-level auth state (e.g. flip the
+ * AuthContext to "unauthenticated" so LoginGate shows a sign-in prompt instead
+ * of a broken/blank screen).
+ *
+ * Pass `null` to clear a previously registered handler.
+ */
+export function set401Handler(handler: (() => void) | null): void {
+  _on401 = handler;
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -363,6 +376,9 @@ export async function customFetch<T = unknown>(
   const response = await fetch(input, { ...init, method, headers });
 
   if (!response.ok) {
+    if (response.status === 401 && _on401) {
+      _on401();
+    }
     const errorData = await parseErrorBody(response, method);
     throw new ApiError(response, errorData, requestInfo);
   }

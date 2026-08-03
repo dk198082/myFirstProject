@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { set401Handler } from "@workspace/api-client-react";
 
 export interface AuthUser {
   entraOid: string;
@@ -34,6 +35,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [popupBlocked, setPopupBlocked] = useState(false);
+
+  // When any API call returns 401 (session expired mid-session), flip the auth
+  // status so LoginGate shows a sign-in prompt instead of a broken/blank screen.
+  useEffect(() => {
+    set401Handler(() => {
+      setUser(null);
+      setStatus("unauthenticated");
+    });
+    return () => {
+      set401Handler(null);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
