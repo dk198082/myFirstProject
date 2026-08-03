@@ -18,8 +18,6 @@ COPY artifacts/field-service-schedule-board/package.json artifacts/field-service
 
 
 
-COPY scripts/package.json scripts/package.json
-
 RUN pnpm install --no-frozen-lockfile
 
 # --------------------------------------------------------------------
