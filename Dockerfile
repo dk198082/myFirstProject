@@ -16,11 +16,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY artifacts/api-server/package.json artifacts/api-server/package.json
 COPY artifacts/field-service-schedule-board/package.json artifacts/field-service-schedule-board/package.json
 
-COPY lib/api-client-react/package.json lib/api-client-react/package.json
-COPY lib/api-spec/package.json lib/api-spec/package.json
-COPY lib/api-zod/package.json lib/api-zod/package.json
-COPY lib/auth-react/package.json lib/auth-react/package.json
-COPY lib/db/package.json lib/db/package.json
+
 
 COPY scripts/package.json scripts/package.json
 
