@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "wApbhnOlMt0E1f1IL5Sy2"
+uri = "file://docs/app-overview.html"
+type = "unspecified"
+title = "Field Service Schedule Board — App Overview"
+description = "App overview, complete API reference, data flow diagrams, and security & permissions guide"

@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { pool } from "../lib/db.js";
+import { requireLogin } from "../lib/auth.js";
 
 const router = Router();
 
-router.get("/jobs-by-region", async (req, res) => {
+router.get("/jobs-by-region", requireLogin, async (req, res) => {
   const statusFilter = req.query.status as string | undefined;
 
   try {

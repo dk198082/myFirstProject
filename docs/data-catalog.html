@@ -103,7 +103,7 @@
 
 <div class="body">
   <nav class="sidebar" id="sidebar">
-    <div class="sidebar-section">CRM Mirror (crm.*)</div>
+    <div class="sidebar-section">CRM DB — crm.* (Dataverse mirrors + App mirrors)</div>
   </nav>
 
   <main class="main" id="main">
@@ -389,6 +389,49 @@ const catalog = [
     ]
   },
 
+  // ── CRM Schema — App DB Write-Through Mirrors ────────────────────────────────
+  {
+    id: 'crm_placeholder_jobs',
+    name: 'crm.placeholder_jobs',
+    schema: 'crm',
+    desc: 'Write-through mirror of public.placeholder_jobs in the d365crm Postgres (schema crm). Every INSERT / UPDATE / DELETE on the App DB table is best-effort dual-written here so that placeholder scheduling data is available to CRM-side tooling. The Replit App DB is the source of truth; this table may lag briefly if the CRM endpoint is suspended. IDs are shared — the id column here matches the App DB id.',
+    refs: [],
+    refdBy: [],
+    attrs: [
+      { n: 'id', t: 'integer', r: 'pk', null: 'NO', biz: 'Same id as the App DB <code>public.placeholder_jobs.id</code> row — no independent sequence.' },
+      { n: 'technician_id', t: 'text', r: 'fk', null: 'NO', biz: 'Cross-DB ref to <code>crm.bookableresource.bookableresourceid</code>.' },
+      { n: 'title', t: 'text', r: '', null: 'NO', biz: null },
+      { n: 'customer_name', t: 'text', r: '', null: 'YES', biz: null },
+      { n: 'city', t: 'text', r: '', null: 'YES', biz: null },
+      { n: 'state', t: 'text', r: '', null: 'YES', biz: null },
+      { n: 'start_time', t: 'timestamptz', r: '', null: 'NO', biz: null },
+      { n: 'end_time', t: 'timestamptz', r: '', null: 'NO', biz: null },
+      { n: 'notes', t: 'text', r: '', null: 'YES', biz: null },
+      { n: 'status', t: 'text', r: 'calc', null: 'YES', biz: 'Payment / job status label: Reminder Letter Sent, Quoted – No Purchase Order, Have Purchase Order, Have Credit Card, Cash in Advance, or Credit Hold.' },
+      { n: 'service_location_id', t: 'text', r: 'fk', null: 'YES', biz: 'Logical ref to <code>crm.cf_servicelocation.cf_servicelocationid</code>.' },
+      { n: 'color_index', t: 'smallint', r: '', null: 'YES', biz: 'Chip colour slot (0–14). Resolved to a hex colour in the frontend.' },
+      { n: 'created_at', t: 'timestamptz', r: 'sys', null: 'NO', biz: 'Mirrored from the App DB row — not independently generated.' },
+    ]
+  },
+  {
+    id: 'crm_schedule_blocks',
+    name: 'crm.schedule_blocks',
+    schema: 'crm',
+    desc: 'Write-through mirror of public.schedule_blocks in the d365crm Postgres (schema crm). Dual-written on every INSERT / UPDATE / DELETE via the API server crmMirror module. Source of truth is the Replit App DB. IDs match exactly.',
+    refs: [],
+    refdBy: [],
+    attrs: [
+      { n: 'id', t: 'integer', r: 'pk', null: 'NO', biz: 'Same id as <code>public.schedule_blocks.id</code>.' },
+      { n: 'technician_id', t: 'text', r: 'fk', null: 'NO', biz: 'Cross-DB ref to <code>crm.bookableresource.bookableresourceid</code>.' },
+      { n: 'block_type', t: 'text', r: 'calc', null: 'NO', biz: '<code>drive_time</code>, <code>pto</code>, or <code>custom</code>.' },
+      { n: 'title', t: 'text', r: '', null: 'YES', biz: 'Label for custom blocks.' },
+      { n: 'start_time', t: 'timestamptz', r: '', null: 'NO', biz: null },
+      { n: 'end_time', t: 'timestamptz', r: '', null: 'NO', biz: null },
+      { n: 'notes', t: 'text', r: '', null: 'YES', biz: null },
+      { n: 'created_at', t: 'timestamptz', r: 'sys', null: 'NO', biz: 'Mirrored from the App DB row.' },
+    ]
+  },
+
   // ── App Database ─────────────────────────────────────────────────────────────
   {
     id: 'booking_writebacks',
@@ -414,14 +457,14 @@ const catalog = [
     id: 'app_user',
     name: 'app_user',
     schema: 'app',
-    desc: 'Application user accounts. Each row represents an Azure Entra ID identity that has been granted access to the application. The entra_oid is validated against the MSAL token on login. The role field controls UI capabilities.',
+    desc: 'Application user accounts. Each row represents an Azure Entra ID identity that has logged in at least once. The entra_oid is validated against the MSAL id_token on login. Role is derived from the Admin Console API response at login time and gates all write operations in both the UI and API.',
     refs: [],
     refdBy: [],
     attrs: [
       { n: 'entra_oid', t: 'text', r: 'pk', null: 'NO', biz: 'Azure Entra ID Object ID (UUID formatted as text). Primary key and the claim validated against the MSAL id_token <code>oid</code> claim on login.' },
       { n: 'email', t: 'text', r: '', null: 'NO', biz: 'Corporate email address. Should match <code>systemuser.internalemailaddress</code> for the corresponding CRM user (logical link, not enforced).' },
       { n: 'display_name', t: 'text', r: '', null: 'YES', biz: 'Display name from Entra ID (full name).' },
-      { n: 'role', t: 'text', r: 'calc', null: 'NO', biz: '<strong>Application role:</strong> <code>technician</code> (read-only schedule view) or <code>manager</code> (can submit write-backs and approve work orders). Default: <code>technician</code>.' },
+      { n: 'role', t: 'text', r: 'calc', null: 'NO', biz: '<strong>Application role — one of three values:</strong><br><code>viewer</code> — read-only schedule access; all write surfaces are hidden in the UI and rejected (403) by the API.<br><code>editor</code> — can create / edit / delete schedule blocks, placeholder jobs, and booking notes, and reschedule or reassign CRM bookings.<br><code>admin</code> — same write permissions as editor; additionally allowed to trigger admin sync operations.<br><strong>Mapping at login:</strong> if the user\'s Admin Console <code>roles</code> array contains any entry matching <code>"read/write"</code> or <code>"read / write"</code> (case-insensitive), role is set to <code>editor</code>; all other grants map to <code>viewer</code>. Existing rows may carry <code>admin</code> if set directly in the database. Default: <code>viewer</code>.' },
       { n: 'is_active', t: 'boolean', r: '', null: 'NO', biz: 'Set to false to revoke application access without deleting the record. Default: <code>true</code>.' },
       { n: 'created_at', t: 'timestamptz', r: 'sys', null: 'NO', biz: 'Auto-populated on insert. Default: <code>now()</code>.' },
       { n: 'updated_at', t: 'timestamptz', r: 'sys', null: 'NO', biz: 'Updated on every write. Default: <code>now()</code>.' },
@@ -458,12 +501,49 @@ const catalog = [
     ]
   },
   {
+    id: 'booking_notes',
+    name: 'booking_notes',
+    schema: 'public',
+    desc: 'Dispatcher-authored notes attached to CRM bookings. Stored locally in the App DB and never written to Dynamics CRM or the CRM mirror. Keyed by CRM msdyn_bookingid (stored as text). Survives booking reschedules because the booking_id (GUID) does not change on time updates — only on cancellation/re-creation. Declared in the Drizzle schema so the Publish flow manages it in production.',
+    refs: ['crm.booking.bookableresourcebookingid via booking_id (cross-db, text)'],
+    refdBy: [],
+    attrs: [
+      { n: 'id', t: 'integer', r: 'pk', null: 'NO', biz: 'Auto-increment serial primary key.' },
+      { n: 'booking_id', t: 'text', r: 'fk', null: 'NO', biz: 'Text cast of <code>crm.booking.bookableresourcebookingid</code> (uuid). UNIQUE constraint — one note per CRM booking. No enforced FK — cross-database reference.' },
+      { n: 'note', t: 'text', r: '', null: 'YES', biz: 'Free-text dispatcher note. Visible on the job chip (truncated preview) and the chip hover tooltip (full text). Editable in the Edit Booking dialog. Null when no note has been saved.' },
+      { n: 'updated_at', t: 'timestamptz', r: 'sys', null: 'NO', biz: 'Timestamp of the last upsert. Updated on every PUT /wb/booking-notes/:bookingId. Default: <code>now()</code>.' },
+    ]
+  },
+  {
+    id: 'placeholder_jobs',
+    name: 'placeholder_jobs',
+    schema: 'public',
+    desc: 'Speculative / unconfirmed work placed directly on a technician\'s row on the schedule board before a real work order exists in CRM. Allows schedulers to block time for expected jobs with optional status tracking. Application-owned (not sourced from Dynamics). Declared in the Drizzle schema so the Publish flow manages it in production. Every write is also best-effort dual-written to <code>crm.placeholder_jobs</code> in the d365crm Postgres.',
+    refs: ['crm.bookableresource.bookableresourceid via technician_id (cross-db, text)', 'crm.cf_servicelocation.cf_servicelocationid via service_location_id (cross-db, text)'],
+    refdBy: ['crm.placeholder_jobs.id (write-through mirror)'],
+    attrs: [
+      { n: 'id', t: 'integer', r: 'pk', null: 'NO', biz: 'Auto-increment serial primary key.' },
+      { n: 'technician_id', t: 'text', r: 'fk', null: 'NO', biz: 'Text representation of <code>crm.bookableresource.bookableresourceid</code>. Cross-DB reference — no FK constraint. The technician this placeholder job is assigned to.' },
+      { n: 'title', t: 'text', r: '', null: 'NO', biz: 'Short description of the job shown as the chip label on the schedule board.' },
+      { n: 'customer_name', t: 'text', r: '', null: 'YES', biz: 'Customer name. Freeform — not linked to <code>crm.account</code>.' },
+      { n: 'city', t: 'text', r: '', null: 'YES', biz: 'Service location city. Used for display on the board card.' },
+      { n: 'state', t: 'text', r: '', null: 'YES', biz: 'Service location state / province.' },
+      { n: 'start_time', t: 'timestamptz', r: '', null: 'NO', biz: 'Planned start of the placeholder job. Determines chip placement on the timeline.' },
+      { n: 'end_time', t: 'timestamptz', r: '', null: 'NO', biz: 'Planned end. Must be after start_time. Duration is derived from end − start.' },
+      { n: 'notes', t: 'text', r: '', null: 'YES', biz: 'Optional free-text notes visible in the job detail tooltip.' },
+      { n: 'status', t: 'text', r: 'calc', null: 'YES', biz: '<strong>Payment / job status (CHECK constraint):</strong> one of <code>Reminder Letter Sent</code>, <code>Quoted – No Purchase Order</code>, <code>Have Purchase Order</code>, <code>Have Credit Card</code>, <code>Cash in Advance</code>, <code>Credit Hold</code>. Null = no status set.' },
+      { n: 'service_location_id', t: 'text', r: 'fk', null: 'YES', biz: 'Logical cross-DB ref to <code>crm.cf_servicelocation.cf_servicelocationid</code>. No FK constraint.' },
+      { n: 'color_index', t: 'smallint', r: '', null: 'YES', biz: 'Colour palette slot (0–14). Resolved to a hex colour by the frontend to visually distinguish placeholder jobs.' },
+      { n: 'created_at', t: 'timestamptz', r: 'sys', null: 'NO', biz: 'Row creation timestamp. Default: <code>now()</code>.' },
+    ]
+  },
+  {
     id: 'schedule_blocks',
     name: 'schedule_blocks',
     schema: 'public',
-    desc: 'Non-job time blocks placed directly on a technician\'s row on the schedule board — Drive Time, PTO, or free-form Custom blocks. These are application-owned (not sourced from Dynamics) and render alongside CRM bookings. Declared in the Drizzle schema so the Publish flow manages it in production.',
+    desc: 'Non-job time blocks placed directly on a technician\'s row on the schedule board — Drive Time, PTO, or free-form Custom blocks. These are application-owned (not sourced from Dynamics) and render alongside CRM bookings. Declared in the Drizzle schema so the Publish flow manages it in production. Every write is also best-effort dual-written to <code>crm.schedule_blocks</code> in the d365crm Postgres.',
     refs: ['crm.bookableresource.bookableresourceid via technician_id (cross-db, text)'],
-    refdBy: [],
+    refdBy: ['crm.schedule_blocks.id (write-through mirror)'],
     attrs: [
       { n: 'id', t: 'integer', r: 'pk', null: 'NO', biz: 'Auto-increment serial primary key.' },
       { n: 'technician_id', t: 'text', r: 'fk', null: 'NO', biz: 'Text representation of <code>crm.bookableresource.bookableresourceid</code> the block belongs to. No FK constraint — cross-database reference. Technicians with any schedule block stay visible on the board even when they have no jobs.' },

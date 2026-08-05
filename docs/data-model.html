@@ -500,7 +500,7 @@
           id: "schedule_blocks",
           label: "schedule_blocks",
           schema: "public",
-          desc: "Non-job time blocks placed on a technician's schedule (Drive Time / PTO / Custom)",
+          desc: "Non-job time blocks placed on a technician's schedule (Drive Time / PTO / Custom). Dual-written to crm.schedule_blocks on every write.",
           x: 1134,
           y: 1040,
           attrs: [
@@ -510,6 +510,43 @@
             { n: "title", t: "text", r: "" },
             { n: "start_time", t: "timestamptz", r: "" },
             { n: "end_time", t: "timestamptz", r: "" },
+            { n: "notes", t: "text", r: "" },
+            { n: "created_at", t: "timestamptz", r: "sys" },
+          ],
+        },
+        {
+          id: "booking_notes",
+          label: "booking_notes",
+          schema: "public",
+          desc: "Local dispatcher notes attached to CRM bookings. Never written to Dynamics — purely app-side. Keyed by CRM msdyn_bookingid (text).",
+          x: 582,
+          y: 1040,
+          attrs: [
+            { n: "id", t: "integer", r: "pk" },
+            { n: "booking_id", t: "text", r: "fk" },
+            { n: "note", t: "text", r: "" },
+            { n: "updated_at", t: "timestamptz", r: "sys" },
+          ],
+        },
+        {
+          id: "placeholder_jobs",
+          label: "placeholder_jobs",
+          schema: "public",
+          desc: "Speculative / unconfirmed jobs placed on the schedule board before a CRM work order exists. Dual-written to crm.placeholder_jobs on every write.",
+          x: 30,
+          y: 1380,
+          attrs: [
+            { n: "id", t: "integer", r: "pk" },
+            { n: "technician_id", t: "text", r: "fk" },
+            { n: "title", t: "text", r: "" },
+            { n: "customer_name", t: "text", r: "" },
+            { n: "city", t: "text", r: "" },
+            { n: "state", t: "text", r: "" },
+            { n: "start_time", t: "timestamptz", r: "" },
+            { n: "end_time", t: "timestamptz", r: "" },
+            { n: "status", t: "text", r: "calc" },
+            { n: "service_location_id", t: "text", r: "fk" },
+            { n: "color_index", t: "smallint", r: "" },
             { n: "notes", t: "text", r: "" },
             { n: "created_at", t: "timestamptz", r: "sys" },
           ],
@@ -548,6 +585,12 @@
         ],
         [
           "schedule_blocks",
+          "bookableresource",
+          "technician_id → (cross-db)",
+          true,
+        ],
+        [
+          "placeholder_jobs",
           "bookableresource",
           "technician_id → (cross-db)",
           true,
@@ -614,7 +657,7 @@
       // ── Build SVG ─────────────────────────────────────────────────────────────────
       function buildSVG() {
         const W = 1440,
-          H = 1350;
+          H = 1720;
 
         let out = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">`;
 
@@ -637,7 +680,7 @@
         out += `<text x="22" y="38" font-size="11" font-weight="600" fill="#1d4ed8">CRM Mirror DB — schema: crm  (Dynamics 365 replica, read-only)</text>`;
 
         // App DB section
-        out += `<rect x="12" y="1016" width="${W - 24}" height="320" rx="10" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1.5"/>`;
+        out += `<rect x="12" y="1016" width="${W - 24}" height="690" rx="10" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1.5"/>`;
         out += `<text x="22" y="1012" font-size="11" font-weight="600" fill="#065f46">App Database — schemas: public / app  (local application data, read-write)</text>`;
 
         // ── Draw relationship paths (behind boxes) ────────────────────────────────

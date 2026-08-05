@@ -1,5 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
+import { requireRole, requireLogin } from "../lib/auth.js";
 import { z } from "zod";
 import { getCrmPool, isCrmConfigured, isCrmUnavailableError } from "../lib/crmDb.js";
 import { localPool } from "../lib/localDb.js";
@@ -9,7 +10,13 @@ import {
   mirrorScheduleBlockUpsert,
   mirrorScheduleBlockDelete,
 } from "../lib/crmMirror.js";
-import { isDataverseConfigured, patchBooking, createBooking } from "../lib/dataverse.js";
+import {
+  isDataverseConfigured,
+  patchBooking,
+  createBooking,
+  fetchWorkOrdersByName,
+  fetchBookingsForWorkOrders,
+} from "../lib/dataverse.js";
 
 // Shared error handler for /wb/* routes. When the failure is the CRM database
 // being unreachable (e.g. a disabled/suspended Neon endpoint) we return 503 so
@@ -136,7 +143,7 @@ function shapeWriteback(
   };
 }
 
-router.get("/wb/work-orders", async (req, res) => {
+router.get("/wb/work-orders", requireLogin, async (req, res) => {
   const search = ((req.query.search as string | undefined) ?? "").trim();
   const limitRaw = Number(req.query.limit ?? 100);
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, limitRaw)) : 100;
@@ -248,8 +255,8 @@ router.get("/wb/work-orders", async (req, res) => {
   }
 });
 
-router.patch("/wb/bookings/:bookingId", async (req, res) => {
-  const { bookingId } = req.params;
+router.patch("/wb/bookings/:bookingId", requireRole("editor"), async (req, res) => {
+  const { bookingId } = req.params as { bookingId: string };
   const parsed = bookingUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
@@ -300,8 +307,8 @@ router.patch("/wb/bookings/:bookingId", async (req, res) => {
   }
 });
 
-router.post("/wb/work-orders/:workOrderId/booking", async (req, res) => {
-  const { workOrderId } = req.params;
+router.post("/wb/work-orders/:workOrderId/booking", requireRole("editor"), async (req, res) => {
+  const { workOrderId } = req.params as { workOrderId: string };
   const parsed = bookingUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
@@ -358,8 +365,8 @@ router.post("/wb/work-orders/:workOrderId/booking", async (req, res) => {
 // be fully configured (TENANT_ID, CLIENT_ID, CLIENT_SECRET, DATAVERSE_URL) or
 // the request is rejected with 503.
 
-router.post("/wb/bookings/:bookingId/save", async (req, res) => {
-  const { bookingId } = req.params;
+router.post("/wb/bookings/:bookingId/save", requireRole("editor"), async (req, res) => {
+  const { bookingId } = req.params as { bookingId: string };
   const parsed = bookingUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
@@ -402,8 +409,8 @@ router.post("/wb/bookings/:bookingId/save", async (req, res) => {
   }
 });
 
-router.post("/wb/work-orders/:workOrderId/booking/save", async (req, res) => {
-  const { workOrderId } = req.params;
+router.post("/wb/work-orders/:workOrderId/booking/save", requireRole("editor"), async (req, res) => {
+  const { workOrderId } = req.params as { workOrderId: string };
   const parsed = bookingUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
@@ -454,8 +461,8 @@ router.post("/wb/work-orders/:workOrderId/booking/save", async (req, res) => {
 // crm.* mirror so the dynamics-write-back app can show details for its own jobs.
 // Note: the crm mirror has no work-order product/service line tables, so those
 // arrays are always empty (the page renders them conditionally).
-router.get("/wb/work-orders/:workOrderId/detail", async (req, res) => {
-  const { workOrderId } = req.params;
+router.get("/wb/work-orders/:workOrderId/detail", requireLogin, async (req, res) => {
+  const { workOrderId } = req.params as { workOrderId: string };
 
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
@@ -644,7 +651,7 @@ const updateScheduleBlockSchema = z
     message: "No fields to update",
   });
 
-router.get("/wb/schedule-blocks", async (req, res) => {
+router.get("/wb/schedule-blocks", requireLogin, async (req, res) => {
   const { start_date, end_date } = req.query as Record<string, string | undefined>;
   try {
     const conditions: string[] = [];
@@ -684,7 +691,7 @@ router.get("/wb/schedule-blocks", async (req, res) => {
   }
 });
 
-router.post("/wb/schedule-blocks", async (req, res) => {
+router.post("/wb/schedule-blocks", requireRole("editor"), async (req, res) => {
   const parsed = createScheduleBlockSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
@@ -716,8 +723,8 @@ router.post("/wb/schedule-blocks", async (req, res) => {
   }
 });
 
-router.patch("/wb/schedule-blocks/:id", async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+router.patch("/wb/schedule-blocks/:id", requireRole("editor"), async (req, res) => {
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid block id" });
     return;
@@ -769,8 +776,8 @@ router.patch("/wb/schedule-blocks/:id", async (req, res) => {
   }
 });
 
-router.delete("/wb/schedule-blocks/:id", async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+router.delete("/wb/schedule-blocks/:id", requireRole("editor"), async (req, res) => {
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid block id" });
     return;
@@ -795,7 +802,7 @@ router.delete("/wb/schedule-blocks/:id", async (req, res) => {
 
 // ── Service locations (CRM accounts) ─────────────────────────────────────────
 
-router.get("/wb/service-locations", async (req, res) => {
+router.get("/wb/service-locations", requireLogin, async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
     return;
@@ -840,7 +847,7 @@ router.get("/wb/service-locations", async (req, res) => {
   }
 });
 
-router.get("/wb/service-locations/:locationId", async (req, res) => {
+router.get("/wb/service-locations/:locationId", requireLogin, async (req, res) => {
   const { locationId } = req.params;
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
@@ -963,7 +970,7 @@ const createPlaceholderJobSchema = z.object({
   status: z.enum(PLACEHOLDER_JOB_STATUSES).nullable().optional(),
 });
 
-router.get("/wb/placeholder-jobs", async (req, res) => {
+router.get("/wb/placeholder-jobs", requireLogin, async (req, res) => {
   const { start_date, end_date } = req.query as Record<string, string | undefined>;
   try {
     const conditions: string[] = [];
@@ -1007,7 +1014,7 @@ router.get("/wb/placeholder-jobs", async (req, res) => {
   }
 });
 
-router.get("/wb/search", async (req, res) => {
+router.get("/wb/search", requireLogin, async (req, res) => {
   const q = ((req.query.q as string | undefined) ?? "").trim();
   if (q.length < 2) {
     res.status(400).json({ error: "Query must be at least 2 characters" });
@@ -1234,7 +1241,7 @@ router.get("/wb/search", async (req, res) => {
   }
 });
 
-router.post("/wb/placeholder-jobs", async (req, res) => {
+router.post("/wb/placeholder-jobs", requireRole("editor"), async (req, res) => {
   const parsed = createPlaceholderJobSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
@@ -1288,8 +1295,8 @@ const updatePlaceholderJobSchema = z
     message: "No fields to update",
   });
 
-router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+router.patch("/wb/placeholder-jobs/:id", requireRole("editor"), async (req, res) => {
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid placeholder job id" });
     return;
@@ -1349,8 +1356,8 @@ router.patch("/wb/placeholder-jobs/:id", async (req, res) => {
   }
 });
 
-router.delete("/wb/placeholder-jobs/:id", async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+router.delete("/wb/placeholder-jobs/:id", requireRole("editor"), async (req, res) => {
+  const id = parseInt(req.params.id as string, 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid placeholder job id" });
     return;
@@ -1371,7 +1378,7 @@ router.delete("/wb/placeholder-jobs/:id", async (req, res) => {
   }
 });
 
-router.get("/wb/writebacks", async (req, res) => {
+router.get("/wb/writebacks", requireLogin, async (req, res) => {
   try {
     const r = await localPool.query<WritebackRow>(
       `SELECT id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error
@@ -1386,7 +1393,7 @@ router.get("/wb/writebacks", async (req, res) => {
   }
 });
 
-router.delete("/wb/writebacks/queued", async (req, res) => {
+router.delete("/wb/writebacks/queued", requireRole("editor"), async (req, res) => {
   try {
     const r = await localPool.query<{ count: string }>(
       `DELETE FROM crm.booking_writebacks WHERE status = 'queued' RETURNING id`,
@@ -1397,7 +1404,7 @@ router.delete("/wb/writebacks/queued", async (req, res) => {
   }
 });
 
-router.get("/wb/technicians", async (req, res) => {
+router.get("/wb/technicians", requireLogin, async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
     return;
@@ -1434,7 +1441,7 @@ function tsParts(v: Date | string | null | undefined): {
   return { date: iso.slice(0, 10), time: iso.slice(11, 19), iso };
 }
 
-router.get("/wb/schedule-board", async (req, res) => {
+router.get("/wb/schedule-board", requireLogin, async (req, res) => {
   const viewRaw = (req.query.view as string | undefined) ?? "week";
   const view: "week" | "month" | "stacked" =
     viewRaw === "month" ? "month" : viewRaw === "stacked" ? "stacked" : "week";
@@ -2234,7 +2241,7 @@ function keyR(r: string | null | undefined): string {
   return (r ?? "").toLowerCase().trim();
 }
 
-router.get("/wb/unscheduled-jobs", async (req, res) => {
+router.get("/wb/unscheduled-jobs", requireLogin, async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
     return;
@@ -2456,7 +2463,7 @@ function wbComputeRange(startRaw: string, view: WbUtilView) {
   };
 }
 
-router.get("/wb/resource-utilization", async (req, res) => {
+router.get("/wb/resource-utilization", requireLogin, async (req, res) => {
   const startRaw = ((req.query.start as string | undefined) ?? "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startRaw)) {
     res.status(400).json({ error: "start query param required (YYYY-MM-DD)" });
@@ -2651,7 +2658,7 @@ router.get("/wb/resource-utilization", async (req, res) => {
 // Resources mapped to a territory but with no bookings still render as empty
 // technician rows (parity with the FS board). Region owner/company metadata is
 // not modeled in the CRM mirror, so those fields are returned null.
-router.get("/wb/jobs-by-region", async (req, res) => {
+router.get("/wb/jobs-by-region", requireLogin, async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
     return;
@@ -2925,7 +2932,7 @@ function appendRegionFilter(region: string, params: unknown[]): string {
 const REPORT_DETAIL_LIMIT = 1000;
 
 // Filter dropdown options drawn from the full work-order universe.
-router.get("/wb/reports/filters", async (req, res) => {
+router.get("/wb/reports/filters", requireLogin, async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
     return;
@@ -2972,7 +2979,7 @@ router.get("/wb/reports/filters", async (req, res) => {
 });
 
 // PDF page 1: Service Orders Completed not Approved.
-router.get("/wb/reports/completed-not-approved", async (req, res) => {
+router.get("/wb/reports/completed-not-approved", requireLogin, async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
     return;
@@ -3001,7 +3008,7 @@ router.get("/wb/reports/completed-not-approved", async (req, res) => {
 });
 
 // PDF page 2: Service Orders Completed and Approved not Invoiced.
-router.get("/wb/reports/approved-not-invoiced", async (req, res) => {
+router.get("/wb/reports/approved-not-invoiced", requireLogin, async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
     return;
@@ -3057,7 +3064,7 @@ async function runServiceOrderReport(
 
 // PDF page 4: Weekly Approved Summary — count of approvals by approver and
 // ISO week of the approval date.
-router.get("/wb/reports/weekly-approved", async (req, res) => {
+router.get("/wb/reports/weekly-approved", requireLogin, async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
     return;
@@ -3125,7 +3132,7 @@ const syncRequestSchema = z
   })
   .optional();
 
-router.post("/wb/sync", async (req, res) => {
+router.post("/wb/sync", requireRole("editor"), async (req, res) => {
   if (!isDataverseConfigured()) {
     res.status(503).json({
       error:
@@ -3227,7 +3234,7 @@ router.post("/wb/sync", async (req, res) => {
 // GET /wb/admin/sync-mirror?dry_run=true  — report only, no writes
 // POST /wb/admin/sync-mirror              — compare + upsert divergent rows
 // ---------------------------------------------------------------------------
-router.get("/wb/admin/sync-mirror", async (req, res) => {
+router.get("/wb/admin/sync-mirror", requireLogin, async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "CRM database not configured (D365CRM_DATABASE_URL missing)" });
     return;
@@ -3273,7 +3280,7 @@ router.get("/wb/admin/sync-mirror", async (req, res) => {
   }
 });
 
-router.post("/wb/admin/sync-mirror", async (req, res) => {
+router.post("/wb/admin/sync-mirror", requireRole("editor"), async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "CRM database not configured (D365CRM_DATABASE_URL missing)" });
     return;
@@ -3375,6 +3382,170 @@ router.post("/wb/admin/sync-mirror", async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Admin: back-fill one or more work orders (and their bookings) from Dynamics
+// directly into the CRM mirror.  Use when the incremental sync misses a record
+// due to a window-boundary gap or other transient issue.
+//
+// POST /wb/admin/backfill-from-dynamics
+//   Body: { woNames: string[] }   e.g. { woNames: ["839247"] }
+//
+// Idempotent — uses ON CONFLICT DO UPDATE so re-running never creates duplicates.
+// ---------------------------------------------------------------------------
+const backfillSchema = z.object({
+  woNames: z.array(z.string().trim().min(1)).min(1).max(50),
+});
+
+router.post("/wb/admin/backfill-from-dynamics", requireRole("editor"), async (req, res) => {
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "CRM database not configured (D365CRM_DATABASE_URL missing)" });
+    return;
+  }
+  if (!isDataverseConfigured()) {
+    res.status(503).json({ error: "Dataverse not configured (TENANT_ID / CLIENT_ID / CLIENT_SECRET / DATAVERSE_URL missing)" });
+    return;
+  }
+
+  const parsed = backfillSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
+    return;
+  }
+  const { woNames } = parsed.data;
+
+  try {
+    const crmPool = getCrmPool();
+
+    // 1. Fetch work orders from Dynamics
+    const workOrders = await fetchWorkOrdersByName(woNames);
+    const foundNames = workOrders.map((wo) => wo.msdyn_name);
+    const notFound = woNames.filter((n) => !foundNames.includes(n));
+
+    // 2. Upsert each work order into crm.workorder
+    const woResults: Array<{ woName: string; woId: string; status: "upserted" | "failed"; error?: string }> = [];
+    for (const wo of workOrders) {
+      try {
+        await crmPool.query(
+          `INSERT INTO crm.workorder (
+             msdyn_workorderid, msdyn_name, msdyn_systemstatus,
+             msdyn_serviceterritory, msdyn_serviceaccount, cf_servicelocation,
+             msdyn_workordertype, msdyn_city, msdyn_stateorprovince,
+             new_customerrequirement, ownerid,
+             createdon, modifiedon, is_deleted, synced_on, raw_json
+           ) VALUES (
+             $1::uuid, $2, $3,
+             $4::uuid, $5::uuid, $6::uuid,
+             $7::uuid, $8, $9,
+             $10, $11::uuid,
+             $12::timestamptz, $13::timestamptz, false, now(), $14::jsonb
+           )
+           ON CONFLICT (msdyn_workorderid) DO UPDATE SET
+             msdyn_name              = EXCLUDED.msdyn_name,
+             msdyn_systemstatus      = EXCLUDED.msdyn_systemstatus,
+             msdyn_serviceterritory  = EXCLUDED.msdyn_serviceterritory,
+             msdyn_serviceaccount    = EXCLUDED.msdyn_serviceaccount,
+             cf_servicelocation      = EXCLUDED.cf_servicelocation,
+             msdyn_workordertype     = EXCLUDED.msdyn_workordertype,
+             msdyn_city              = EXCLUDED.msdyn_city,
+             msdyn_stateorprovince   = EXCLUDED.msdyn_stateorprovince,
+             new_customerrequirement = EXCLUDED.new_customerrequirement,
+             ownerid                 = EXCLUDED.ownerid,
+             modifiedon              = EXCLUDED.modifiedon,
+             is_deleted              = false,
+             synced_on               = now(),
+             raw_json                = EXCLUDED.raw_json`,
+          [
+            wo.msdyn_workorderid, wo.msdyn_name, wo.msdyn_systemstatus,
+            wo.msdyn_serviceterritory, wo.msdyn_serviceaccount, wo.cf_servicelocation,
+            wo.msdyn_workordertype, wo.msdyn_city, wo.msdyn_stateorprovince,
+            wo.new_customerrequirement, wo.ownerid,
+            wo.createdon, wo.modifiedon, JSON.stringify(wo.rawJson),
+          ],
+        );
+        woResults.push({ woName: wo.msdyn_name, woId: wo.msdyn_workorderid, status: "upserted" });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        req.log.error({ err: e, woName: wo.msdyn_name }, "backfill: workorder upsert failed");
+        woResults.push({ woName: wo.msdyn_name, woId: wo.msdyn_workorderid, status: "failed", error: msg });
+      }
+    }
+
+    // 3. Fetch and upsert bookings for successfully upserted WOs
+    const upsertedWoIds = workOrders
+      .filter((wo) => woResults.find((r) => r.woId === wo.msdyn_workorderid)?.status === "upserted")
+      .map((wo) => wo.msdyn_workorderid);
+
+    const bookings = await fetchBookingsForWorkOrders(upsertedWoIds);
+    const bookingResults: Array<{ bookingId: string; woName: string; status: "upserted" | "failed"; error?: string }> = [];
+
+    for (const b of bookings) {
+      const woName = workOrders.find((wo) => wo.msdyn_workorderid === b.msdyn_workorder)?.msdyn_name ?? "?";
+      try {
+        await crmPool.query(
+          `INSERT INTO crm.booking (
+             bookableresourcebookingid, name, starttime, endtime, duration,
+             resource, bookingstatus, msdyn_workorder,
+             msdyn_actualarrivaltime, msdyn_actualtravelduration, msdyn_estimatedtravelduration,
+             cf_actualarrivaltime, cf_endtime, cf_durationschedule, cf_duration,
+             cf_fieldnotes, cf_internalfieldnotes,
+             createdon, modifiedon, is_deleted, synced_on, raw_json
+           ) VALUES (
+             $1::uuid, $2, $3::timestamptz, $4::timestamptz, $5,
+             $6::uuid, $7::uuid, $8::uuid,
+             $9::timestamptz, $10, $11,
+             $12, $13, $14, $15,
+             $16, $17,
+             $18::timestamptz, $19::timestamptz, false, now(), $20::jsonb
+           )
+           ON CONFLICT (bookableresourcebookingid) DO UPDATE SET
+             name                          = EXCLUDED.name,
+             starttime                     = EXCLUDED.starttime,
+             endtime                       = EXCLUDED.endtime,
+             duration                      = EXCLUDED.duration,
+             resource                      = EXCLUDED.resource,
+             bookingstatus                 = EXCLUDED.bookingstatus,
+             msdyn_workorder               = EXCLUDED.msdyn_workorder,
+             msdyn_actualarrivaltime       = EXCLUDED.msdyn_actualarrivaltime,
+             msdyn_actualtravelduration    = EXCLUDED.msdyn_actualtravelduration,
+             msdyn_estimatedtravelduration = EXCLUDED.msdyn_estimatedtravelduration,
+             cf_actualarrivaltime          = EXCLUDED.cf_actualarrivaltime,
+             cf_endtime                    = EXCLUDED.cf_endtime,
+             cf_durationschedule           = EXCLUDED.cf_durationschedule,
+             cf_duration                   = EXCLUDED.cf_duration,
+             cf_fieldnotes                 = EXCLUDED.cf_fieldnotes,
+             cf_internalfieldnotes         = EXCLUDED.cf_internalfieldnotes,
+             modifiedon                    = EXCLUDED.modifiedon,
+             is_deleted                    = false,
+             synced_on                     = now(),
+             raw_json                      = EXCLUDED.raw_json`,
+          [
+            b.bookableresourcebookingid, b.name, b.starttime, b.endtime, b.duration,
+            b.resource, b.bookingstatus, b.msdyn_workorder,
+            b.msdyn_actualarrivaltime, b.msdyn_actualtravelduration, b.msdyn_estimatedtravelduration,
+            b.cf_actualarrivaltime, b.cf_endtime, b.cf_durationschedule, b.cf_duration,
+            b.cf_fieldnotes, b.cf_internalfieldnotes,
+            b.createdon, b.modifiedon, JSON.stringify(b.rawJson),
+          ],
+        );
+        bookingResults.push({ bookingId: b.bookableresourcebookingid, woName, status: "upserted" });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        req.log.error({ err: e, bookingId: b.bookableresourcebookingid }, "backfill: booking upsert failed");
+        bookingResults.push({ bookingId: b.bookableresourcebookingid, woName, status: "failed", error: msg });
+      }
+    }
+
+    res.json({
+      requested: woNames,
+      not_found_in_dynamics: notFound,
+      work_orders: woResults,
+      bookings: bookingResults,
+    });
+  } catch (err) {
+    handleWbError(req, res, err, "Backfill from Dynamics failed", "Backfill from Dynamics failed", { source: "mixed" });
+  }
+});
+
 // ── Dispatcher booking notes (local notes attached to CRM jobs) ───────────────
 //
 // Notes are stored in crm.booking_notes in the d365crm Postgres database.
@@ -3383,7 +3554,7 @@ router.post("/wb/admin/sync-mirror", async (req, res) => {
 // crm-schema tables so they travel with CRM data.
 
 // GET /wb/booking-notes?bookingIds=id1,id2  — batch lookup (comma-separated)
-router.get("/wb/booking-notes", async (req, res) => {
+router.get("/wb/booking-notes", requireLogin, async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
     return;
@@ -3417,12 +3588,12 @@ router.get("/wb/booking-notes", async (req, res) => {
 });
 
 // GET /wb/booking-notes/:bookingId
-router.get("/wb/booking-notes/:bookingId", async (req, res) => {
+router.get("/wb/booking-notes/:bookingId", requireLogin, async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
     return;
   }
-  const { bookingId } = req.params;
+  const { bookingId } = req.params as { bookingId: string };
   try {
     const pool = getCrmPool();
     const r = await pool.query<{ booking_id: string; note: string | null; updated_at: Date }>(
@@ -3446,12 +3617,12 @@ router.get("/wb/booking-notes/:bookingId", async (req, res) => {
 });
 
 // PUT /wb/booking-notes/:bookingId — upsert
-router.put("/wb/booking-notes/:bookingId", async (req, res) => {
+router.put("/wb/booking-notes/:bookingId", requireRole("editor"), async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
     return;
   }
-  const { bookingId } = req.params;
+  const { bookingId } = req.params as { bookingId: string };
   const noteSchema = z.object({ note: z.string() });
   const parsed = noteSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -3480,12 +3651,12 @@ router.put("/wb/booking-notes/:bookingId", async (req, res) => {
 });
 
 // DELETE /wb/booking-notes/:bookingId
-router.delete("/wb/booking-notes/:bookingId", async (req, res) => {
+router.delete("/wb/booking-notes/:bookingId", requireRole("editor"), async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "d365crm is not configured. Set D365CRM_DATABASE_URL." });
     return;
   }
-  const { bookingId } = req.params;
+  const { bookingId } = req.params as { bookingId: string };
   try {
     const pool = getCrmPool();
     await pool.query(`DELETE FROM crm.booking_notes WHERE booking_id = $1`, [bookingId]);

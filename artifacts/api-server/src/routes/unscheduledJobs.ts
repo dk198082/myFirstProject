@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { pool } from "../lib/db.js";
+import { requireLogin } from "../lib/auth.js";
 
 const router = Router();
 
@@ -20,7 +21,7 @@ function keyR(r: string | null | undefined): string {
   return (r ?? "").toLowerCase().trim();
 }
 
-router.get("/unscheduled-jobs", async (req, res) => {
+router.get("/unscheduled-jobs", requireLogin, async (req, res) => {
   try {
     // 1. Unscheduled work orders enriched
     const woResult = await pool.query(`

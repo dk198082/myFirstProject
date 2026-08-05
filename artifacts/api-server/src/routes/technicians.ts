@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { pool } from "../lib/db.js";
+import { requireLogin } from "../lib/auth.js";
 
 const router = Router();
 
-router.get("/technicians", async (req, res) => {
+router.get("/technicians", requireLogin, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT technician_id, resource_name, user_email, phone, resource_type, is_active
@@ -18,7 +19,7 @@ router.get("/technicians", async (req, res) => {
   }
 });
 
-router.get("/technicians/by-email", async (req, res) => {
+router.get("/technicians/by-email", requireLogin, async (req, res) => {
   const email = req.query.email as string;
   if (!email) {
     res.status(400).json({ error: "email query param is required" });
@@ -69,7 +70,7 @@ router.get("/technicians/by-email", async (req, res) => {
   }
 });
 
-router.get("/technicians/:technicianId/work-orders", async (req, res) => {
+router.get("/technicians/:technicianId/work-orders", requireLogin, async (req, res) => {
   const { technicianId } = req.params;
 
   try {
@@ -112,7 +113,7 @@ router.get("/technicians/:technicianId/work-orders", async (req, res) => {
   }
 });
 
-router.get("/technicians/:technicianId/summary", async (req, res) => {
+router.get("/technicians/:technicianId/summary", requireLogin, async (req, res) => {
   const { technicianId } = req.params;
 
   try {

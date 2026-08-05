@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { pool } from "../lib/db.js";
+import { requireLogin } from "../lib/auth.js";
 
 const router = Router();
 
@@ -19,7 +20,7 @@ function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-router.get("/schedule-board", async (req, res) => {
+router.get("/schedule-board", requireLogin, async (req, res) => {
   const viewRaw = (req.query.view as string | undefined) ?? "week";
   const view: "week" | "month" = viewRaw === "month" ? "month" : "week";
 
@@ -27,11 +28,16 @@ router.get("/schedule-board", async (req, res) => {
   const groupBy: "tech-region" | "service-location" =
     groupByRaw === "service-location" ? "service-location" : "tech-region";
 
-  // Accept `start` (preferred) or legacy `weekStart`
-  const startRaw =
-    ((req.query.start as string | undefined) ??
-      (req.query.weekStart as string | undefined) ??
-      "").trim();
+  // Accept `start` (preferred) or legacy `weekStart`.
+  // Reject if the param was supplied more than once (array) — Express parses
+  // repeated params as string[]; coercing an array to string produces a
+  // comma-joined value that looks malformed but can mask programmer errors.
+  const startQueryRaw = req.query.start ?? req.query.weekStart;
+  if (Array.isArray(startQueryRaw)) {
+    res.status(400).json({ error: "start query param required (YYYY-MM-DD)" });
+    return;
+  }
+  const startRaw = ((startQueryRaw as string | undefined) ?? "").trim();
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startRaw)) {
     res.status(400).json({
@@ -85,7 +91,8 @@ router.get("/schedule-board", async (req, res) => {
           c.customer_name,
           ct.fullname     AS contact_name,
           ct.businessphone AS contact_businessphone,
-          eq.equipment_names
+          eq.equipment_names,
+          wo.description AS notes
         FROM bookings b
         JOIN technicians t
           ON t.technician_id = b.technician_id AND t.is_active = true
@@ -198,6 +205,7 @@ router.get("/schedule-board", async (req, res) => {
           state: row.state ?? null,
           day_index: Math.max(0, Math.min(maxDayIndex, dayIndex)),
           equipment_names: (row.equipment_names as string[] | null) ?? [],
+          notes: (row.notes as string | null) ?? null,
         });
       }
 
@@ -246,7 +254,8 @@ router.get("/schedule-board", async (req, res) => {
         c.customer_name,
         ct.fullname     AS contact_name,
         ct.businessphone AS contact_businessphone,
-        eq.equipment_names
+        eq.equipment_names,
+        wo.description AS notes
       FROM regions r
       LEFT JOIN technicians t
         ON t.regionid_id = r.regionid_id AND t.is_active = true
@@ -351,6 +360,7 @@ router.get("/schedule-board", async (req, res) => {
         state: row.state ?? null,
         day_index: Math.max(0, Math.min(maxDayIndex, dayIndex)),
         equipment_names: (row.equipment_names as string[] | null) ?? [],
+        notes: (row.notes as string | null) ?? null,
       });
     }
 

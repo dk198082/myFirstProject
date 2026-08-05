@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { pool } from "../lib/db.js";
+import { requireLogin } from "../lib/auth.js";
 
 const router = Router();
 
-router.get("/scheduled-jobs", async (req, res) => {
+router.get("/scheduled-jobs", requireLogin, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT

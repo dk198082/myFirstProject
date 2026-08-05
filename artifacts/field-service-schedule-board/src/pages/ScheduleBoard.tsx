@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import {
   useGetWbScheduleBoard,
   useGetWbUnscheduledJobs,
@@ -400,8 +401,8 @@ function BlockChip({
   block: ScheduleBlock;
   /** The day cell this chip instance is rendered in (YYYY-MM-DD). */
   dayIso?: string;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
   onDragStart?: () => void;
   onResizeStart?: () => void;
   onDragEnd?: () => void;
@@ -450,7 +451,7 @@ function BlockChip({
         tabIndex={0}
         draggable={canDrag}
         onClick={onEdit}
-        onKeyDown={(e) => e.key === "Enter" && onEdit()}
+        onKeyDown={(e) => e.key === "Enter" && onEdit?.()}
         onDragStart={(e) => {
           if (!canDrag) {
             e.preventDefault();
@@ -474,7 +475,7 @@ function BlockChip({
             <Pencil className="h-3 w-3 shrink-0" />
           )}
           <span className="font-semibold truncate">{label}</span>
-          <button
+          {onDelete && <button
             type="button"
             className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
             onClick={(e) => {
@@ -484,7 +485,7 @@ function BlockChip({
             aria-label="Remove block"
           >
             <X className="h-3 w-3" />
-          </button>
+          </button>}
         </div>
         <div className="opacity-80 truncate">
           {isMultiDay ? `${dayCount} days` : duration}
@@ -557,8 +558,8 @@ function PlaceholderJobChip({
   /** The day cell this chip instance is rendered in (YYYY-MM-DD). */
   dayIso?: string;
   technicianId?: string | null;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
   onDragStart?: () => void;
   onResizeStart?: () => void;
   onDragEnd?: () => void;
@@ -613,7 +614,7 @@ function PlaceholderJobChip({
         tabIndex={0}
         draggable={canDrag}
         onClick={onEdit}
-        onKeyDown={(e) => e.key === "Enter" && onEdit()}
+        onKeyDown={(e) => e.key === "Enter" && onEdit?.()}
         onDragStart={(e) => {
           if (!canDrag) {
             e.preventDefault();
@@ -633,7 +634,7 @@ function PlaceholderJobChip({
           className="absolute inset-0 pointer-events-none"
           style={{ backgroundImage: "repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 5px)" }}
         />
-        <button
+        {onDelete && <button
           type="button"
           className="absolute top-0.5 right-0.5 z-10 opacity-40 hover:opacity-100 transition-opacity"
           onClick={(e) => {
@@ -643,7 +644,7 @@ function PlaceholderJobChip({
           aria-label="Remove placeholder job"
         >
           <X className="h-3 w-3" />
-        </button>
+        </button>}
         <div className="relative opacity-90 truncate pr-3">{job.customer_name || job.title}</div>
         {location && <div className="relative opacity-70 truncate">{location}</div>}
         {job.status && <div className="relative opacity-60 truncate">{job.status}</div>}
@@ -798,7 +799,7 @@ function JobChip({
   isConflict?: boolean;
   /** True while a CRM save for this booking is actively syncing back to the mirror DB (22 s window). */
   syncPending?: boolean;
-  onOpen: () => void;
+  onOpen?: () => void;
   onDragStart?: () => void;
   onDragEnd?: () => void;
   isDragging?: boolean;
@@ -1416,6 +1417,10 @@ function UnscheduledJobCard({
 }
 
 export default function ScheduleBoard() {
+  const { user } = useAuth();
+  // Derive once; all write-gating in this component flows from this flag.
+  const isEditor = user?.role === "editor";
+
   const [view, setView] = useState<ViewMode>("week");
   const [start, setStart] = useState<string>(() => startOfWeekISO(new Date()));
   const [selectedRegions, setSelectedRegions] = useState<Set<string> | null>(null);
@@ -3200,8 +3205,8 @@ export default function ScheduleBoard() {
                                 colorClass={palette.chip}
                                 isConflict={conflictedBookingIds.has(j.booking_id)}
                                 syncPending={pendingSyncIds.has(j.booking_id)}
-                                onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
-                                onDragStart={() => startDrag(j, tech.technician_id)}
+                                onOpen={isEditor ? () => setEditing(buildEditRow(j, tech.technician_id)) : undefined}
+                                onDragStart={isEditor ? () => startDrag(j, tech.technician_id) : undefined}
                                 onDragEnd={endDrag}
                                 isDragging={draggingId === j.booking_id}
                                 showEquipment
@@ -3219,16 +3224,16 @@ export default function ScheduleBoard() {
                               <BlockChip
                                 block={blk}
                                 dayIso={dh.iso}
-                                onEdit={() =>
+                                onEdit={isEditor ? () =>
                                   setEditingBlock({
                                     block: blk,
                                     technicianName: tech.resource_name ?? "Unknown",
                                     regionName: focusedTechData.region,
-                                  })
+                                  }) : undefined
                                 }
-                                onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
-                                onDragStart={() => startBlockDrag(blk, "move")}
-                                onResizeStart={() => startBlockDrag(blk, "resize")}
+                                onDelete={isEditor ? () => deleteBlockMutation.mutate({ id: blk.id }) : undefined}
+                                onDragStart={isEditor ? () => startBlockDrag(blk, "move") : undefined}
+                                onResizeStart={isEditor ? () => startBlockDrag(blk, "resize") : undefined}
                                 onDragEnd={endDrag}
                                 isDragging={draggingBlockId === blk.id}
                                 regionName={focusedTechData.region}
@@ -3242,18 +3247,18 @@ export default function ScheduleBoard() {
                                 job={phj}
                                 dayIso={dh.iso}
                                 technicianId={tech.technician_id}
-                                onEdit={() =>
+                                onEdit={isEditor ? () =>
                                   setEditingPlaceholder({
                                     job: phj,
                                     technicianName: tech.resource_name ?? "Unknown",
                                     regionName: focusedTechData.region,
-                                  })
+                                  }) : undefined
                                 }
-                                onDelete={() =>
+                                onDelete={isEditor ? () =>
                                   deletePlaceholderMutation.mutate({ id: phj.id })
-                                }
-                                onDragStart={() => startPlaceholderDrag(phj, "move")}
-                                onResizeStart={() => startPlaceholderDrag(phj, "resize")}
+                                : undefined}
+                                onDragStart={isEditor ? () => startPlaceholderDrag(phj, "move") : undefined}
+                                onResizeStart={isEditor ? () => startPlaceholderDrag(phj, "resize") : undefined}
                                 onDragEnd={endDrag}
                                 isDragging={draggingPlaceholderId === phj.id}
                                 regionName={focusedTechData.region}
@@ -3293,7 +3298,7 @@ export default function ScheduleBoard() {
                             className={`group relative border-r border-foreground/20 last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dropCue} ${isEmptyCell ? "cursor-pointer" : ""}`}
                             data-testid={`stacked-cell-${tech.technician_id}-${dh.iso}`}
                             onClick={
-                              isEmptyCell
+                              isEditor && isEmptyCell
                                 ? () =>
                                     setAddingBlock({
                                       technicianId: tech.technician_id,
@@ -3319,6 +3324,7 @@ export default function ScheduleBoard() {
                             }
                             onDrop={(e) => {
                               e.preventDefault();
+                              if (!isEditor) return;
                               if (dragBlockRef.current) {
                                 handleBlockDropOnCell(tech.technician_id, dh.iso);
                                 return;
@@ -3351,7 +3357,7 @@ export default function ScheduleBoard() {
                                 {it.node}
                               </div>
                             ))}
-                            {isEmptyCell ? (
+                            {isEditor && (isEmptyCell ? (
                               <div className="absolute inset-0 flex items-center justify-center gap-1 text-xs font-bold text-muted-foreground/40 hover:text-foreground hover:bg-accent/70 rounded transition-colors opacity-0 group-hover:opacity-100">
                                 <Plus className="h-3 w-3" /> Block
                               </div>
@@ -3371,7 +3377,7 @@ export default function ScheduleBoard() {
                               >
                                 <Plus className="h-2.5 w-2.5" /> Block
                               </button>
-                            )}
+                            ))}
                           </div>
                         );
                       })}
@@ -3584,8 +3590,8 @@ export default function ScheduleBoard() {
                                     colorClass={palette.chip}
                                     isConflict={conflictedBookingIds.has(j.booking_id)}
                                     syncPending={pendingSyncIds.has(j.booking_id)}
-                                    onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
-                                    onDragStart={() => startDrag(j, tech.technician_id)}
+                                    onOpen={isEditor ? () => setEditing(buildEditRow(j, tech.technician_id)) : undefined}
+                                    onDragStart={isEditor ? () => startDrag(j, tech.technician_id) : undefined}
                                     onDragEnd={endDrag}
                                     isDragging={draggingId === j.booking_id}
                                     showEquipment
@@ -3601,10 +3607,10 @@ export default function ScheduleBoard() {
                                   <BlockChip
                                     block={blk}
                                     dayIso={dh.iso}
-                                    onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region })}
-                                    onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
-                                    onDragStart={() => startBlockDrag(blk, "move")}
-                                    onResizeStart={() => startBlockDrag(blk, "resize")}
+                                    onEdit={isEditor ? () => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region }) : undefined}
+                                    onDelete={isEditor ? () => deleteBlockMutation.mutate({ id: blk.id }) : undefined}
+                                    onDragStart={isEditor ? () => startBlockDrag(blk, "move") : undefined}
+                                    onResizeStart={isEditor ? () => startBlockDrag(blk, "resize") : undefined}
                                     onDragEnd={endDrag}
                                     isDragging={draggingBlockId === blk.id}
                                     regionName={rg.region}
@@ -3618,10 +3624,10 @@ export default function ScheduleBoard() {
                                     job={phj}
                                     dayIso={dh.iso}
                                     technicianId={tech.technician_id}
-                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region })}
-                                    onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
-                                    onDragStart={() => startPlaceholderDrag(phj, "move")}
-                                    onResizeStart={() => startPlaceholderDrag(phj, "resize")}
+                                    onEdit={isEditor ? () => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region }) : undefined}
+                                    onDelete={isEditor ? () => deletePlaceholderMutation.mutate({ id: phj.id }) : undefined}
+                                    onDragStart={isEditor ? () => startPlaceholderDrag(phj, "move") : undefined}
+                                    onResizeStart={isEditor ? () => startPlaceholderDrag(phj, "resize") : undefined}
                                     onDragEnd={endDrag}
                                     isDragging={draggingPlaceholderId === phj.id}
                                     regionName={rg.region}
@@ -3638,7 +3644,7 @@ export default function ScheduleBoard() {
                                 data-testid={`tech-cell-${tech.technician_id}-${dh.dayIdx}`}
                                 aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
                                 onClick={
-                                  isEmptyCell
+                                  isEditor && isEmptyCell
                                     ? () =>
                                         setAddingBlock({
                                           technicianId: tech.technician_id,
@@ -3660,6 +3666,7 @@ export default function ScheduleBoard() {
                                 }}
                                 onDrop={(e) => {
                                   e.preventDefault();
+                                  if (!isEditor) return;
                                   if (dragBlockRef.current) {
                                     handleBlockDropOnCell(tech.technician_id, dh.iso);
                                     return;
@@ -3694,7 +3701,7 @@ export default function ScheduleBoard() {
                                     {it.node}
                                   </div>
                                 ))}
-                                <button
+                                {isEditor && <button
                                   type="button"
                                   className={
                                     isEmptyCell
@@ -3713,7 +3720,7 @@ export default function ScheduleBoard() {
                                 >
                                   <Plus className={isEmptyCell ? "h-4 w-4 shrink-0" : "h-2.5 w-2.5 shrink-0"} />
                                   Add
-                                </button>
+                                </button>}
                               </div>
                             );
                           })}
@@ -3944,8 +3951,8 @@ export default function ScheduleBoard() {
                                     colorClass={palette.chip}
                                     isConflict={conflictedBookingIds.has(j.booking_id)}
                                     syncPending={pendingSyncIds.has(j.booking_id)}
-                                    onOpen={() => setEditing(buildEditRow(j, tech.technician_id))}
-                                    onDragStart={() => startDrag(j, tech.technician_id)}
+                                    onOpen={isEditor ? () => setEditing(buildEditRow(j, tech.technician_id)) : undefined}
+                                    onDragStart={isEditor ? () => startDrag(j, tech.technician_id) : undefined}
                                     onDragEnd={endDrag}
                                     isDragging={draggingId === j.booking_id}
                                     showEquipment={view === "week"}
@@ -3960,10 +3967,10 @@ export default function ScheduleBoard() {
                                   <BlockChip
                                     block={blk}
                                     dayIso={dayHeaders[i].iso}
-                                    onEdit={() => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region })}
-                                    onDelete={() => deleteBlockMutation.mutate({ id: blk.id })}
-                                    onDragStart={() => startBlockDrag(blk, "move")}
-                                    onResizeStart={() => startBlockDrag(blk, "resize")}
+                                    onEdit={isEditor ? () => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region }) : undefined}
+                                    onDelete={isEditor ? () => deleteBlockMutation.mutate({ id: blk.id }) : undefined}
+                                    onDragStart={isEditor ? () => startBlockDrag(blk, "move") : undefined}
+                                    onResizeStart={isEditor ? () => startBlockDrag(blk, "resize") : undefined}
                                     onDragEnd={endDrag}
                                     isDragging={draggingBlockId === blk.id}
                                     regionName={rg.region}
@@ -3977,10 +3984,10 @@ export default function ScheduleBoard() {
                                     job={phj}
                                     dayIso={dayHeaders[i].iso}
                                     technicianId={tech.technician_id}
-                                    onEdit={() => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region })}
-                                    onDelete={() => deletePlaceholderMutation.mutate({ id: phj.id })}
-                                    onDragStart={() => startPlaceholderDrag(phj, "move")}
-                                    onResizeStart={() => startPlaceholderDrag(phj, "resize")}
+                                    onEdit={isEditor ? () => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region }) : undefined}
+                                    onDelete={isEditor ? () => deletePlaceholderMutation.mutate({ id: phj.id }) : undefined}
+                                    onDragStart={isEditor ? () => startPlaceholderDrag(phj, "move") : undefined}
+                                    onResizeStart={isEditor ? () => startPlaceholderDrag(phj, "resize") : undefined}
                                     onDragEnd={endDrag}
                                     isDragging={draggingPlaceholderId === phj.id}
                                     regionName={rg.region}
@@ -3997,7 +4004,7 @@ export default function ScheduleBoard() {
                                 data-testid={`cell-${tech.technician_id}-${i}`}
                                 aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
                                 onClick={
-                                  isEmptyCell
+                                  isEditor && isEmptyCell
                                     ? () =>
                                         setAddingBlock({
                                           technicianId: tech.technician_id,
@@ -4019,6 +4026,7 @@ export default function ScheduleBoard() {
                                 }}
                                 onDrop={(e) => {
                                   e.preventDefault();
+                                  if (!isEditor) return;
                                   if (dragBlockRef.current) {
                                     handleBlockDropOnCell(tech.technician_id, dayHeaders[i].iso);
                                     return;
@@ -4049,7 +4057,7 @@ export default function ScheduleBoard() {
                                     {it.node}
                                   </div>
                                 ))}
-                                <button
+                                {isEditor && <button
                                   type="button"
                                   className={
                                     isEmptyCell
@@ -4068,7 +4076,7 @@ export default function ScheduleBoard() {
                                 >
                                   <Plus className={isEmptyCell ? "h-4 w-4 shrink-0" : "h-2.5 w-2.5 shrink-0"} />
                                   Add
-                                </button>
+                                </button>}
                               </div>
                             );
                           })}
@@ -4159,7 +4167,7 @@ export default function ScheduleBoard() {
                               key={job.work_order_id ?? job.work_order_number}
                               job={job}
                               bucketIdx={bi}
-                              onSchedule={handleScheduleUnscheduled}
+                              onSchedule={isEditor ? handleScheduleUnscheduled : () => {}}
                               highlighted={
                                 highlightedUnscheduledId !== null &&
                                 (job.work_order_id === highlightedUnscheduledId ||

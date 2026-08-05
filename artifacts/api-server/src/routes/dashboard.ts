@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { pool } from "../lib/db.js";
+import { requireLogin } from "../lib/auth.js";
 
 const router = Router();
 
-router.get("/dashboard/summary", async (req, res) => {
+router.get("/dashboard/summary", requireLogin, async (req, res) => {
   try {
     const [techRes, woRes, statusRes, priorityRes, topTechRes] =
       await Promise.all([

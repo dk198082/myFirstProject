@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { pool } from "../lib/db.js";
+import { requireLogin } from "../lib/auth.js";
 
 const router = Router();
 
@@ -37,7 +38,14 @@ function computeRange(startRaw: string, view: ViewType) {
   };
 }
 
-router.get("/resource-utilization", async (req, res) => {
+router.get("/resource-utilization", requireLogin, async (req, res) => {
+  // Reject if the param was supplied more than once (array) — Express parses
+  // repeated params as string[]; coercing an array to string produces a
+  // comma-joined value that looks malformed but can mask programmer errors.
+  if (Array.isArray(req.query.start)) {
+    res.status(400).json({ error: "start query param required (YYYY-MM-DD)" });
+    return;
+  }
   const startRaw = ((req.query.start as string | undefined) ?? "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startRaw)) {
     res.status(400).json({ error: "start query param required (YYYY-MM-DD)" });

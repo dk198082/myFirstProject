@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { pool } from "../lib/db.js";
+import { requireLogin } from "../lib/auth.js";
 
 const router = Router();
 
-router.get("/work-orders/:workOrderId", async (req, res) => {
+router.get("/work-orders/:workOrderId", requireLogin, async (req, res) => {
   const { workOrderId } = req.params;
 
   try {

@@ -10,4 +10,5 @@
 - [Drizzle schema NOT source of truth](drizzle-schema-out-of-band.md) — most tables created out-of-band via psql; `push`/`push-force` DROPS undeclared tables. Declare a table in Drizzle so Publish manages it in prod.
 - [Data model/catalog docs](data-docs.md) — docs/data-model.html + data-catalog.html are hand-authored JS-array HTML (not generated, not served); update BOTH by hand on schema changes.
 - [CRM mirror dual-write](crm-mirror-dual-write.md) — placeholder_jobs/schedule_blocks writes mirror best-effort into crm.* tables in d365crm Postgres; ids shared; schema changes need both sides.
+- [wb utilization minutes semantics](wb-utilization-minutes.md) — utilized_minutes already includes placeholder-job minutes (server-side, 8h/day cap); never re-add client-side, use placeholder_minutes for breakdowns.
 - [js-yaml v5 breaks orval codegen](js-yaml-orval-esm.md) — pin the `js-yaml` pnpm override to `^4.x`, not `>=4.2.0`, or codegen fails with an ESM default-export error.
