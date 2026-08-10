@@ -214,7 +214,7 @@ router.get("/wb/work-orders", requireLogin, async (req, res) => {
         `
         SELECT DISTINCT ON (booking_id)
                id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error
-        FROM crm.booking_writebacks
+        FROM booking_writebacks
         WHERE booking_id = ANY($1::text[]) AND status = 'queued'
         ORDER BY booking_id, created_at DESC
         `,
@@ -283,7 +283,7 @@ router.patch("/wb/bookings/:bookingId", requireRole("editor"), async (req, res) 
     const workOrderId = existing.rows[0].work_order_id;
 
     const insert = await localPool.query<WritebackRow>(
-      `INSERT INTO crm.booking_writebacks
+      `INSERT INTO booking_writebacks
         (booking_id, work_order_id, start_time, end_time, technician_id, status)
        VALUES ($1, $2, $3, $4, $5, 'queued')
        RETURNING id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error`,
@@ -308,7 +308,7 @@ router.patch("/wb/bookings/:bookingId", requireRole("editor"), async (req, res) 
 });
 
 router.post("/wb/work-orders/:workOrderId/booking", requireRole("editor"), async (req, res) => {
-  const { workOrderId } = req.params as { workOrderId: string };
+  const workOrderId = String(req.params.workOrderId);
   const parsed = bookingUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
@@ -335,7 +335,7 @@ router.post("/wb/work-orders/:workOrderId/booking", requireRole("editor"), async
     }
 
     const insert = await localPool.query<WritebackRow>(
-      `INSERT INTO crm.booking_writebacks
+      `INSERT INTO booking_writebacks
         (booking_id, work_order_id, start_time, end_time, technician_id, status)
        VALUES ($1, $2, $3, $4, $5, 'queued')
        RETURNING id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error`,
@@ -366,7 +366,7 @@ router.post("/wb/work-orders/:workOrderId/booking", requireRole("editor"), async
 // the request is rejected with 503.
 
 router.post("/wb/bookings/:bookingId/save", requireRole("editor"), async (req, res) => {
-  const { bookingId } = req.params as { bookingId: string };
+  const bookingId = String(req.params.bookingId);
   const parsed = bookingUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
@@ -410,7 +410,7 @@ router.post("/wb/bookings/:bookingId/save", requireRole("editor"), async (req, r
 });
 
 router.post("/wb/work-orders/:workOrderId/booking/save", requireRole("editor"), async (req, res) => {
-  const { workOrderId } = req.params as { workOrderId: string };
+  const workOrderId = String(req.params.workOrderId);
   const parsed = bookingUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
@@ -724,7 +724,7 @@ router.post("/wb/schedule-blocks", requireRole("editor"), async (req, res) => {
 });
 
 router.patch("/wb/schedule-blocks/:id", requireRole("editor"), async (req, res) => {
-  const id = parseInt(req.params.id as string, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid block id" });
     return;
@@ -777,7 +777,7 @@ router.patch("/wb/schedule-blocks/:id", requireRole("editor"), async (req, res) 
 });
 
 router.delete("/wb/schedule-blocks/:id", requireRole("editor"), async (req, res) => {
-  const id = parseInt(req.params.id as string, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid block id" });
     return;
@@ -989,7 +989,7 @@ router.get("/wb/placeholder-jobs", requireLogin, async (req, res) => {
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const r = await localPool.query(
       `SELECT id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at
-       FROM crm.placeholder_jobs ${where} ORDER BY start_time`,
+       FROM placeholder_jobs ${where} ORDER BY start_time`,
       params,
     );
     res.json(
@@ -1296,7 +1296,7 @@ const updatePlaceholderJobSchema = z
   });
 
 router.patch("/wb/placeholder-jobs/:id", requireRole("editor"), async (req, res) => {
-  const id = parseInt(req.params.id as string, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid placeholder job id" });
     return;
@@ -1357,7 +1357,7 @@ router.patch("/wb/placeholder-jobs/:id", requireRole("editor"), async (req, res)
 });
 
 router.delete("/wb/placeholder-jobs/:id", requireRole("editor"), async (req, res) => {
-  const id = parseInt(req.params.id as string, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid placeholder job id" });
     return;
@@ -1382,7 +1382,7 @@ router.get("/wb/writebacks", requireLogin, async (req, res) => {
   try {
     const r = await localPool.query<WritebackRow>(
       `SELECT id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error
-       FROM crm.booking_writebacks
+       FROM booking_writebacks
        ORDER BY created_at DESC
        LIMIT 200`,
     );
@@ -1396,7 +1396,7 @@ router.get("/wb/writebacks", requireLogin, async (req, res) => {
 router.delete("/wb/writebacks/queued", requireRole("editor"), async (req, res) => {
   try {
     const r = await localPool.query<{ count: string }>(
-      `DELETE FROM crm.booking_writebacks WHERE status = 'queued' RETURNING id`,
+      `DELETE FROM booking_writebacks WHERE status = 'queued' RETURNING id`,
     );
     res.json({ deleted: r.rowCount ?? 0 });
   } catch (err) {
@@ -1549,7 +1549,11 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
             wo.raw_json->>'_msdyn_serviceaccount_value@OData.Community.Display.V1.FormattedValue'
           )                        AS customer_name,
           COALESCE(br.name, b.raw_json->>'_resource_value@OData.Community.Display.V1.FormattedValue') AS resource_name,
-          br.msdyn_primaryemail    AS user_email,
+          COALESCE(
+            NULLIF(BTRIM(br.msdyn_primaryemail), ''),
+            NULLIF(BTRIM(su.internalemailaddress), ''),
+            NULLIF(BTRIM(su.domainname), '')
+          )                        AS user_email,
           eq.equipment_names
         FROM crm.booking b
         JOIN crm.workorder wo
@@ -1566,6 +1570,9 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
         LEFT JOIN crm.bookableresource br
           ON br.bookableresourceid = b.resource
          AND COALESCE(br.is_deleted, false) = false
+         LEFT JOIN crm.systemuser su
+           ON su.systemuserid = br.userid
+          AND COALESCE(su.is_deleted, false) = false
         LEFT JOIN LATERAL (
           SELECT array_agg(woce.label ORDER BY woce.cf_name ASC) AS equipment_names
           FROM (
@@ -1630,7 +1637,7 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
           `
           SELECT DISTINCT ON (booking_id)
                  booking_id, start_time, end_time, technician_id
-          FROM crm.booking_writebacks
+          FROM booking_writebacks
           WHERE booking_id = ANY($1::text[]) AND status = 'queued'
           ORDER BY booking_id, created_at DESC
           `,
@@ -1767,12 +1774,19 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
           ter.name              AS region,
           br.bookableresourceid::text AS technician_id,
           br.name               AS resource_name,
-          br.msdyn_primaryemail AS user_email
+          COALESCE(
+            NULLIF(BTRIM(br.msdyn_primaryemail), ''),
+            NULLIF(BTRIM(su.internalemailaddress), ''),
+            NULLIF(BTRIM(su.domainname), '')
+          ) AS user_email
         FROM res_terr rt
         JOIN crm.territory ter ON ter.territoryid = rt.territory_id
         JOIN crm.bookableresource br
           ON br.bookableresourceid = rt.resource_id
          AND COALESCE(br.is_deleted, false) = false
+        LEFT JOIN crm.systemuser su
+          ON su.systemuserid = br.userid
+         AND COALESCE(su.is_deleted, false) = false
         WHERE rt.resource_id IN (SELECT bookableresourceid FROM active_res)
           AND NOT EXISTS (
             SELECT 1 FROM crm.booking b
@@ -1910,7 +1924,11 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
           br.name,
           bk.b_raw->>'_resource_value@OData.Community.Display.V1.FormattedValue'
         )                                            AS resource_name,
-        br.msdyn_primaryemail                        AS user_email,
+        COALESCE(
+          NULLIF(BTRIM(br.msdyn_primaryemail), ''),
+          NULLIF(BTRIM(su.internalemailaddress), ''),
+          NULLIF(BTRIM(su.domainname), '')
+        )                                            AS user_email,
         bk.booking_id::text                          AS booking_id,
         bk.start_time                                AS start_time,
         bk.end_time                                  AS end_time,
@@ -1928,6 +1946,9 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
       LEFT JOIN crm.bookableresource br
         ON br.bookableresourceid = bk.resource_id
        AND COALESCE(br.is_deleted, false) = false
+      LEFT JOIN crm.systemuser su
+        ON su.systemuserid = br.userid
+       AND COALESCE(su.is_deleted, false) = false
       LEFT JOIN LATERAL (
         SELECT array_agg(woce.label ORDER BY woce.cf_name ASC) AS equipment_names
         FROM (
@@ -1955,7 +1976,11 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
         ter.name                                     AS region,
         br.bookableresourceid::text                  AS technician_id,
         br.name                                      AS resource_name,
-        br.msdyn_primaryemail                        AS user_email,
+        COALESCE(
+          NULLIF(BTRIM(br.msdyn_primaryemail), ''),
+          NULLIF(BTRIM(su.internalemailaddress), ''),
+          NULLIF(BTRIM(su.domainname), '')
+        )                                            AS user_email,
         NULL::text                                   AS booking_id,
         NULL::timestamp                              AS start_time,
         NULL::timestamp                              AS end_time,
@@ -1973,6 +1998,9 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
       JOIN crm.bookableresource br
         ON br.bookableresourceid = rterr.resource_id
        AND COALESCE(br.is_deleted, false) = false
+      LEFT JOIN crm.systemuser su
+        ON su.systemuserid = br.userid
+       AND COALESCE(su.is_deleted, false) = false
       WHERE NOT EXISTS (SELECT 1 FROM bk WHERE bk.resource_id = rterr.resource_id)
         AND rterr.resource_id IN (SELECT bookableresourceid FROM active_res)
 
@@ -2016,7 +2044,7 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
         `
         SELECT DISTINCT ON (booking_id)
                booking_id, start_time, end_time, technician_id
-        FROM crm.booking_writebacks
+        FROM booking_writebacks
         WHERE booking_id = ANY($1::text[]) AND status = 'queued'
         ORDER BY booking_id, created_at DESC
         `,
@@ -2725,7 +2753,11 @@ router.get("/wb/jobs-by-region", requireLogin, async (req, res) => {
           br.name,
           bk.b_raw->>'_resource_value@OData.Community.Display.V1.FormattedValue'
         )                                            AS resource_name,
-        br.msdyn_primaryemail                        AS user_email,
+        COALESCE(
+          NULLIF(BTRIM(br.msdyn_primaryemail), ''),
+          NULLIF(BTRIM(su.internalemailaddress), ''),
+          NULLIF(BTRIM(su.domainname), '')
+        )                                            AS user_email,
         bk.booking_id::text                          AS booking_id,
         bk.wo_id::text                               AS work_order_id,
         bk.wo_number                                 AS work_order_number,
@@ -2750,6 +2782,9 @@ router.get("/wb/jobs-by-region", requireLogin, async (req, res) => {
       LEFT JOIN crm.bookableresource br
         ON br.bookableresourceid = bk.resource_id
        AND COALESCE(br.is_deleted, false) = false
+      LEFT JOIN crm.systemuser su
+        ON su.systemuserid = br.userid
+       AND COALESCE(su.is_deleted, false) = false
 
       UNION ALL
 
@@ -2758,7 +2793,11 @@ router.get("/wb/jobs-by-region", requireLogin, async (req, res) => {
         ter.name                                     AS region,
         br.bookableresourceid::text                  AS technician_id,
         br.name                                      AS resource_name,
-        br.msdyn_primaryemail                        AS user_email,
+        COALESCE(
+          NULLIF(BTRIM(br.msdyn_primaryemail), ''),
+          NULLIF(BTRIM(su.internalemailaddress), ''),
+          NULLIF(BTRIM(su.domainname), '')
+        )                                            AS user_email,
         NULL::text                                   AS booking_id,
         NULL::text                                   AS work_order_id,
         NULL::text                                   AS work_order_number,
@@ -2779,6 +2818,9 @@ router.get("/wb/jobs-by-region", requireLogin, async (req, res) => {
       JOIN crm.bookableresource br
         ON br.bookableresourceid = rterr.resource_id
        AND COALESCE(br.is_deleted, false) = false
+      LEFT JOIN crm.systemuser su
+        ON su.systemuserid = br.userid
+       AND COALESCE(su.is_deleted, false) = false
       WHERE NOT EXISTS (SELECT 1 FROM bk WHERE bk.resource_id = rterr.resource_id)
 
       ORDER BY region ASC, resource_name ASC NULLS LAST, start_time ASC NULLS LAST
@@ -3162,10 +3204,10 @@ router.post("/wb/sync", requireRole("editor"), async (req, res) => {
     }
 
     const queued = await localPool.query<WritebackRow>(
-      `UPDATE crm.booking_writebacks
+      `UPDATE booking_writebacks
        SET status = 'processing'
        WHERE id IN (
-         SELECT id FROM crm.booking_writebacks
+         SELECT id FROM booking_writebacks
          WHERE ${eligibility}
          ORDER BY created_at ASC
          FOR UPDATE SKIP LOCKED
@@ -3200,7 +3242,7 @@ router.post("/wb/sync", requireRole("editor"), async (req, res) => {
           });
         }
         await localPool.query(
-          `UPDATE crm.booking_writebacks SET status = 'synced', synced_at = now(), error = NULL WHERE id = $1`,
+          `UPDATE booking_writebacks SET status = 'synced', synced_at = now(), error = NULL WHERE id = $1`,
           [row.id],
         );
         syncedCount += 1;
@@ -3208,7 +3250,7 @@ router.post("/wb/sync", requireRole("editor"), async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
         await localPool.query(
-          `UPDATE crm.booking_writebacks SET status = 'failed', error = $2 WHERE id = $1`,
+          `UPDATE booking_writebacks SET status = 'failed', error = $2 WHERE id = $1`,
           [row.id, message],
         );
         failedCount += 1;
@@ -3396,6 +3438,80 @@ const backfillSchema = z.object({
   woNames: z.array(z.string().trim().min(1)).min(1).max(50),
 });
 
+type MissingBackfillDependency = {
+  field: string;
+  id: string;
+  table: string;
+};
+
+async function findMissingWorkOrderDependencies(
+  crmPool: ReturnType<typeof getCrmPool>,
+  wo: Awaited<ReturnType<typeof fetchWorkOrdersByName>>[number],
+): Promise<MissingBackfillDependency[]> {
+  const checks = [
+    {
+      field: "msdyn_serviceterritory",
+      id: wo.msdyn_serviceterritory,
+      table: "crm.territory",
+      query: "SELECT EXISTS (SELECT 1 FROM crm.territory WHERE territoryid = $1::uuid) AS exists",
+    },
+    {
+      field: "msdyn_serviceaccount",
+      id: wo.msdyn_serviceaccount,
+      table: "crm.account",
+      query: "SELECT EXISTS (SELECT 1 FROM crm.account WHERE accountid = $1::uuid) AS exists",
+    },
+    {
+      field: "cf_servicelocation",
+      id: wo.cf_servicelocation,
+      table: "crm.cf_servicelocation",
+      query: "SELECT EXISTS (SELECT 1 FROM crm.cf_servicelocation WHERE cf_servicelocationid = $1::uuid) AS exists",
+    },
+  ];
+  const missing: MissingBackfillDependency[] = [];
+
+  for (const check of checks) {
+    if (!check.id) continue;
+    const result = await crmPool.query<{ exists: boolean }>(check.query, [check.id]);
+    if (!result.rows[0]?.exists) {
+      missing.push({ field: check.field, id: check.id, table: check.table });
+    }
+  }
+
+  return missing;
+}
+
+async function findMissingBookingDependencies(
+  crmPool: ReturnType<typeof getCrmPool>,
+  booking: Awaited<ReturnType<typeof fetchBookingsForWorkOrders>>[number],
+): Promise<MissingBackfillDependency[]> {
+  const checks = [
+    {
+      field: "resource",
+      id: booking.resource,
+      table: "crm.bookableresource",
+      query: "SELECT EXISTS (SELECT 1 FROM crm.bookableresource WHERE bookableresourceid = $1::uuid) AS exists",
+    },
+    {
+      field: "bookingstatus",
+      id: booking.bookingstatus,
+      table: "crm.bookingstatus",
+      query: "SELECT EXISTS (SELECT 1 FROM crm.bookingstatus WHERE bookingstatusid = $1::uuid) AS exists",
+    },
+  ];
+  const missing: MissingBackfillDependency[] = [];
+
+  for (const check of checks) {
+    if (!check.id) continue;
+    const result = await crmPool.query<{ exists: boolean }>(check.query, [check.id]);
+    if (!result.rows[0]?.exists) {
+      missing.push({ field: check.field, id: check.id, table: check.table });
+    }
+  }
+
+  return missing;
+}
+
 router.post("/wb/admin/backfill-from-dynamics", requireRole("editor"), async (req, res) => {
   if (!isCrmConfigured()) {
     res.status(503).json({ error: "CRM database not configured (D365CRM_DATABASE_URL missing)" });
@@ -3422,9 +3538,23 @@ router.post("/wb/admin/backfill-from-dynamics", requireRole("editor"), async (re
     const notFound = woNames.filter((n) => !foundNames.includes(n));
 
     // 2. Upsert each work order into crm.workorder
-    const woResults: Array<{ woName: string; woId: string; status: "upserted" | "failed"; error?: string }> = [];
+    const woResults: Array<{
+      woName: string;
+      woId: string;
+      status: "upserted" | "failed";
+      missing_dependencies?: MissingBackfillDependency[];
+      error?: string;
+    }> = [];
     for (const wo of workOrders) {
       try {
+        const missingDependencies = await findMissingWorkOrderDependencies(crmPool, wo);
+        const missingFields = new Set(missingDependencies.map((dependency) => dependency.field));
+        if (missingDependencies.length > 0) {
+          req.log.warn(
+            { woName: wo.msdyn_name, woId: wo.msdyn_workorderid, missingDependencies },
+            "backfill: work order has missing CRM dependencies; nulling unavailable foreign keys",
+          );
+        }
         await crmPool.query(
           `INSERT INTO crm.workorder (
              msdyn_workorderid, msdyn_name, msdyn_systemstatus,
@@ -3456,13 +3586,20 @@ router.post("/wb/admin/backfill-from-dynamics", requireRole("editor"), async (re
              raw_json                = EXCLUDED.raw_json`,
           [
             wo.msdyn_workorderid, wo.msdyn_name, wo.msdyn_systemstatus,
-            wo.msdyn_serviceterritory, wo.msdyn_serviceaccount, wo.cf_servicelocation,
+            missingFields.has("msdyn_serviceterritory") ? null : wo.msdyn_serviceterritory,
+            missingFields.has("msdyn_serviceaccount") ? null : wo.msdyn_serviceaccount,
+            missingFields.has("cf_servicelocation") ? null : wo.cf_servicelocation,
             wo.msdyn_workordertype, wo.msdyn_city, wo.msdyn_stateorprovince,
             wo.new_customerrequirement, wo.ownerid,
             wo.createdon, wo.modifiedon, JSON.stringify(wo.rawJson),
           ],
         );
-        woResults.push({ woName: wo.msdyn_name, woId: wo.msdyn_workorderid, status: "upserted" });
+        woResults.push({
+          woName: wo.msdyn_name,
+          woId: wo.msdyn_workorderid,
+          status: "upserted",
+          ...(missingDependencies.length > 0 ? { missing_dependencies: missingDependencies } : {}),
+        });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         req.log.error({ err: e, woName: wo.msdyn_name }, "backfill: workorder upsert failed");
@@ -3476,11 +3613,25 @@ router.post("/wb/admin/backfill-from-dynamics", requireRole("editor"), async (re
       .map((wo) => wo.msdyn_workorderid);
 
     const bookings = await fetchBookingsForWorkOrders(upsertedWoIds);
-    const bookingResults: Array<{ bookingId: string; woName: string; status: "upserted" | "failed"; error?: string }> = [];
+    const bookingResults: Array<{
+      bookingId: string;
+      woName: string;
+      status: "upserted" | "failed";
+      missing_dependencies?: MissingBackfillDependency[];
+      error?: string;
+    }> = [];
 
     for (const b of bookings) {
       const woName = workOrders.find((wo) => wo.msdyn_workorderid === b.msdyn_workorder)?.msdyn_name ?? "?";
       try {
+        const missingDependencies = await findMissingBookingDependencies(crmPool, b);
+        const missingFields = new Set(missingDependencies.map((dependency) => dependency.field));
+        if (missingDependencies.length > 0) {
+          req.log.warn(
+            { bookingId: b.bookableresourcebookingid, woName, missingDependencies },
+            "backfill: booking has missing CRM dependencies; nulling unavailable foreign keys",
+          );
+        }
         await crmPool.query(
           `INSERT INTO crm.booking (
              bookableresourcebookingid, name, starttime, endtime, duration,
@@ -3520,14 +3671,21 @@ router.post("/wb/admin/backfill-from-dynamics", requireRole("editor"), async (re
              raw_json                      = EXCLUDED.raw_json`,
           [
             b.bookableresourcebookingid, b.name, b.starttime, b.endtime, b.duration,
-            b.resource, b.bookingstatus, b.msdyn_workorder,
+            missingFields.has("resource") ? null : b.resource,
+            missingFields.has("bookingstatus") ? null : b.bookingstatus,
+            b.msdyn_workorder,
             b.msdyn_actualarrivaltime, b.msdyn_actualtravelduration, b.msdyn_estimatedtravelduration,
             b.cf_actualarrivaltime, b.cf_endtime, b.cf_durationschedule, b.cf_duration,
             b.cf_fieldnotes, b.cf_internalfieldnotes,
             b.createdon, b.modifiedon, JSON.stringify(b.rawJson),
           ],
         );
-        bookingResults.push({ bookingId: b.bookableresourcebookingid, woName, status: "upserted" });
+        bookingResults.push({
+          bookingId: b.bookableresourcebookingid,
+          woName,
+          status: "upserted",
+          ...(missingDependencies.length > 0 ? { missing_dependencies: missingDependencies } : {}),
+        });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         req.log.error({ err: e, bookingId: b.bookableresourcebookingid }, "backfill: booking upsert failed");
@@ -3664,6 +3822,620 @@ router.delete("/wb/booking-notes/:bookingId", requireRole("editor"), async (req,
   } catch (err) {
     req.log.error({ err, bookingId }, "Failed to delete booking note");
     res.status(500).json({ error: "Failed to delete booking note" });
+  }
+});
+
+
+// ── Calendar Report ───────────────────────────────────────────────────────────
+// GET /wb/calendar-report
+// Returns bookings for specified technicians over a multi-month date range,
+// grouped by technician → month → day. Used by the coordinator calendar report
+// feature to generate per-technician PDF/Word summaries and emails.
+//
+// Query params:
+//   technician_ids  – comma-separated bookableresourceid UUIDs (required)
+//   start_date      – YYYY-MM-DD, first day of the report range (required)
+//   end_date        – YYYY-MM-DD, day after the last day of the range (required)
+//                     Maximum range: 6 months (≈ 184 days).
+router.get("/wb/calendar-report", requireRole("editor"), async (req, res) => {
+  if (!isCrmConfigured()) {
+    res.status(503).json({ error: "d365crm is not configured." });
+    return;
+  }
+
+  const rawIds = ((req.query.technician_ids as string | undefined) ?? "").trim();
+  const startRaw = ((req.query.start_date as string | undefined) ?? "").trim();
+  const endRaw = ((req.query.end_date as string | undefined) ?? "").trim();
+
+  if (!rawIds) {
+    res.status(400).json({ error: "technician_ids is required" });
+    return;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startRaw) || !/^\d{4}-\d{2}-\d{2}$/.test(endRaw)) {
+    res.status(400).json({ error: "start_date and end_date are required (YYYY-MM-DD)" });
+    return;
+  }
+
+  const startDate = new Date(startRaw + "T00:00:00Z");
+  const endDate = new Date(endRaw + "T00:00:00Z");
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || endDate <= startDate) {
+    res.status(400).json({ error: "end_date must be after start_date" });
+    return;
+  }
+  const daySpan = Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000);
+  if (daySpan > 184) {
+    res.status(400).json({ error: "Date range cannot exceed 6 months (184 days)" });
+    return;
+  }
+
+  const techIds = rawIds
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 50);
+
+  const FV = "@OData.Community.Display.V1.FormattedValue";
+
+  try {
+    const pool = getCrmPool();
+
+    // Resolve technician metadata first so we always return rows for every
+    // requested technician, even if they have no bookings in the range.
+    const techRes = await pool.query<{
+      technician_id: string;
+      resource_name: string | null;
+      user_email: string | null;
+      entra_object_id: string | null;
+      user_principal_name: string | null;
+    }>(
+      `SELECT br.bookableresourceid::text AS technician_id,
+              br.name                     AS resource_name,
+              COALESCE(
+                NULLIF(BTRIM(br.msdyn_primaryemail), ''),
+                NULLIF(BTRIM(su.internalemailaddress), ''),
+                NULLIF(BTRIM(su.domainname), '')
+              )                           AS user_email,
+              su.azureactivedirectoryobjectid::text AS entra_object_id,
+              su.domainname                AS user_principal_name
+       FROM crm.bookableresource br
+       LEFT JOIN crm.systemuser su
+         ON su.systemuserid = br.userid
+        AND COALESCE(su.is_deleted, false) = false
+       WHERE bookableresourceid::text = ANY($1::text[])
+         AND COALESCE(br.is_deleted, false) = false`,
+      [techIds],
+    );
+
+    // Fetch all non-cancelled bookings for the requested techs in the range.
+    const bkRes = await pool.query(
+      `SELECT
+         b.bookableresourcebookingid::text        AS booking_id,
+         b.resource::text                         AS resource_id,
+         b.starttime                              AS start_time,
+         b.endtime                                AS end_time,
+         b.raw_json->>'_bookingstatus_value${FV}' AS booking_status,
+         wo.msdyn_workorderid::text               AS work_order_id,
+         wo.msdyn_name                            AS work_order_number,
+         COALESCE(
+           wo.new_customerrequirement,
+           wo.raw_json->>'_msdyn_workordertype_value${FV}'
+         )                                        AS title,
+         wo.raw_json->>'msdyn_systemstatus${FV}'  AS system_status,
+         wo.msdyn_city                            AS city,
+         wo.msdyn_stateorprovince                 AS state,
+         COALESCE(
+           acc.name,
+           wo.raw_json->>'_msdyn_serviceaccount_value${FV}'
+         )                                        AS customer_name,
+         COALESCE(
+           br.name,
+           b.raw_json->>'_resource_value${FV}'
+         )                                        AS resource_name,
+         br.msdyn_primaryemail                    AS user_email,
+         eq.equipment_names
+       FROM crm.booking b
+       LEFT JOIN crm.workorder wo
+         ON wo.msdyn_workorderid = b.msdyn_workorder
+        AND COALESCE(wo.is_deleted, false) = false
+       LEFT JOIN crm.account acc
+         ON acc.accountid = wo.msdyn_serviceaccount
+        AND COALESCE(acc.is_deleted, false) = false
+       LEFT JOIN crm.bookableresource br
+         ON br.bookableresourceid = b.resource
+        AND COALESCE(br.is_deleted, false) = false
+       LEFT JOIN LATERAL (
+         SELECT array_agg(woce.label ORDER BY woce.cf_name ASC) AS equipment_names
+         FROM (
+           SELECT
+             cf_name,
+             cf_name
+               || CASE
+                    WHEN NULLIF(BTRIM(cf_serialnumber), '') IS NOT NULL
+                    THEN ' / ' || BTRIM(cf_serialnumber)
+                    ELSE ''
+                  END AS label
+           FROM crm.cf_workordercustomerequipment
+           WHERE workorderid = wo.msdyn_workorderid
+             AND COALESCE(is_deleted, false) = false
+             AND cf_name IS NOT NULL
+           ORDER BY cf_name ASC
+           LIMIT 5
+         ) woce
+       ) eq ON true
+       WHERE b.starttime >= $1::date
+         AND b.starttime <  $2::date
+         AND b.resource::text = ANY($3::text[])
+         AND COALESCE(b.is_deleted, false) = false
+         AND COALESCE(b.raw_json->>'_bookingstatus_value${FV}', '') NOT ILIKE 'cancel%'
+       ORDER BY b.resource, b.starttime ASC NULLS LAST`,
+      [startRaw, endRaw, techIds],
+    );
+
+    // Build technician index from metadata.
+    // Each technician accumulates a unified `events` array that merges CRM
+    // bookings, FS schedule_blocks (Drive Time / PTO / Custom), and FS
+    // placeholder_jobs (Potential Jobs), all sorted by start_time.
+    type CalEventKind = "job" | "potential" | "drive" | "pto" | "custom";
+    type ReportEvent = {
+      kind: CalEventKind;
+      start_time: string;
+      end_time: string | null;
+      booking_id?: string;
+      work_order_number?: string | null;
+      customer_name?: string | null;
+      city?: string | null;
+      state?: string | null;
+      title?: string | null;
+      booking_status?: string | null;
+      equipment_names?: string[];
+    };
+    type ReportTech = {
+      technician_id: string;
+      resource_name: string | null;
+      user_email: string | null;
+      entra_object_id: string | null;
+      user_principal_name: string | null;
+      events: ReportEvent[];
+    };
+
+    const techMap = new Map<string, ReportTech>();
+    // Seed with all requested techs (ensures empty-schedule techs are included)
+    for (const t of techRes.rows) {
+      techMap.set(t.technician_id, {
+        technician_id: t.technician_id,
+        resource_name: t.resource_name,
+        user_email: t.user_email,
+        entra_object_id: t.entra_object_id,
+        user_principal_name: t.user_principal_name,
+        events: [],
+      });
+    }
+    // Ensure any techs returned from bookings that weren't in the metadata query
+    // still appear (handles edge cases with stale UUIDs).
+    for (const row of bkRes.rows) {
+      const rid = row.resource_id as string;
+      if (!techMap.has(rid)) {
+        techMap.set(rid, {
+          technician_id: rid,
+          resource_name: row.resource_name as string | null,
+          user_email: row.user_email as string | null,
+          entra_object_id: null,
+          user_principal_name: null,
+          events: [],
+        });
+      }
+    }
+    // Append CRM bookings as "job" events
+    for (const row of bkRes.rows) {
+      const rid = row.resource_id as string;
+      const tech = techMap.get(rid);
+      if (!tech || !row.booking_id || !row.start_time) continue;
+      const st = row.start_time instanceof Date ? row.start_time : new Date(row.start_time as string);
+      const et = row.end_time ? (row.end_time instanceof Date ? row.end_time : new Date(row.end_time as string)) : null;
+      tech.events.push({
+        kind: "job",
+        start_time: st.toISOString(),
+        end_time: et ? et.toISOString() : null,
+        booking_id: row.booking_id as string,
+        work_order_number: (row.work_order_number as string | null) ?? null,
+        customer_name: (row.customer_name as string | null) ?? null,
+        city: (row.city as string | null) ?? null,
+        state: (row.state as string | null) ?? null,
+        title: (row.title as string | null) ?? null,
+        booking_status: (row.booking_status as string | null) ?? null,
+        equipment_names: (row.equipment_names as string[] | null) ?? [],
+      });
+    }
+
+    // Fetch schedule_blocks (Drive Time / PTO / Custom) from the FS database.
+    // Include any block that overlaps the requested date range.
+    const blkRes = await localPool.query<{
+      technician_id: string;
+      block_type: string;
+      title: string | null;
+      start_time: Date;
+      end_time: Date | null;
+    }>(
+      `SELECT technician_id, block_type, title, start_time, end_time
+       FROM crm.schedule_blocks
+       WHERE start_time < $1::date
+         AND (end_time IS NULL OR end_time > $2::date)
+         AND technician_id = ANY($3::text[])
+       ORDER BY start_time`,
+      [endRaw, startRaw, techIds],
+    );
+    for (const row of blkRes.rows) {
+      const tech = techMap.get(row.technician_id);
+      if (!tech) continue;
+      const bt = (row.block_type ?? "").toUpperCase();
+      const kind: CalEventKind = bt === "DRIVE_TIME" ? "drive" : bt === "PTO" ? "pto" : "custom";
+      const st = row.start_time instanceof Date ? row.start_time : new Date(row.start_time as string);
+      const et = row.end_time ? (row.end_time instanceof Date ? row.end_time : new Date(row.end_time as string)) : null;
+      tech.events.push({
+        kind,
+        start_time: st.toISOString(),
+        end_time: et ? et.toISOString() : null,
+        title: row.title ?? null,
+      });
+    }
+
+    // Fetch placeholder_jobs (Potential Jobs) from the FS database.
+    const phRes = await localPool.query<{
+      technician_id: string;
+      title: string | null;
+      customer_name: string | null;
+      city: string | null;
+      state: string | null;
+      start_time: Date;
+      end_time: Date | null;
+    }>(
+      `SELECT technician_id, title, customer_name, city, state, start_time, end_time
+       FROM crm.placeholder_jobs
+       WHERE start_time < $1::date
+         AND (end_time IS NULL OR end_time > $2::date)
+         AND technician_id = ANY($3::text[])
+       ORDER BY start_time`,
+      [endRaw, startRaw, techIds],
+    );
+    for (const row of phRes.rows) {
+      const tech = techMap.get(row.technician_id);
+      if (!tech) continue;
+      const st = row.start_time instanceof Date ? row.start_time : new Date(row.start_time as string);
+      const et = row.end_time ? (row.end_time instanceof Date ? row.end_time : new Date(row.end_time as string)) : null;
+      tech.events.push({
+        kind: "potential",
+        start_time: st.toISOString(),
+        end_time: et ? et.toISOString() : null,
+        customer_name: row.customer_name ?? null,
+        city: row.city ?? null,
+        state: row.state ?? null,
+        title: row.title ?? null,
+      });
+    }
+
+    // Sort each technician's events chronologically
+    for (const tech of techMap.values()) {
+      tech.events.sort((a, b) => a.start_time.localeCompare(b.start_time));
+    }
+
+    // If CRM has no email fields populated, resolve the mailbox from
+    // Microsoft Graph using the CRM-linked Entra identity. This is best effort:
+    // schedule data still loads when User.Read.All has not been granted.
+    const unresolvedTechs = Array.from(techMap.values()).filter(
+      (tech) => !tech.user_email && (tech.entra_object_id || tech.user_principal_name),
+    );
+    if (unresolvedTechs.length > 0) {
+      const resolvedEmails = await Promise.all(
+        unresolvedTechs.map((tech) =>
+          lookupGraphDirectoryEmail(tech.entra_object_id, tech.user_principal_name, req.log),
+        ),
+      );
+      unresolvedTechs.forEach((tech, index) => {
+        tech.user_email = resolvedEmails[index];
+      });
+    }
+
+    res.json({
+      range_start: startRaw,
+      range_end: endRaw,
+      technicians: Array.from(techMap.values()),
+    });
+  } catch (err) {
+    handleWbError(req, res, err, "Failed to fetch calendar report data", "Failed to fetch calendar report");
+  }
+});
+
+// ── Calendar Report Email ─────────────────────────────────────────────────────
+// POST /wb/calendar-report/email
+// Sends one email per recipient to individual technicians via Microsoft Graph
+// using client-credentials (application Mail.Send permission). The coordinator's
+// session email is used as the sender (From address).
+//
+// Body: { technician_id, start_date, end_date, pdf_base64 }
+//
+// IMPORTANT: requires Mail.Send to send mail. If CRM email fields are blank,
+// User.Read.All application permission is also required to resolve the linked
+// technician mailbox from Microsoft Graph.
+
+let cachedGraphToken: { value: string; expiresAt: number } | null = null;
+
+async function getGraphAccessToken(): Promise<string> {
+  const tenantId = process.env.ENTRA_TENANT_ID ?? process.env.TENANT_ID;
+  const clientId = process.env.ENTRA_CLIENT_ID ?? process.env.CLIENT_ID;
+  const clientSecret = process.env.ENTRA_CLIENT_SECRET ?? process.env.CLIENT_SECRET;
+  if (!tenantId || !clientId || !clientSecret) {
+    throw new Error("Azure credentials are not configured (TENANT_ID, CLIENT_ID, CLIENT_SECRET required).");
+  }
+
+  const now = Date.now();
+  if (cachedGraphToken && cachedGraphToken.expiresAt > now + 60_000) {
+    return cachedGraphToken.value;
+  }
+
+  const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+  const body = new URLSearchParams({
+    grant_type: "client_credentials",
+    client_id: clientId,
+    client_secret: clientSecret,
+    scope: "https://graph.microsoft.com/.default",
+  });
+
+  const tokenRes = await fetch(tokenUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!tokenRes.ok) {
+    const text = await tokenRes.text().catch(() => "");
+    throw new Error(`Failed to acquire Graph token (${tokenRes.status}): ${text.slice(0, 300)}`);
+  }
+  const json = (await tokenRes.json()) as { access_token: string; expires_in: number };
+  cachedGraphToken = { value: json.access_token, expiresAt: now + json.expires_in * 1000 };
+  return cachedGraphToken.value;
+}
+
+function isPlausibleEmail(value: unknown): value is string {
+  return typeof value === "string" && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim());
+}
+
+/**
+ * Resolve a mailbox from Microsoft Graph using a CRM-linked identity.
+ *
+ * The lookup intentionally uses the Entra object id (or CRM UPN) rather than
+ * searching by display name. Display names are not unique and must never be
+ * used to choose an email recipient.
+ *
+ * User.Read.All (application permission) is required for this fallback. A
+ * missing permission or unavailable directory is treated as "not resolved";
+ * the caller can still use the CRM email fields or return a clear no-email
+ * response.
+ */
+async function lookupGraphDirectoryEmail(
+  objectId: string | null | undefined,
+  userPrincipalName: string | null | undefined,
+  log?: { warn: (obj: Record<string, unknown>, message: string) => void },
+): Promise<string | null> {
+  const identity = objectId?.trim() || userPrincipalName?.trim();
+  if (!identity) return null;
+
+  try {
+    const token = await getGraphAccessToken();
+    const graphUrl =
+      `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(identity)}` +
+      `?$select=mail,userPrincipalName`;
+    const response = await fetch(graphUrl, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    });
+    if (!response.ok) {
+      log?.warn(
+        { status: response.status, identity: objectId ? "entra-object-id" : "crm-upn" },
+        "Microsoft Graph directory email lookup failed",
+      );
+      return null;
+    }
+    const body = (await response.json()) as {
+      mail?: unknown;
+      userPrincipalName?: unknown;
+    };
+    if (isPlausibleEmail(body.mail)) return body.mail.trim();
+    if (isPlausibleEmail(body.userPrincipalName)) return body.userPrincipalName.trim();
+    return null;
+  } catch (err) {
+    log?.warn(
+      { err, identity: objectId ? "entra-object-id" : "crm-upn" },
+      "Microsoft Graph directory email lookup unavailable",
+    );
+    return null;
+  }
+}
+
+// Single-recipient schema: client submits a technician ID + date range +
+// PDF bytes. The server resolves the recipient address from CRM and never
+// trusts a client-supplied email. One PDF per HTTP call keeps the request
+// well within the 5 MB body limit.
+const calendarEmailSchema = z.object({
+  technician_id: z.string().uuid("technician_id must be a UUID"),
+  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "start_date must be YYYY-MM-DD"),
+  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "end_date must be YYYY-MM-DD"),
+  pdf_base64: z.string().min(1),
+});
+
+/** Escape the five XML/HTML metacharacters to prevent injection. */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Build a human-readable date range label e.g. "Aug 2026 – Oct 2026".
+ *  end_date is the exclusive end — we display the month before it. */
+function buildServerDateLabel(startIso: string, endIso: string): string {
+  const fmt = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+  const s = new Date(startIso + "T00:00:00Z");
+  const e = new Date(endIso + "T00:00:00Z");
+  // Step back one day so the exclusive end maps to the last inclusive month.
+  e.setUTCDate(e.getUTCDate() - 1);
+  return `${fmt.format(s)} – ${fmt.format(e)}`;
+}
+
+router.post("/wb/calendar-report/email", requireRole("editor"), async (req, res) => {
+  const senderEmail = req.session?.user?.email;
+  if (!senderEmail) {
+    res.status(400).json({ error: "Sender email not available in session. Please re-login." });
+    return;
+  }
+
+  const parsed = calendarEmailSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
+    return;
+  }
+  const { technician_id, start_date, end_date, pdf_base64 } = parsed.data;
+
+  // Resolve technician name + email from CRM — never trust client-supplied values.
+  let techName: string;
+  let techEmail: string;
+  try {
+    const pool = getCrmPool();
+    const techRes = await pool.query<{
+      resource_name: string | null;
+      user_email: string | null;
+      entra_object_id: string | null;
+      user_principal_name: string | null;
+    }>(
+      `SELECT br.name AS resource_name,
+              COALESCE(
+                NULLIF(BTRIM(br.msdyn_primaryemail), ''),
+                NULLIF(BTRIM(su.internalemailaddress), ''),
+                NULLIF(BTRIM(su.domainname), '')
+              ) AS user_email,
+              su.azureactivedirectoryobjectid::text AS entra_object_id,
+              su.domainname AS user_principal_name
+       FROM crm.bookableresource br
+       LEFT JOIN crm.systemuser su
+         ON su.systemuserid = br.userid
+        AND COALESCE(su.is_deleted, false) = false
+       WHERE br.bookableresourceid::text = $1
+         AND COALESCE(br.is_deleted, false) = false
+       LIMIT 1`,
+      [technician_id],
+    );
+    if (techRes.rows.length === 0) {
+      res.status(404).json({ error: "Technician not found.", technician_id });
+      return;
+    }
+    const row = techRes.rows[0];
+    const graphEmail = row.user_email
+      ? null
+      : await lookupGraphDirectoryEmail(
+          row.entra_object_id,
+          row.user_principal_name,
+          req.log,
+        );
+    techEmail = row.user_email ?? graphEmail ?? "";
+    if (!techEmail) {
+      res.status(422).json({
+        error: "This technician has no email address in CRM or Microsoft 365.",
+        technician_id,
+      });
+      return;
+    }
+    techName = row.resource_name ?? "Technician";
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    req.log.error({ err, technician_id }, "CRM lookup failed in calendar email route");
+    res.status(503).json({ error: "Could not verify technician in CRM.", detail: msg });
+    return;
+  }
+
+  let graphToken: string;
+  try {
+    graphToken = await getGraphAccessToken();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    req.log.error({ err }, "Failed to acquire Graph token for calendar email");
+    res.status(503).json({
+      error: "Could not authenticate with Microsoft Graph. Ensure the app registration has Mail.Send permission granted by an admin.",
+      detail: msg,
+    });
+    return;
+  }
+
+  try {
+    const dateLabel = buildServerDateLabel(start_date, end_date);
+    // Escape all CRM-derived text before HTML interpolation.
+    const safeName = escapeHtml(techName);
+    const safeLabel = escapeHtml(dateLabel);
+    const subject = `Your Field Service Schedule — ${dateLabel}`;
+    const htmlBody = `
+      <p>Hi ${safeName},</p>
+      <p>Please find your field service schedule summary for <strong>${safeLabel}</strong> attached as a PDF.</p>
+      <p>If you have any questions about your schedule, please contact your coordinator.</p>
+      <p>Thank you,<br/>Field Service Coordination</p>
+    `;
+    const safePdfName = techName.replace(/[^a-zA-Z0-9]+/g, "_");
+    const safeLabelName = dateLabel.replace(/[^a-zA-Z0-9]+/g, "_");
+    const fileName = `Schedule_${safePdfName}_${safeLabelName}.pdf`;
+
+    const payload = {
+      message: {
+        subject,
+        body: { contentType: "HTML", content: htmlBody },
+        toRecipients: [{ emailAddress: { address: techEmail } }],
+        attachments: [
+          {
+            "@odata.type": "#microsoft.graph.fileAttachment",
+            name: fileName,
+            contentType: "application/pdf",
+            contentBytes: pdf_base64,
+          },
+        ],
+      },
+      saveToSentItems: true,
+    };
+
+    const sendUrl = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(senderEmail)}/sendMail`;
+    const sendRes = await fetch(sendUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${graphToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!sendRes.ok) {
+      const errText = await sendRes.text().catch(() => "");
+      let errMsg = errText.slice(0, 300);
+      try {
+        const errJson = JSON.parse(errText) as { error?: { message?: string } };
+        if (errJson.error?.message) errMsg = errJson.error.message;
+      } catch { /* keep raw */ }
+      req.log.warn({ technician_id, techEmail, status: sendRes.status, errMsg }, "Graph sendMail failed");
+      res.status(502).json({
+        success: false,
+        technician_id,
+        technician_name: techName,
+        technician_email: techEmail,
+        error: errMsg,
+      });
+      return;
+    }
+
+    req.log.info({ technician_id, techEmail }, "Calendar report email sent");
+    res.json({
+      success: true,
+      technician_id,
+      technician_name: techName,
+      technician_email: techEmail,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    req.log.error({ err, technician_id }, "Unexpected error sending calendar report email");
+    res.status(500).json({ success: false, technician_id, technician_name: techName, technician_email: techEmail, error: msg });
   }
 });
 

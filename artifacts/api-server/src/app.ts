@@ -51,7 +51,10 @@ app.use(
       : undefined,
   ),
 );
-app.use(express.json());
+// The calendar-report email route posts a base64-encoded PDF (~0.5–4 MB) so we
+// raise the JSON limit to 5 MB. All other routes stay well under this threshold
+// and Zod schema validation still guards what each handler actually accepts.
+app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 const PgSession = connectPgSimple(session);
