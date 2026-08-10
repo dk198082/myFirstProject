@@ -214,7 +214,7 @@ router.get("/wb/work-orders", requireLogin, async (req, res) => {
         `
         SELECT DISTINCT ON (booking_id)
                id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error
-        FROM booking_writebacks
+        FROM crm.booking_writebacks
         WHERE booking_id = ANY($1::text[]) AND status = 'queued'
         ORDER BY booking_id, created_at DESC
         `,
@@ -283,7 +283,7 @@ router.patch("/wb/bookings/:bookingId", requireRole("editor"), async (req, res) 
     const workOrderId = existing.rows[0].work_order_id;
 
     const insert = await localPool.query<WritebackRow>(
-      `INSERT INTO booking_writebacks
+      `INSERT INTO crm.booking_writebacks
         (booking_id, work_order_id, start_time, end_time, technician_id, status)
        VALUES ($1, $2, $3, $4, $5, 'queued')
        RETURNING id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error`,
@@ -335,7 +335,7 @@ router.post("/wb/work-orders/:workOrderId/booking", requireRole("editor"), async
     }
 
     const insert = await localPool.query<WritebackRow>(
-      `INSERT INTO booking_writebacks
+      `INSERT INTO crm.booking_writebacks
         (booking_id, work_order_id, start_time, end_time, technician_id, status)
        VALUES ($1, $2, $3, $4, $5, 'queued')
        RETURNING id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error`,
@@ -989,7 +989,7 @@ router.get("/wb/placeholder-jobs", requireLogin, async (req, res) => {
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const r = await localPool.query(
       `SELECT id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at
-       FROM placeholder_jobs ${where} ORDER BY start_time`,
+       FROM crm.placeholder_jobs ${where} ORDER BY start_time`,
       params,
     );
     res.json(
@@ -1382,7 +1382,7 @@ router.get("/wb/writebacks", requireLogin, async (req, res) => {
   try {
     const r = await localPool.query<WritebackRow>(
       `SELECT id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error
-       FROM booking_writebacks
+       FROM crm.booking_writebacks
        ORDER BY created_at DESC
        LIMIT 200`,
     );
@@ -1396,7 +1396,7 @@ router.get("/wb/writebacks", requireLogin, async (req, res) => {
 router.delete("/wb/writebacks/queued", requireRole("editor"), async (req, res) => {
   try {
     const r = await localPool.query<{ count: string }>(
-      `DELETE FROM booking_writebacks WHERE status = 'queued' RETURNING id`,
+      `DELETE FROM crm.booking_writebacks WHERE status = 'queued' RETURNING id`,
     );
     res.json({ deleted: r.rowCount ?? 0 });
   } catch (err) {
@@ -1637,7 +1637,7 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
           `
           SELECT DISTINCT ON (booking_id)
                  booking_id, start_time, end_time, technician_id
-          FROM booking_writebacks
+          FROM crm.booking_writebacks
           WHERE booking_id = ANY($1::text[]) AND status = 'queued'
           ORDER BY booking_id, created_at DESC
           `,
@@ -2044,7 +2044,7 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
         `
         SELECT DISTINCT ON (booking_id)
                booking_id, start_time, end_time, technician_id
-        FROM booking_writebacks
+        FROM crm.booking_writebacks
         WHERE booking_id = ANY($1::text[]) AND status = 'queued'
         ORDER BY booking_id, created_at DESC
         `,
@@ -3204,10 +3204,10 @@ router.post("/wb/sync", requireRole("editor"), async (req, res) => {
     }
 
     const queued = await localPool.query<WritebackRow>(
-      `UPDATE booking_writebacks
+      `UPDATE crm.booking_writebacks
        SET status = 'processing'
        WHERE id IN (
-         SELECT id FROM booking_writebacks
+         SELECT id FROM crm.booking_writebacks
          WHERE ${eligibility}
          ORDER BY created_at ASC
          FOR UPDATE SKIP LOCKED
@@ -3242,7 +3242,7 @@ router.post("/wb/sync", requireRole("editor"), async (req, res) => {
           });
         }
         await localPool.query(
-          `UPDATE booking_writebacks SET status = 'synced', synced_at = now(), error = NULL WHERE id = $1`,
+          `UPDATE crm.booking_writebacks SET status = 'synced', synced_at = now(), error = NULL WHERE id = $1`,
           [row.id],
         );
         syncedCount += 1;
@@ -3250,7 +3250,7 @@ router.post("/wb/sync", requireRole("editor"), async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
         await localPool.query(
-          `UPDATE booking_writebacks SET status = 'failed', error = $2 WHERE id = $1`,
+          `UPDATE crm.booking_writebacks SET status = 'failed', error = $2 WHERE id = $1`,
           [row.id, message],
         );
         failedCount += 1;
