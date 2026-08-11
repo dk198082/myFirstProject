@@ -190,7 +190,7 @@ export function EditBlockDialog({
   const [colorIndex, setColorIndex] = useState<number | null>(block.color_index ?? defaultColorIndex);
 
   const blockLabel =
-    blockType === "drive_time" ? "Drive time" : blockType === "pto" ? "PTO" : customTitle.trim() || "Custom block";
+    blockType === "drive_time" ? "Travel time" : blockType === "pto" ? "PTO" : customTitle.trim() || "Custom block";
 
   const updateMutation = useUpdateWbScheduleBlock({
     mutation: {
@@ -263,7 +263,7 @@ export function EditBlockDialog({
                 }`}
               >
                 <Car className="h-4 w-4" />
-                Drive Time
+                Travel Time
               </button>
               <button
                 type="button"

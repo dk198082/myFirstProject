@@ -72,14 +72,14 @@ export function AddBlockDialog({
   const [city, setCity] = useState("");
   const [state, setStateVal] = useState("");
   const [jobStatus, setJobStatus] = useState("");
-  const [startTime, setStartTime] = useState(`${date}T09:00`);
-  const [endTime, setEndTime] = useState(entryType === "potential_job" ? `${date}T11:00` : `${date}T17:00`);
+  const [startTime, setStartTime] = useState(`${date}T08:00`);
+  const [endTime, setEndTime] = useState(`${date}T17:00`);
   const [notes, setNotes] = useState("");
   const [colorIndex, setColorIndex] = useState<number | null>(defaultColorIndex);
 
   const blockLabel =
     entryType === "drive_time"
-      ? "Drive time"
+      ? "Travel time"
       : entryType === "pto"
         ? "PTO"
         : entryType === "potential_job"
@@ -222,7 +222,7 @@ export function AddBlockDialog({
                 }`}
               >
                 <Car className="h-4 w-4" />
-                Drive Time
+                Travel Time
               </button>
               <button
                 type="button"

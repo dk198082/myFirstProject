@@ -188,7 +188,7 @@ router.get("/auth/callback", async (req, res) => {
           );
         return;
       }
-      
+
       // Map role: "Field Service Calendar - Read / Write" → editor, else viewer.
       // The Admin Console API may return "Read/Write" (no spaces) while the
       // UI displays "Read / Write" (with spaces) — match both forms.
@@ -203,10 +203,8 @@ router.get("/auth/callback", async (req, res) => {
       );
       res.status(503).send("Authorisation service unavailable");
       return;
-      
-      
     }
-     
+
     // Capture returnTo before regenerating — regenerate() clears the old session data.
     const returnTo = sanitizeReturnTo(req.session.returnTo);
 
