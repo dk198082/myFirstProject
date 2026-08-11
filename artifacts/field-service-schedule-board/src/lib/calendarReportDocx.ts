@@ -2,7 +2,7 @@
  * Word (.docx) generation for the technician calendar report.
  * Renders a stacked-weeks calendar grid (one row per week, Mon–Fri columns)
  * matching the board's single-technician Calendar View.
- * Includes all event types: Jobs, Potential Jobs, Drive Time, PTO, Custom.
+ * Includes all event types: Jobs, Potential Jobs, Travel Time, PTO, Custom.
  */
 import {
   Document,
@@ -25,11 +25,10 @@ import type { ReportTechnician, CalEvent, ReportWeek } from "./calendarReportApi
 import {
   buildReportWeeks,
   eventsForDay,
-  eventDisplayName,
-  eventSubline,
+  eventLines,
   EVENT_STYLE_MAP,
-  EVENT_KINDS,
-  fmtTime,
+  EXPORT_EVENT_KINDS,
+  eventsForExport,
 } from "./calendarReportApi";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -37,12 +36,6 @@ import {
 function truncate(value: string, max: number): string {
   const s = (value ?? "").replace(/\s+/g, " ").trim();
   return s.length <= max ? s : s.slice(0, Math.max(1, max - 1)).trimEnd() + "…";
-}
-
-function timeLine(e: CalEvent): string {
-  const s = fmtTime(e.start_time);
-  const end = fmtTime(e.end_time);
-  return s && end ? `${s} – ${end}` : s || end || "";
 }
 
 const BORDER_HEX = "CBD5E1";
@@ -104,57 +97,30 @@ function weekLabelCell(text: string): TableCell {
 
 function eventParagraphs(ev: CalEvent): Paragraph[] {
   const s = EVENT_STYLE_MAP[ev.kind];
-  const time = timeLine(ev);
-  const name = truncate(eventDisplayName(ev), 32);
-  const sub = eventSubline(ev);
-
-  const paras: Paragraph[] = [];
-
-  // Kind + time on one shaded line
-  paras.push(
+  return eventLines(ev).map((line, index, lines) =>
     new Paragraph({
+      indent: { left: 60 },
+      spacing: {
+        before: index === 0 ? 40 : 0,
+        after: index === lines.length - 1 ? 40 : 0,
+      },
       shading: { type: ShadingType.SOLID, color: s.docxBg },
       border: { left: { style: BorderStyle.SINGLE, size: 12, color: s.docxBorder } },
-      spacing: { before: 40, after: 0 },
-      indent: { left: 60 },
       children: [
-        new TextRun({ text: s.label.toUpperCase() + "  ", size: 11, bold: true, color: s.docxBorder }),
-        ...(time ? [new TextRun({ text: time, size: 13, bold: true, color: s.docxBorder })] : []),
+        new TextRun({
+          text: truncate(line, 36),
+          size: index === 0 ? 16 : 14,
+          color: index === 0 ? "1A202C" : "64748B",
+        }),
       ],
     }),
   );
-
-  // Customer / title
-  paras.push(
-    new Paragraph({
-      indent: { left: 60 },
-      spacing: { after: sub ? 0 : 40 },
-      shading: { type: ShadingType.SOLID, color: s.docxBg },
-      border: { left: { style: BorderStyle.SINGLE, size: 12, color: s.docxBorder } },
-      children: [new TextRun({ text: name, size: 14, color: "1A202C" })],
-    }),
-  );
-
-  // Subline (WO / city)
-  if (sub) {
-    paras.push(
-      new Paragraph({
-        indent: { left: 60 },
-        spacing: { after: 40 },
-        shading: { type: ShadingType.SOLID, color: s.docxBg },
-        border: { left: { style: BorderStyle.SINGLE, size: 12, color: s.docxBorder } },
-        children: [new TextRun({ text: truncate(sub, 36), size: 12, color: "64748B" })],
-      }),
-    );
-  }
-
-  return paras;
 }
 
 function dayCell(events: CalEvent[], dayNum: number): TableCell {
   const paras: Paragraph[] = [
     new Paragraph({
-      children: [new TextRun({ text: String(dayNum), size: 12, color: "94A3B8" })],
+      children: [new TextRun({ text: String(dayNum), size: 14, color: "94A3B8" })],
       spacing: { after: 20 },
     }),
     ...events.flatMap((ev) => eventParagraphs(ev)),
@@ -208,11 +174,11 @@ function buildWeekTable(weeks: ReportWeek[], allEvents: CalEvent[]): Table {
 function buildLegendParagraph(): Paragraph {
   return new Paragraph({
     spacing: { after: 240 },
-    children: EVENT_KINDS.flatMap((k, i) => {
+    children: EXPORT_EVENT_KINDS.flatMap((k, i) => {
       const s = EVENT_STYLE_MAP[k];
       return [
         new TextRun({ text: "■ ", color: s.docxBorder, size: 14 }),
-        new TextRun({ text: s.label + (i < EVENT_KINDS.length - 1 ? "   " : ""), size: 14, color: "64748B" }),
+        new TextRun({ text: s.label + (i < EXPORT_EVENT_KINDS.length - 1 ? "   " : ""), size: 16, color: "64748B" }),
       ];
     }),
   });
@@ -234,6 +200,7 @@ export async function generateTechDocx(
   });
 
   const weeks = buildReportWeeks(startDate, endDate);
+  const exportEvents = eventsForExport(tech.events);
 
   // Group weeks by month for month headings
   const byMonth = new Map<string, { label: string; weeks: ReportWeek[] }>();
@@ -283,7 +250,7 @@ export async function generateTechDocx(
   // Legend
   children.push(buildLegendParagraph());
 
-  if (tech.events.length === 0) {
+  if (exportEvents.length === 0) {
     children.push(
       new Paragraph({
         children: [
@@ -310,7 +277,7 @@ export async function generateTechDocx(
       }),
     );
 
-    children.push(buildWeekTable(monthWeeks, tech.events));
+    children.push(buildWeekTable(monthWeeks, exportEvents));
     children.push(new Paragraph({ children: [] }));
   }
 

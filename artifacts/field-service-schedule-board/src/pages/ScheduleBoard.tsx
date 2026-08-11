@@ -51,7 +51,6 @@ import {
   Phone,
   Briefcase,
   AlertTriangle,
-  Printer,
   User,
   MapPin,
   Clock,
@@ -69,6 +68,7 @@ import { EditBookingDialog } from "@/components/EditBookingDialog";
 import { AddBlockDialog } from "@/components/AddBlockDialog";
 import { EditBlockDialog } from "@/components/EditBlockDialog";
 import { EditPlaceholderJobDialog } from "@/components/EditPlaceholderJobDialog";
+import { CalendarReportDialog, type CalendarReportTech } from "@/components/CalendarReportDialog";
 import {
   timeToMins,
   conflictedIdsForTech,
@@ -205,7 +205,7 @@ const REGION_COLOR_MAP: Record<string, number> = {
   R1: 0,   // blue
   R2: 13,  // yellow
   R3: 4,   // violet / purple
-  R4: 1,   // emerald / green
+  R4: 12,  // sky blue
   R5: 8,   // orange
   R8: 14,  // red
   R99: 15, // gray
@@ -432,8 +432,8 @@ function BlockChip({
       : null;
   const chipCls = paletteOverride ?? regionPaletteEntry(regionName).chip;
 
-  const typeLabel = isDriveTime ? "Drive Time" : isPTO ? "PTO" : "Custom";
-  const label = isDriveTime ? "Drive Time" : isPTO ? "PTO" : (block.title?.trim() || "Custom");
+  const typeLabel = isDriveTime ? "Travel Time" : isPTO ? "PTO" : "Custom";
+  const label = isDriveTime ? "Travel Time" : isPTO ? "PTO" : (block.title?.trim() || "Custom");
 
   // For multi-day blocks (rendered once per day), only the start-day chip moves
   // the block and only the end-day chip exposes the stretch handle, so the
@@ -1056,7 +1056,7 @@ function CapacityTooltipContent({
             )}
             {(driveTimeMinutes ?? 0) > 0 && (
               <div className="flex justify-between gap-4">
-                <span className={labelCls}>↳ Drive Time:</span>
+                <span className={labelCls}>↳ Travel Time:</span>
                 <span>{fmtMins(driveTimeMinutes!)}</span>
               </div>
             )}
@@ -1440,8 +1440,9 @@ export default function ScheduleBoard() {
   const [groupBy, setGroupBy] = useState<GroupByMode>("tech-region");
   // When non-null, the board shows the stacked-weeks calendar for just this technician.
   const [focusedTechId, setFocusedTechId] = useState<string | null>(null);
+  const [showCalendarReport, setShowCalendarReport] = useState(false);
 
-  // Drive Time / PTO block being added (or null when dialog is closed).
+  // Travel Time / PTO block being added (or null when dialog is closed).
   const [addingBlock, setAddingBlock] = useState<{
     technicianId: string;
     technicianName: string;
@@ -1551,7 +1552,7 @@ export default function ScheduleBoard() {
   } | null>(null);
 
   // Default type tier within a cell: Scheduled Jobs first, Potential Jobs
-  // second, blocks (Drive Time / PTO / Custom) last — regardless of creation
+  // second, blocks (Travel Time / PTO / Custom) last — regardless of creation
   // order. Chip keys are prefixed by type ("job:", "ph:", "block:").
   const chipTypeTier = (key: string): number => {
     if (key.startsWith("job:")) return 0;
@@ -2026,10 +2027,45 @@ export default function ScheduleBoard() {
   // capacity at a glance without an extra toggle.
   const allRegions = useMemo(() => data?.regions ?? [], [data]);
   const regions = useMemo(
-    () =>
-      selectedRegions === null
-        ? allRegions
-        : allRegions.filter((r) => selectedRegions.has(r.regionid_id)),
+    () => {
+      const r2TechnicianOrder = new Map(
+        [
+          "Gene Leitheiser",
+          "Steve Lockhart",
+          "Brian Uniejewski",
+          "Eric Vennemeyer",
+          "Josh Whitta",
+        ].map((name, index) => [name.toLocaleLowerCase(), index]),
+      );
+
+      const sortTechnicians = (region: (typeof allRegions)[number]) => {
+        if (region.region.toLocaleLowerCase() !== "r2") return region;
+
+        return {
+          ...region,
+          technicians: [...region.technicians].sort((a, b) => {
+            const aName = (a.resource_name ?? "").toLocaleLowerCase();
+            const bName = (b.resource_name ?? "").toLocaleLowerCase();
+            const aOrder = r2TechnicianOrder.get(aName);
+            const bOrder = r2TechnicianOrder.get(bName);
+
+            if (aOrder !== undefined && bOrder !== undefined) {
+              return aOrder - bOrder;
+            }
+            if (aOrder !== undefined) return -1;
+            if (bOrder !== undefined) return 1;
+            return 0;
+          }),
+        };
+      };
+
+      const visibleRegions =
+        selectedRegions === null
+          ? allRegions
+          : allRegions.filter((r) => selectedRegions.has(r.regionid_id));
+
+      return visibleRegions.map(sortTechnicians);
+    },
     [allRegions, selectedRegions],
   );
 
@@ -2153,7 +2189,7 @@ export default function ScheduleBoard() {
   const techUtilMinutes = (technicianId: string) =>
     techUtilMinutesById.get(technicianId) ?? 0;
 
-  // Per-technician Drive Time + PTO block minutes, summed across the whole range.
+  // Per-technician Travel Time + PTO block minutes, summed across the whole range.
   // Split block minutes by explicit type so Custom blocks can be excluded
   // from utilization (they are visual annotations, not booked time).
   const blockMinutesByTech = useMemo(() => {
@@ -2195,14 +2231,11 @@ export default function ScheduleBoard() {
     placeholderMinutesByTech.get(technicianId) ?? 0;
 
   // Total utilization = utilized_minutes (CRM jobs + Potential Jobs, summed
-  // server-side) + Drive Time + PTO. Custom blocks are deliberately excluded.
+  // server-side) + Travel Time + PTO. Custom blocks are deliberately excluded.
   const techTotalUtilMinutes = (technicianId: string) => {
     const { driveTime, pto } = techBlockMinutes(technicianId);
     return techUtilMinutes(technicianId) + driveTime + pto;
   };
-
-  // Time horizon for unscheduled jobs driven by the active view (no separate toggle)
-  const unscheduledHorizonDays = view === "week" ? 7 : 30;
 
   // Map selected regionid_ids → region name strings for unscheduled job filtering
   const activeRegionNames = useMemo(() => {
@@ -2212,9 +2245,11 @@ export default function ScheduleBoard() {
     );
   }, [allRegions, selectedRegions]);
 
-  // Unscheduled jobs filtered by active region + view-derived horizon.
+  // Unscheduled jobs are filtered by the active region only. Date-based grouping
+  // remains visible below, but managers should be able to see every unscheduled
+  // job in a selected region regardless of its due date.
   // Exception: the currently highlighted job (from a search result click) is always
-  // included regardless of horizon/region so the target card is in the DOM to scroll to.
+  // included regardless of region so the target card is in the DOM to scroll to.
   const visibleUnscheduledJobs = useMemo(() => {
     return unscheduledJobs.filter((j) => {
       // Always include the search-highlighted job so its card is scrollable.
@@ -2226,12 +2261,9 @@ export default function ScheduleBoard() {
         return true;
       if (activeRegionNames !== null && (j.region == null || !activeRegionNames.has(j.region)))
         return false;
-      if (!j.due_date) return unscheduledHorizonDays >= 30;
-      const diffDays =
-        (new Date(j.due_date + "T00:00:00Z").getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-      return diffDays <= unscheduledHorizonDays;
+      return true;
     });
-  }, [unscheduledJobs, activeRegionNames, unscheduledHorizonDays, highlightedUnscheduledId]);
+  }, [unscheduledJobs, activeRegionNames, highlightedUnscheduledId]);
 
   // Detect double-booked jobs: same tech, same day, overlapping time windows.
   const conflictedBookingIds = useMemo(() => {
@@ -2349,6 +2381,29 @@ export default function ScheduleBoard() {
     setStart(startOfWeekISO(seed));
     setView("week");
   };
+
+  // ---- Calendar Report tech list (includes user_email for email delivery) ----
+  const calendarReportTechs = useMemo<CalendarReportTech[]>(() => {
+    const m = new Map<string, CalendarReportTech>();
+    // Use the same filtered regions and technician selection as the board.
+    // `regions` already applies the Region Filters; apply the Technician
+    // Filters here as well so the report opens with exactly the visible roster.
+    for (const r of regions) {
+      for (const t of r.technicians as Array<{ technician_id: string; resource_name?: string | null; user_email?: string | null }>) {
+        if (selectedTechIds !== null && !selectedTechIds.has(t.technician_id)) {
+          continue;
+        }
+        if (t.technician_id && !m.has(t.technician_id)) {
+          m.set(t.technician_id, {
+            id: t.technician_id,
+            name: t.resource_name ?? "Unassigned",
+            email: t.user_email ?? null,
+          });
+        }
+      }
+    }
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [regions, selectedTechIds]);
 
   // ---- Per-Tech (printable) view derivations ----
   const allTechs = useMemo(() => {
@@ -2634,16 +2689,16 @@ export default function ScheduleBoard() {
               By Service Location
             </button>
           </div>
-          {view === "tech" && allTechs.length > 0 && (
+          {isEditor && !isLoading && data && calendarReportTechs.length > 0 && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.print()}
-              data-testid="btn-print"
+              onClick={() => setShowCalendarReport(true)}
+              data-testid="btn-calendar-report"
               className="gap-1.5"
             >
-              <Printer className="h-3.5 w-3.5" />
-              Print
+              <Download className="h-3.5 w-3.5" />
+              Calendar Report
             </Button>
           )}
           {!isLoading && data && (
@@ -4117,7 +4172,6 @@ export default function ScheduleBoard() {
         const buckets: UnscheduledJob[][] = [[], [], []];
         for (const j of visibleUnscheduledJobs) buckets[getBucketIndex(j.due_date)].push(j);
         buckets.forEach((b) => b.sort(sortByDue));
-        const horizonLabel = view === "week" ? "next 7 days" : "next 30 days";
         return (
           <div className="space-y-3" data-testid="card-unscheduled-jobs">
             {/* Section header */}
@@ -4125,7 +4179,7 @@ export default function ScheduleBoard() {
               <Briefcase className="h-4 w-4 text-muted-foreground" />
               <h2 className="text-sm font-semibold text-foreground">Unscheduled Jobs</h2>
               <Badge variant="secondary" className="ml-1 text-[10px]">{visibleUnscheduledJobs.length}</Badge>
-              <span className="text-xs text-muted-foreground">· due within {horizonLabel}</span>
+              <span className="text-xs text-muted-foreground">· all dates</span>
               {activeRegionNames !== null && (
                 <span className="text-xs text-muted-foreground">
                   · {activeRegionNames.size} region{activeRegionNames.size !== 1 ? "s" : ""} selected
@@ -4401,6 +4455,12 @@ export default function ScheduleBoard() {
           technicianName={editingPlaceholder.technicianName}
           defaultColorIndex={REGION_COLOR_MAP[editingPlaceholder.regionName] ?? 0}
           onClose={() => setEditingPlaceholder(null)}
+        />
+      )}
+      {showCalendarReport && (
+        <CalendarReportDialog
+          technicians={calendarReportTechs}
+          onClose={() => setShowCalendarReport(false)}
         />
       )}
 

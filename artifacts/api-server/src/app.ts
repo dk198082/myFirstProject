@@ -75,7 +75,7 @@ app.use(
     // expire, plus an index on expire, in every environment (dev and production).
     store: new PgSession({
       pool: localPool,
-      schemaName: "crm",
+       schemaName: "crm",
       tableName: "sessions",
       createTableIfMissing: false,
     }),

@@ -8,7 +8,7 @@
 
 /**
  * A single calendar event: a scheduled job, a potential (placeholder) job,
- * or a schedule block (Drive Time, PTO, Custom).
+ * or a schedule block (Travel Time, PTO, Custom).
  */
 export type CalEvent = {
   kind: "job" | "potential" | "drive" | "pto" | "custom";
@@ -53,7 +53,7 @@ export type EventStyleConfig = {
 export const EVENT_STYLE_MAP: Record<CalEvent["kind"], EventStyleConfig> = {
   job:       { label: "Job",           pdfBg: "#eef4fa", pdfBorder: "#1e3a5f", pdfText: "#1a202c", docxBg: "EEF4FA", docxBorder: "1E3A5F", dialogColor: "#1e3a5f" },
   potential: { label: "Potential Job", pdfBg: "#fff7ed", pdfBorder: "#c2410c", pdfText: "#431407", docxBg: "FFF7ED", docxBorder: "C2410C", dialogColor: "#c2410c" },
-  drive:     { label: "Drive Time",    pdfBg: "#f0fdf4", pdfBorder: "#15803d", pdfText: "#14532d", docxBg: "F0FDF4", docxBorder: "15803D", dialogColor: "#15803d" },
+  drive:     { label: "Travel Time",   pdfBg: "#f0fdf4", pdfBorder: "#15803d", pdfText: "#14532d", docxBg: "F0FDF4", docxBorder: "15803D", dialogColor: "#15803d" },
   pto:       { label: "PTO",           pdfBg: "#fdf4ff", pdfBorder: "#7e22ce", pdfText: "#3b0764", docxBg: "FDF4FF", docxBorder: "7E22CE", dialogColor: "#7e22ce" },
   custom:    { label: "Custom",        pdfBg: "#fefce8", pdfBorder: "#a16207", pdfText: "#713f12", docxBg: "FEFCE8", docxBorder: "A16207", dialogColor: "#a16207" },
 };
@@ -61,6 +61,15 @@ export const EVENT_STYLE_MAP: Record<CalEvent["kind"], EventStyleConfig> = {
 export const EVENT_KINDS: ReadonlyArray<CalEvent["kind"]> = [
   "job", "potential", "drive", "pto", "custom",
 ];
+
+/** Event kinds included in downloadable PDF and Word reports. */
+export const EXPORT_EVENT_KINDS: ReadonlyArray<Exclude<CalEvent["kind"], "custom">> = [
+  "job", "potential", "drive", "pto",
+];
+
+export function eventsForExport(events: CalEvent[]): CalEvent[] {
+  return events.filter((event) => event.kind !== "custom");
+}
 
 // ── API calls ─────────────────────────────────────────────────────────────────
 
@@ -182,10 +191,31 @@ export function buildReportWeeks(startISO: string, endISO: string): ReportWeek[]
   return weeks;
 }
 
-/** Return a technician's events that fall on the given ISO date, sorted by start_time. */
+/** Return a technician's events that cover the given ISO date (multi-day events
+ *  appear on every day they span, Mon–Fri), sorted by start_time.
+ *
+ *  Uses a half-open interval [start, end): an event covers `iso` when
+ *  its start date ≤ iso AND its end instant is strictly after midnight UTC
+ *  of `iso`.  This correctly handles both intra-day events (end same day)
+ *  and exclusive-midnight end boundaries (e.g. PTO stored as Wed 00:00 UTC
+ *  covers Mon–Tue only). */
 export function eventsForDay(events: CalEvent[], iso: string): CalEvent[] {
+  // Midnight UTC of the target date as milliseconds — the lower bound for end_time.
+  const dayStartMs = Date.UTC(
+    Number(iso.slice(0, 4)),
+    Number(iso.slice(5, 7)) - 1,
+    Number(iso.slice(8, 10)),
+  );
+
   return events
-    .filter((e) => e.start_time && e.start_time.slice(0, 10) === iso)
+    .filter((e) => {
+      if (!e.start_time) return false;
+      const startDate = e.start_time.slice(0, 10);
+      if (startDate > iso) return false; // event hasn't started on this day
+      if (!e.end_time) return startDate === iso; // no end: only on start date
+      // Half-open [start, end): end_time must be strictly after midnight of iso.
+      return new Date(e.end_time).getTime() > dayStartMs;
+    })
     .sort((a, b) => a.start_time.localeCompare(b.start_time));
 }
 
@@ -245,6 +275,27 @@ export function eventSubline(e: CalEvent): string | null {
     return [e.city, e.state].filter(Boolean).join(", ") || null;
   }
   return null;
+}
+
+/**
+ * Lines shown inside downloadable report chips.
+ * Scheduled jobs intentionally use exactly three lines:
+ * customer, city/state, and job number.
+ */
+export function eventLines(e: CalEvent): string[] {
+  if (e.kind === "job") {
+    return [
+      e.customer_name ?? "—",
+      [e.city, e.state].filter(Boolean).join(", ") || "—",
+      e.work_order_number ?? "—",
+    ];
+  }
+
+  const lines = [eventDisplayName(e)];
+  const sub = eventSubline(e);
+  if (sub) lines.push(sub);
+  if (e.kind === "potential" && e.booking_status) lines.push(e.booking_status);
+  return lines;
 }
 
 // ── Date / time formatters ────────────────────────────────────────────────────

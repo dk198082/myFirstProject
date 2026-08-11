@@ -2,18 +2,17 @@
  * PDF generation for the technician calendar report.
  * Renders a stacked-weeks calendar grid (one row per week, Mon–Fri columns)
  * matching the board's single-technician Calendar View.
- * Includes all event types: Jobs, Potential Jobs, Drive Time, PTO, Custom.
+ * Includes scheduled jobs, potential jobs, Travel Time, and PTO.
  */
 import { Document, Page, View, Text, StyleSheet, pdf } from "@react-pdf/renderer";
 import type { ReportTechnician, CalEvent } from "./calendarReportApi";
 import {
   buildReportWeeks,
   eventsForDay,
-  eventDisplayName,
-  eventSubline,
+  eventLines,
   EVENT_STYLE_MAP,
-  EVENT_KINDS,
-  fmtTime,
+  EXPORT_EVENT_KINDS,
+  eventsForExport,
 } from "./calendarReportApi";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -21,12 +20,6 @@ import {
 function truncate(value: string, max: number): string {
   const s = (value ?? "").replace(/\s+/g, " ").trim();
   return s.length <= max ? s : s.slice(0, Math.max(1, max - 1)).trimEnd() + "…";
-}
-
-function timeLine(e: CalEvent): string {
-  const s = fmtTime(e.start_time);
-  const end = fmtTime(e.end_time);
-  return s && end ? `${s} – ${end}` : s || end || "";
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -42,7 +35,7 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     paddingLeft: 26,
     paddingRight: 26,
-    fontSize: 8,
+    fontSize: 9,
     fontFamily: "Helvetica",
     color: "#1a202c",
   },
@@ -55,17 +48,17 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     borderBottom: `2pt solid ${COL_BLUE}`,
   },
-  techName:    { fontSize: 15, fontFamily: "Helvetica-Bold", color: COL_BLUE },
-  dateRange:   { fontSize: 9,  color: COL_MUTED, marginTop: 2 },
-  generatedAt: { fontSize: 8,  color: COL_MUTED, textAlign: "right" },
+  techName:    { fontSize: 17, fontFamily: "Helvetica-Bold", color: COL_BLUE },
+  dateRange:   { fontSize: 10, color: COL_MUTED, marginTop: 2 },
+  generatedAt: { fontSize: 9,  color: COL_MUTED, textAlign: "right" },
   // ── Legend ───────────────────────────────────────────────────────────────
   legendRow:   { flexDirection: "row", gap: 10, marginBottom: 8, flexWrap: "wrap" },
   legendItem:  { flexDirection: "row", alignItems: "center", gap: 3 },
   legendSwatch: { width: 8, height: 8, borderRadius: 1 },
-  legendLabel:  { fontSize: 7, color: COL_MUTED },
+  legendLabel:  { fontSize: 8, color: COL_MUTED },
   // ── Month heading ─────────────────────────────────────────────────────────
   monthHeader:     { backgroundColor: COL_BLUE, paddingVertical: 4, paddingHorizontal: 8, marginTop: 10 },
-  monthHeaderText: { color: "white", fontSize: 10, fontFamily: "Helvetica-Bold" },
+  monthHeaderText: { color: "white", fontSize: 11, fontFamily: "Helvetica-Bold" },
   // ── Day-name header row ───────────────────────────────────────────────────
   headRow: {
     flexDirection: "row",
@@ -86,15 +79,15 @@ const styles = StyleSheet.create({
     borderRight: `1pt solid ${COL_BORDER}`,
   },
   headDayCellLast: { borderRight: "0" },
-  headText: { fontSize: 8, fontFamily: "Helvetica-Bold", color: COL_BLUE, textAlign: "center" },
-  headWeekText: { fontSize: 8, fontFamily: "Helvetica-Bold", color: COL_BLUE },
+  headText: { fontSize: 9, fontFamily: "Helvetica-Bold", color: COL_BLUE, textAlign: "center" },
+  headWeekText: { fontSize: 9, fontFamily: "Helvetica-Bold", color: COL_BLUE },
   // ── Week row ─────────────────────────────────────────────────────────────
   weekRow: {
     flexDirection: "row",
     borderBottom: `1pt solid ${COL_BORDER}`,
     borderLeft: `1pt solid ${COL_BORDER}`,
     borderRight: `1pt solid ${COL_BORDER}`,
-    minHeight: 52,
+    minHeight: 72,
   },
   weekLabelCell: {
     width: 74,
@@ -103,7 +96,7 @@ const styles = StyleSheet.create({
     borderRight: `1pt solid ${COL_BORDER}`,
     backgroundColor: "#f8fafc",
   },
-  weekLabel: { fontSize: 7.5, fontFamily: "Helvetica-Bold", color: "#334155" },
+  weekLabel: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: "#334155" },
   dayCell: {
     flex: 1,
     paddingVertical: 3,
@@ -111,13 +104,11 @@ const styles = StyleSheet.create({
     borderRight: `1pt solid ${COL_BORDER}`,
   },
   dayCellLast: { borderRight: "0" },
-  dayNum: { fontSize: 6.5, color: COL_MUTED, marginBottom: 2 },
+  dayNum: { fontSize: 8, color: COL_MUTED, marginBottom: 3 },
   // ── Event chip ────────────────────────────────────────────────────────────
-  chip: { paddingVertical: 2, paddingHorizontal: 3, marginBottom: 2, borderRadius: 1 },
-  chipKind:     { fontSize: 5.5, fontFamily: "Helvetica-Bold", letterSpacing: 0.2, marginBottom: 1 },
-  chipTime:     { fontSize: 6.5, fontFamily: "Helvetica-Bold" },
-  chipName:     { fontSize: 7 },
-  chipSubline:  { fontSize: 6, color: COL_MUTED },
+  chip: { paddingVertical: 3, paddingHorizontal: 4, marginBottom: 3, borderRadius: 1 },
+  chipName:     { fontSize: 8.5 },
+  chipSubline:  { fontSize: 7.5, color: COL_MUTED },
   // ── Page number ───────────────────────────────────────────────────────────
   pageNumber: { position: "absolute", bottom: 16, right: 26, fontSize: 8, color: COL_MUTED },
 });
@@ -128,21 +119,18 @@ const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as co
 
 function EventChip({ event }: { event: CalEvent }) {
   const s = EVENT_STYLE_MAP[event.kind];
-  const sub = eventSubline(event);
-  const name = truncate(eventDisplayName(event), 26);
-  const time = timeLine(event);
+  const lines = eventLines(event);
   return (
     <View style={[styles.chip, { backgroundColor: s.pdfBg, borderLeft: `2pt solid ${s.pdfBorder}` }]}>
-      <Text style={[styles.chipKind, { color: s.pdfBorder }]} wrap={false}>
-        {s.label.toUpperCase()}
-      </Text>
-      {time ? (
-        <Text style={[styles.chipTime, { color: s.pdfBorder }]} wrap={false}>{time}</Text>
-      ) : null}
-      <Text style={[styles.chipName, { color: s.pdfText }]} wrap={false}>{name}</Text>
-      {sub ? (
-        <Text style={styles.chipSubline} wrap={false}>{truncate(sub, 30)}</Text>
-      ) : null}
+      {lines.map((line, index) => (
+        <Text
+          key={index}
+          style={index === 0 ? [styles.chipName, { color: s.pdfText }] : styles.chipSubline}
+          wrap={false}
+        >
+          {truncate(line, index === 0 ? 26 : 30)}
+        </Text>
+      ))}
     </View>
   );
 }
@@ -163,6 +151,7 @@ function TechPdfDoc({ tech, dateRangeLabel, startDate, endDate }: TechPdfDocProp
     year: "numeric",
   });
   const weeks = buildReportWeeks(startDate, endDate);
+  const exportEvents = eventsForExport(tech.events);
 
   let lastMonth = "";
 
@@ -183,7 +172,7 @@ function TechPdfDoc({ tech, dateRangeLabel, startDate, endDate }: TechPdfDocProp
 
         {/* Legend */}
         <View style={styles.legendRow}>
-          {EVENT_KINDS.map((k) => {
+          {EXPORT_EVENT_KINDS.map((k) => {
             const s = EVENT_STYLE_MAP[k];
             return (
               <View key={k} style={styles.legendItem}>
@@ -233,7 +222,7 @@ function TechPdfDoc({ tech, dateRangeLabel, startDate, endDate }: TechPdfDocProp
                   <Text style={styles.weekLabel}>{week.label}</Text>
                 </View>
                 {week.days.map((day, i) => {
-                  const dayEvents = eventsForDay(tech.events, day.iso);
+                   const dayEvents = eventsForDay(exportEvents, day.iso);
                   return (
                     <View
                       key={day.iso}
@@ -251,7 +240,7 @@ function TechPdfDoc({ tech, dateRangeLabel, startDate, endDate }: TechPdfDocProp
           );
         })}
 
-        {tech.events.length === 0 && (
+        {exportEvents.length === 0 && (
           <Text style={{ fontSize: 9, color: COL_MUTED, fontStyle: "italic", marginTop: 16 }}>
             No scheduled activity in this period.
           </Text>
