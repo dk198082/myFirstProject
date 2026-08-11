@@ -52,7 +52,6 @@
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "cmdk": "^1.1.1",
-    "cross-env": "^10.1.0",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "catalog:",
@@ -76,6 +75,8 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "docx": "^9.7.1"
+    "@react-pdf/renderer": "^4.5.1",
+    "docx": "^9.7.1",
+    "jszip": "^3.10.1"
   }
 }
