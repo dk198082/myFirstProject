@@ -104,6 +104,28 @@ function addMonthsISO(iso: string, months: number): string {
     .slice(0, 10);
 }
 
+function addYearsISO(iso: string, years: number): string {
+  const d = new Date(iso + "T00:00:00Z");
+  const targetYear = d.getUTCFullYear() + years;
+  const lastDayOfTargetMonth = new Date(
+    Date.UTC(targetYear, d.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  const day = Math.min(d.getUTCDate(), lastDayOfTargetMonth);
+  return new Date(Date.UTC(targetYear, d.getUTCMonth(), day))
+    .toISOString()
+    .slice(0, 10);
+}
+
+function nextQuarterStartISO(iso: string): string {
+  const d = new Date(iso + "T00:00:00Z");
+  const currentQuarterStartMonth = Math.floor(d.getUTCMonth() / 3) * 3;
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), currentQuarterStartMonth + 3, 1),
+  )
+    .toISOString()
+    .slice(0, 10);
+}
+
 function fmtDayHeader(iso: string, mode: ViewMode): { dow: string; date: string } {
   const d = new Date(iso + "T00:00:00Z");
   return {
@@ -211,9 +233,37 @@ const REGION_COLOR_MAP: Record<string, number> = {
   R99: 15, // gray
 };
 
-function regionPaletteEntry(regionName: string | null | undefined) {
+const REGION_POTENTIAL_COLOR_MAP: Record<string, number> = {
+  ...REGION_COLOR_MAP,
+  R4: 13, // yellow
+};
+
+const REGION_CUSTOM_COLOR_MAP: Record<string, number> = {
+  ...REGION_COLOR_MAP,
+  R4: 8, // orange
+};
+
+type RegionColorKind = "potential" | "custom" | "standard";
+
+function regionColorIndex(
+  regionName: string | null | undefined,
+  kind: RegionColorKind = "standard",
+): number {
+  const map =
+    kind === "potential"
+      ? REGION_POTENTIAL_COLOR_MAP
+      : kind === "custom"
+        ? REGION_CUSTOM_COLOR_MAP
+        : REGION_COLOR_MAP;
+  return map[regionName ?? ""] ?? 0;
+}
+
+function regionPaletteEntry(
+  regionName: string | null | undefined,
+  kind: RegionColorKind = "standard",
+) {
   if (!regionName) return TECH_PALETTE[0];
-  const idx = REGION_COLOR_MAP[regionName] ?? 0;
+  const idx = regionColorIndex(regionName, kind);
   return TECH_PALETTE[idx] ?? TECH_PALETTE[0];
 }
 
@@ -366,20 +416,22 @@ function fmtBlockTime(iso: string): string {
   });
 }
 
-// Render chip notes: single-line notes stay one truncated row; notes with
-// line breaks (entered via Enter in the dialog textarea) render as a vertical
-// list, one truncated row per non-empty line.
+// Render chip notes: preserve line breaks entered in the dialog textarea while
+// allowing each line to wrap within the chip.
 function ChipNotes({ notes, className }: { notes: string; className: string }) {
+  const wrappingClassName = className
+    .replace(/\btruncate\b/g, "whitespace-normal break-words")
+    .trim();
   const lines = notes
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
   if (lines.length === 0) return null;
-  if (lines.length === 1) return <div className={className}>{lines[0]}</div>;
+  if (lines.length === 1) return <div className={wrappingClassName}>{lines[0]}</div>;
   return (
-    <div className={className.replace(/\btruncate\b/, "").trim()}>
+    <div className={wrappingClassName}>
       {lines.map((line, i) => (
-        <div key={i} className="truncate">
+        <div key={i} className="whitespace-normal break-words">
           • {line}
         </div>
       ))}
@@ -430,7 +482,7 @@ function BlockChip({
     block.color_index != null
       ? TECH_PALETTE[block.color_index]?.chip ?? null
       : null;
-  const chipCls = paletteOverride ?? regionPaletteEntry(regionName).chip;
+  const chipCls = paletteOverride ?? regionPaletteEntry(regionName, isCustom ? "custom" : "standard").chip;
 
   const typeLabel = isDriveTime ? "Travel Time" : isPTO ? "PTO" : "Custom";
   const label = isDriveTime ? "Travel Time" : isPTO ? "PTO" : (block.title?.trim() || "Custom");
@@ -474,7 +526,7 @@ function BlockChip({
           ) : (
             <Pencil className="h-3 w-3 shrink-0" />
           )}
-          <span className="font-semibold truncate">{label}</span>
+          <span className="min-w-0 flex-1 font-semibold whitespace-normal break-words">{label}</span>
           {onDelete && <button
             type="button"
             className="ml-auto shrink-0 opacity-50 hover:opacity-100 transition-opacity"
@@ -487,7 +539,7 @@ function BlockChip({
             <X className="h-3 w-3" />
           </button>}
         </div>
-        <div className="opacity-80 truncate">
+        <div className="opacity-80 whitespace-normal break-words">
           {isMultiDay ? `${dayCount} days` : duration}
         </div>
         {block.notes && (
@@ -568,8 +620,8 @@ function PlaceholderJobChip({
   regionName: string;
 }) {
   const colorCls = job.color_index != null
-    ? TECH_PALETTE[job.color_index]?.chip ?? regionPaletteEntry(regionName).chip
-    : regionPaletteEntry(regionName).chip;
+     ? TECH_PALETTE[job.color_index]?.chip ?? regionPaletteEntry(regionName, "potential").chip
+     : regionPaletteEntry(regionName, "potential").chip;
   const duration = fmtBlockDuration(job.start_time, job.end_time);
   const location = [job.city, job.state].filter(Boolean).join(", ");
 
@@ -627,7 +679,7 @@ function PlaceholderJobChip({
           }
         }}
         onDragEnd={() => onDragEnd?.()}
-        className={`relative w-full rounded border border-dashed text-[11px] px-1.5 py-1 leading-tight cursor-pointer transition-colors overflow-hidden ${colorCls} ${isDragging ? "opacity-40" : ""} ${dimmed ? "opacity-20" : ""}`}
+        className={`relative w-full rounded border border-dashed text-[11px] px-1.5 py-1 leading-tight cursor-pointer transition-colors ${colorCls} ${isDragging ? "opacity-40" : ""} ${dimmed ? "opacity-20" : ""}`}
       >
         {/* Diagonal stripe overlay — marks this as a potential job */}
         <div
@@ -645,9 +697,9 @@ function PlaceholderJobChip({
         >
           <X className="h-3 w-3" />
         </button>}
-        <div className="relative opacity-90 truncate pr-3">{job.customer_name || job.title}</div>
-        {location && <div className="relative opacity-70 truncate">{location}</div>}
-        {job.status && <div className="relative opacity-60 truncate">{job.status}</div>}
+        <div className="relative opacity-90 whitespace-normal break-words pr-3">{job.customer_name || job.title}</div>
+        {location && <div className="relative opacity-70 whitespace-normal break-words">{location}</div>}
+        {job.status && <div className="relative opacity-60 whitespace-normal break-words">{job.status}</div>}
         {job.notes && (
           <ChipNotes notes={job.notes} className="relative opacity-60 truncate" />
         )}
@@ -844,7 +896,7 @@ function JobChip({
         />
       )}
       <div className="flex items-center gap-1">
-        <span className="font-semibold truncate">{job.work_order_number ?? "WO"}</span>
+         <span className="min-w-0 flex-1 font-semibold whitespace-normal break-words">{job.work_order_number ?? "WO"}</span>
         {isMultiDay && (
           <span className="shrink-0 rounded bg-black/10 px-1 text-[9px] font-semibold tabular-nums">
             D{dayPos}/{dayTotal}
@@ -854,20 +906,20 @@ function JobChip({
           <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" aria-label="Double-booked" />
         )}
       </div>
-      {!compact && <div className="opacity-90 truncate">{job.customer_name ?? "—"}</div>}
+      {!compact && <div className="opacity-90 whitespace-normal break-words">{job.customer_name ?? "—"}</div>}
       {!compact && (job.city || job.state) && (
-        <div className="opacity-75 truncate">
+        <div className="opacity-75 whitespace-normal break-words">
           {[job.city, job.state].filter(Boolean).join(", ")}
         </div>
       )}
       {!compact && (job.crmstarttime || job.crmendtime) && showDuration && (
-        <div className="opacity-80 truncate">
+        <div className="opacity-80 whitespace-normal break-words">
           {isMultiDay
             ? chipTimeLabel(job)
             : fmtDuration(job.crmstarttime, job.crmendtime) || chipTimeLabel(job)}
         </div>
       )}
-      {!compact && job.notes && <div className="opacity-70 truncate">{job.notes}</div>}
+      {!compact && job.notes && <div className="opacity-70 whitespace-normal break-words">{job.notes}</div>}
       {!compact && localNote && (
         <ChipNotes notes={localNote} className="opacity-75 truncate border-t border-current/20 mt-0.5 pt-0.5 italic" />
       )}
@@ -2353,6 +2405,24 @@ export default function ScheduleBoard() {
     }
   };
 
+  const jumpToNextQuarter = () => {
+    const quarterStart = nextQuarterStartISO(start);
+    setStart(
+      view === "week" || isSingleTechFocused
+        ? startOfWeekISO(new Date(`${quarterStart}T00:00:00Z`))
+        : startOfMonthISO(new Date(`${quarterStart}T00:00:00Z`)),
+    );
+  };
+
+  const jumpToNextYear = () => {
+    const nextYearDate = addYearsISO(start, 1);
+    setStart(
+      view === "week" || isSingleTechFocused
+        ? startOfWeekISO(new Date(`${nextYearDate}T00:00:00Z`))
+        : startOfMonthISO(new Date(`${nextYearDate}T00:00:00Z`)),
+    );
+  };
+
   const onChangeView = (next: ViewMode) => {
     if (next === view) return;
     const seed = new Date(start + "T00:00:00Z");
@@ -2612,15 +2682,41 @@ export default function ScheduleBoard() {
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={goToday} data-testid="btn-today">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-sm border-2 border-foreground/30 bg-background shadow-sm hover:bg-accent"
+            onClick={goToday}
+            data-testid="btn-today"
+          >
             Today
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-sm border-2 border-foreground/30 bg-background shadow-sm hover:bg-accent"
+            onClick={jumpToNextQuarter}
+            data-testid="btn-next-quarter"
+            aria-label="Jump to next quarter"
+          >
+            Next quarter
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-sm border-2 border-foreground/30 bg-background shadow-sm hover:bg-accent"
+            onClick={jumpToNextYear}
+            data-testid="btn-next-year"
+            aria-label="Jump to next year"
+          >
+            Next year
           </Button>
         </div>
 
         {/* View toggle + grouping toggle */}
         <div className="flex items-center gap-3 flex-wrap">
           <div
-            className="inline-flex rounded-md border border-border bg-card overflow-hidden"
+            className="inline-flex rounded-md border-2 border-foreground/30 bg-card overflow-hidden shadow-sm"
             role="tablist"
           >
             <button
@@ -2643,7 +2739,7 @@ export default function ScheduleBoard() {
               aria-selected={view === "tech"}
               onClick={() => onChangeView("tech")}
               data-testid="btn-view-tech"
-              className={`px-3 py-1.5 text-sm font-medium border-l border-border transition-colors ${
+              className={`px-3 py-1.5 text-sm font-medium border-l-2 border-foreground/30 transition-colors ${
                 view === "tech"
                   ? "bg-primary text-primary-foreground"
                   : "text-foreground hover:bg-accent"
@@ -2655,7 +2751,7 @@ export default function ScheduleBoard() {
 
           {/* Grouping mode toggle */}
           <div
-            className="inline-flex rounded-md border border-border bg-card overflow-hidden"
+            className="inline-flex rounded-md border-2 border-foreground/30 bg-card overflow-hidden shadow-sm"
             role="group"
             aria-label="Group by"
             data-testid="group-by-toggle"
@@ -2679,7 +2775,7 @@ export default function ScheduleBoard() {
               aria-pressed={groupBy === "service-location"}
               onClick={() => setGroupBy("service-location")}
               data-testid="btn-group-service-location"
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border-l border-border transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border-l-2 border-foreground/30 transition-colors ${
                 groupBy === "service-location"
                   ? "bg-primary text-primary-foreground"
                   : "text-foreground hover:bg-accent"
@@ -2695,33 +2791,11 @@ export default function ScheduleBoard() {
               size="sm"
               onClick={() => setShowCalendarReport(true)}
               data-testid="btn-calendar-report"
-              className="gap-1.5"
+              className="text-sm border-2 border-foreground/30 bg-background shadow-sm hover:bg-accent gap-1.5"
             >
               <Download className="h-3.5 w-3.5" />
               Calendar Report
             </Button>
-          )}
-          {!isLoading && data && (
-            <div className="text-sm text-muted-foreground flex gap-3">
-              <span>
-                <span className="font-semibold text-foreground">{regions.length}</span>
-                {selectedRegions !== null && (
-                  <span className="text-muted-foreground">/{allRegions.length}</span>
-                )}{" "}
-                regions
-              </span>
-              <span>·</span>
-              <span>
-                <span className="font-semibold text-foreground">
-                  {regions.reduce((s, r) => s + r.technicians.length, 0)}
-                </span>{" "}
-                techs
-              </span>
-              <span>·</span>
-              <span>
-                <span className="font-semibold text-foreground">{totalJobs}</span> jobs
-              </span>
-            </div>
           )}
         </div>
       </div>
@@ -3026,8 +3100,33 @@ export default function ScheduleBoard() {
               <Button variant="outline" size="icon" onClick={goPrev} aria-label="Previous 12 weeks">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="sm" onClick={goToday}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-sm border-2 border-foreground/30 bg-background shadow-sm hover:bg-accent"
+                onClick={goToday}
+              >
                 Today
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-sm border-2 border-foreground/30 bg-background shadow-sm hover:bg-accent"
+                onClick={jumpToNextQuarter}
+                data-testid="btn-focused-next-quarter"
+                aria-label="Jump to next quarter"
+              >
+                Next quarter
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-sm border-2 border-foreground/30 bg-background shadow-sm hover:bg-accent"
+                onClick={jumpToNextYear}
+                data-testid="btn-focused-next-year"
+                aria-label="Jump to next year"
+              >
+                Next year
               </Button>
               <Button variant="outline" size="icon" onClick={goNext} aria-label="Next 12 weeks">
                 <ChevronRight className="h-4 w-4" />
@@ -4437,7 +4536,8 @@ export default function ScheduleBoard() {
           technicianId={addingBlock.technicianId}
           technicianName={addingBlock.technicianName}
           date={addingBlock.date}
-          defaultColorIndex={REGION_COLOR_MAP[addingBlock.regionName] ?? 0}
+          defaultColorIndex={regionColorIndex(addingBlock.regionName, "potential")}
+          customDefaultColorIndex={regionColorIndex(addingBlock.regionName, "custom")}
           onClose={() => setAddingBlock(null)}
         />
       )}
@@ -4445,7 +4545,10 @@ export default function ScheduleBoard() {
         <EditBlockDialog
           block={editingBlock.block}
           technicianName={editingBlock.technicianName}
-          defaultColorIndex={REGION_COLOR_MAP[editingBlock.regionName] ?? 0}
+          defaultColorIndex={regionColorIndex(
+            editingBlock.regionName,
+            editingBlock.block.block_type === "custom" ? "custom" : "standard",
+          )}
           onClose={() => setEditingBlock(null)}
         />
       )}
@@ -4453,7 +4556,7 @@ export default function ScheduleBoard() {
         <EditPlaceholderJobDialog
           job={editingPlaceholder.job}
           technicianName={editingPlaceholder.technicianName}
-          defaultColorIndex={REGION_COLOR_MAP[editingPlaceholder.regionName] ?? 0}
+          defaultColorIndex={regionColorIndex(editingPlaceholder.regionName, "potential")}
           onClose={() => setEditingPlaceholder(null)}
         />
       )}

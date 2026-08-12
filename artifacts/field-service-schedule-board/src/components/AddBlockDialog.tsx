@@ -52,6 +52,7 @@ export function AddBlockDialog({
   technicianName,
   date,
   defaultColorIndex = null,
+  customDefaultColorIndex = null,
   onClose,
 }: {
   technicianId: string;
@@ -60,6 +61,8 @@ export function AddBlockDialog({
   date: string;
   /** Pre-selected palette index — defaults to the technician's region colour. */
   defaultColorIndex?: number | null;
+  /** Pre-selected palette index for a new Custom block. */
+  customDefaultColorIndex?: number | null;
   onClose: () => void;
 }) {
   const { toast } = useToast();
@@ -76,6 +79,14 @@ export function AddBlockDialog({
   const [endTime, setEndTime] = useState(`${date}T17:00`);
   const [notes, setNotes] = useState("");
   const [colorIndex, setColorIndex] = useState<number | null>(defaultColorIndex);
+  const [colorWasCustomized, setColorWasCustomized] = useState(false);
+
+  const chooseEntryType = (nextType: EntryType) => {
+    setEntryType(nextType);
+    if (!colorWasCustomized) {
+      setColorIndex(nextType === "custom" ? customDefaultColorIndex : defaultColorIndex);
+    }
+  };
 
   const blockLabel =
     entryType === "drive_time"
@@ -202,7 +213,7 @@ export function AddBlockDialog({
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setEntryType("potential_job")}
+                 onClick={() => chooseEntryType("potential_job")}
                 className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
                   entryType === "potential_job"
                     ? "bg-blue-600 text-white border-blue-600"
@@ -214,7 +225,7 @@ export function AddBlockDialog({
               </button>
               <button
                 type="button"
-                onClick={() => setEntryType("drive_time")}
+                 onClick={() => chooseEntryType("drive_time")}
                 className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
                   entryType === "drive_time"
                     ? "bg-slate-700 text-white border-slate-700"
@@ -226,7 +237,7 @@ export function AddBlockDialog({
               </button>
               <button
                 type="button"
-                onClick={() => setEntryType("pto")}
+                 onClick={() => chooseEntryType("pto")}
                 className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
                   entryType === "pto"
                     ? "bg-green-600 text-white border-green-600"
@@ -238,7 +249,7 @@ export function AddBlockDialog({
               </button>
               <button
                 type="button"
-                onClick={() => setEntryType("custom")}
+                 onClick={() => chooseEntryType("custom")}
                 className={`flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
                   entryType === "custom"
                     ? "bg-violet-600 text-white border-violet-600"
@@ -354,7 +365,13 @@ export function AddBlockDialog({
             />
           </div>
 
-          <ChipColorPicker value={colorIndex} onChange={setColorIndex} />
+          <ChipColorPicker
+            value={colorIndex}
+            onChange={(value) => {
+              setColorWasCustomized(true);
+              setColorIndex(value);
+            }}
+          />
 
           <div className="space-y-1.5">
             <Label htmlFor="block-notes">Notes <span className="text-muted-foreground">(optional)</span></Label>
