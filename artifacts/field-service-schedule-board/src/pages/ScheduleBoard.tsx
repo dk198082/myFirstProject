@@ -69,6 +69,7 @@ import { AddBlockDialog } from "@/components/AddBlockDialog";
 import { EditBlockDialog } from "@/components/EditBlockDialog";
 import { EditPlaceholderJobDialog } from "@/components/EditPlaceholderJobDialog";
 import { CalendarReportDialog, type CalendarReportTech } from "@/components/CalendarReportDialog";
+import { DateJumpPicker } from "@/components/DateJumpPicker";
 import {
   timeToMins,
   conflictedIdsForTech,
@@ -421,7 +422,8 @@ function fmtBlockTime(iso: string): string {
 function ChipNotes({ notes, className }: { notes: string; className: string }) {
   const wrappingClassName = className
     .replace(/\btruncate\b/g, "whitespace-normal break-words")
-    .trim();
+    .trim()
+    .concat(" font-bold");
   const lines = notes
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -919,7 +921,9 @@ function JobChip({
             : fmtDuration(job.crmstarttime, job.crmendtime) || chipTimeLabel(job)}
         </div>
       )}
-      {!compact && job.notes && <div className="opacity-70 whitespace-normal break-words">{job.notes}</div>}
+      {!compact && job.notes && (
+        <div className="font-bold opacity-70 whitespace-normal break-words">{job.notes}</div>
+      )}
       {!compact && localNote && (
         <ChipNotes notes={localNote} className="opacity-75 truncate border-t border-current/20 mt-0.5 pt-0.5 italic" />
       )}
@@ -2657,22 +2661,29 @@ export default function ScheduleBoard() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div
-            className="text-base font-semibold tabular-nums px-2 min-w-[200px] text-center"
-            data-testid="text-range"
+          <DateJumpPicker
+            value={rangeStart}
+            mode={effectiveFocusedTechId !== null ? "week" : view === "week" ? "week" : "month"}
+            onSelect={(iso) => setStart(iso)}
           >
-            {effectiveFocusedTechId !== null && focusedTechData ? (
-              <>
-                <span className="text-sm font-normal text-muted-foreground">
-                  {focusedTechData.tech.resource_name}
-                  {" · "}
-                </span>
-                {fmtRangeLabel(rangeStart, dayCount, "week")}
-              </>
-            ) : (
-              fmtRangeLabel(rangeStart, dayCount, view)
-            )}
-          </div>
+            <div
+              className="text-base font-semibold tabular-nums px-2 min-w-[200px] text-center hover:bg-accent rounded transition-colors"
+              data-testid="text-range"
+              title="Click to jump to a date"
+            >
+              {effectiveFocusedTechId !== null && focusedTechData ? (
+                <>
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {focusedTechData.tech.resource_name}
+                    {" · "}
+                  </span>
+                  {fmtRangeLabel(rangeStart, dayCount, "week")}
+                </>
+              ) : (
+                fmtRangeLabel(rangeStart, dayCount, view)
+              )}
+            </div>
+          </DateJumpPicker>
           <Button
             variant="outline"
             size="icon"
@@ -3100,6 +3111,19 @@ export default function ScheduleBoard() {
               <Button variant="outline" size="icon" onClick={goPrev} aria-label="Previous 12 weeks">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
+              <DateJumpPicker
+                value={rangeStart}
+                mode="week"
+                onSelect={(iso) => setStart(iso)}
+              >
+                <div
+                  className="text-sm font-semibold tabular-nums px-2 py-1 min-w-[160px] text-center hover:bg-accent rounded transition-colors"
+                  title="Click to jump to a date"
+                  data-testid="text-range-focused"
+                >
+                  {fmtRangeLabel(rangeStart, dayCount, "week")}
+                </div>
+              </DateJumpPicker>
               <Button
                 variant="outline"
                 size="sm"
