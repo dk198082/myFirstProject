@@ -75,7 +75,6 @@ app.use(
     // expire, plus an index on expire, in every environment (dev and production).
     store: new PgSession({
       pool: localPool,
-      schemaName: "crm",
       tableName: "sessions",
       createTableIfMissing: false,
     }),
@@ -87,7 +86,7 @@ app.use(
     rolling: true,
     cookie: {
       httpOnly: true,
-      maxAge: 60 * 60 * 1000,
+      maxAge: 1000 * 60 * 60 * 24 * 30,
       // Development: the app is used inside the Replit preview iframe, where
       // the browser treats it as third-party and withholds SameSite=Lax
       // cookies. SameSite=None (which requires Secure) lets the embedded
@@ -100,12 +99,12 @@ app.use(
       // that case, or the browser will never attach the session cookie.
       ...(process.env.NODE_ENV === "production"
         ? {
-            secure: "auto",
+            secure: "auto" as const,
             sameSite:
               (process.env.COOKIE_SAME_SITE as "lax" | "none" | "strict") ??
-              ("lax"),
+              ("lax" as const),
           }
-        : { secure: false, sameSite: "lax"})
+        : { secure: true, sameSite: "none" as const }),
     },
   }),
 );
@@ -120,6 +119,32 @@ app.use("/api", router);
 // and avoids needing CORS credentials + a second Azure resource.
 // Unset in local dev (the Vite dev server serves the frontend on its own
 // port instead) and set by ./Dockerfile / AZURE_DEPLOYMENT.md in production.
+//
+// STATIC_TRAINING_DECK_DIR is optional and separate: if set, it serves the
+// fs-training-deck slide deck at /fs-training-deck/, matching the path
+// Replit's own path-router config uses for it (see
+// artifacts/fs-training-deck/.replit-artifact/artifact.toml). It's a static,
+// API-free presentation, so unlike the main frontend it has no session/CORS
+// implications either way — mounting it here is purely a convenience so it
+// doesn't need its own Azure resource.
+const staticTrainingDeckDir = process.env.STATIC_TRAINING_DECK_DIR;
+if (staticTrainingDeckDir) {
+  const resolvedTrainingDeckDir = path.resolve(staticTrainingDeckDir);
+  const trainingDeckIndex = path.join(resolvedTrainingDeckDir, "index.html");
+  if (!fs.existsSync(trainingDeckIndex)) {
+    throw new Error(
+      `STATIC_TRAINING_DECK_DIR is set to "${resolvedTrainingDeckDir}" but no index.html was found there. ` +
+        "Build fs-training-deck first (see AZURE_DEPLOYMENT.md).",
+    );
+  }
+  // Mounted BEFORE the main STATIC_DIR catch-all below, so this subpath is
+  // matched first (Express checks middleware in registration order).
+  app.use("/fs-training-deck", express.static(resolvedTrainingDeckDir));
+  app.get(/^\/fs-training-deck(\/.*)?$/, (_req, res) => {
+    res.sendFile(trainingDeckIndex);
+  });
+}
+
 const staticDir = process.env.STATIC_DIR;
 if (staticDir) {
   const resolvedStaticDir = path.resolve(staticDir);
@@ -132,8 +157,9 @@ if (staticDir) {
   app.use(express.static(resolvedStaticDir));
   // SPA fallback: any non-API, non-file GET request returns index.html so
   // client-side routing (wouter) can handle the path. Must be registered
-  // after "/api" so API routes/404s above are never shadowed by this.
-  app.get(/^(?!\/api\/).*/, (_req, res) => {
+  // after "/api" (and after the training-deck mount above) so those routes
+  // are never shadowed by this catch-all.
+  app.get(/^(?!\/api\/)(?!\/fs-training-deck).*/, (_req, res) => {
     res.sendFile(path.join(resolvedStaticDir, "index.html"));
   });
 }

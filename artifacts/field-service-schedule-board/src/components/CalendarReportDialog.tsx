@@ -32,7 +32,16 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
+  CalendarIcon,
+  SlidersHorizontal,
 } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import {
   fetchCalendarReport,
@@ -235,8 +244,20 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set(technicians.map((t) => t.id)),
   );
+
+  // ── Date-range mode ──────────────────────────────────────────────────────
+  type DateMode = "month" | "custom";
+  const [dateMode, setDateMode] = useState<DateMode>("month");
+
+  // Month-range mode
   const [startMonth, setStartMonth] = useState(() => currentMonthKey());
   const [monthCount, setMonthCount] = useState(3);
+
+  // Custom date-range mode
+  const [customStart, setCustomStart] = useState<Date | undefined>(undefined);
+  const [customEnd,   setCustomEnd]   = useState<Date | undefined>(undefined);
+  const [startPickerOpen, setStartPickerOpen] = useState(false);
+  const [endPickerOpen,   setEndPickerOpen]   = useState(false);
 
   const monthOptions = buildMonthOptions();
 
@@ -258,9 +279,23 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
   }, []);
 
   // ── Date range ───────────────────────────────────────────────────────────
-  const startDate = `${startMonth}-01`;
-  const endDate = addMonths(startDate, monthCount);
-  const dateRangeLabel = buildDateRangeLabel(startDate, endDate);
+  // Month-range mode
+  const monthStartDate = `${startMonth}-01`;
+  const monthEndDate   = addMonths(monthStartDate, monthCount);
+
+  // Custom mode — format chosen dates as YYYY-MM-DD strings
+  function fmtIso(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  const customStartDate = customStart ? fmtIso(customStart) : "";
+  const customEndDate   = customEnd   ? fmtIso(customEnd)   : "";
+
+  const startDate      = dateMode === "month" ? monthStartDate : customStartDate;
+  const endDate        = dateMode === "month" ? monthEndDate   : customEndDate;
+  const dateRangeValid = dateMode === "month" || (!!customStartDate && !!customEndDate && customStartDate <= customEndDate);
+  const dateRangeLabel = dateRangeValid && startDate && endDate
+    ? buildDateRangeLabel(startDate, endDate)
+    : "";
 
   // ── Fetch / preview state ─────────────────────────────────────────────────
   const [phase, setPhase] = useState<Phase>("configure");
@@ -425,7 +460,7 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
             Technician Calendar Report
           </DialogTitle>
           <p className="text-sm text-slate-500 mt-1">
-            Generate a 1–6 month schedule summary for each technician.
+            Generate a schedule summary for each technician by month range or custom dates.
             Each technician receives their own private file.
           </p>
         </DialogHeader>
@@ -436,45 +471,164 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
             <div className="grid grid-cols-2 gap-6">
               {/* Date range */}
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-slate-700">Date Range</h3>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <label className="text-xs text-slate-500 mb-1 block">Start month</label>
-                    <Select value={startMonth} onValueChange={setStartMonth}>
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {monthOptions.map((o) => (
-                          <SelectItem key={o.value} value={o.value}>
-                            {o.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="w-32">
-                    <label className="text-xs text-slate-500 mb-1 block">Months</label>
-                    <Select
-                      value={String(monthCount)}
-                      onValueChange={(v) => setMonthCount(Number(v))}
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-700">Date Range</h3>
+                  {/* Mode toggle pills */}
+                  <div className="flex items-center gap-0.5 bg-slate-200 rounded-md p-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setDateMode("month")}
+                      className={`px-2.5 py-1 rounded transition-colors font-medium ${
+                        dateMode === "month"
+                          ? "bg-white text-blue-700 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
                     >
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5, 6].map((n) => (
-                          <SelectItem key={n} value={String(n)}>
-                            {n} month{n !== 1 ? "s" : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      Month range
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDateMode("custom")}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded transition-colors font-medium ${
+                        dateMode === "custom"
+                          ? "bg-white text-blue-700 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      <SlidersHorizontal className="h-3 w-3" />
+                      Custom
+                    </button>
                   </div>
                 </div>
-                <p className="text-xs text-blue-700 font-medium bg-blue-50 border border-blue-200 rounded px-2 py-1">
-                  {dateRangeLabel}
-                </p>
+
+                {/* ── Month-range mode ── */}
+                {dateMode === "month" && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <label className="text-xs text-slate-500 mb-1 block">Start month</label>
+                      <Select value={startMonth} onValueChange={setStartMonth}>
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {monthOptions.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="w-32">
+                      <label className="text-xs text-slate-500 mb-1 block">Months</label>
+                      <Select
+                        value={String(monthCount)}
+                        onValueChange={(v) => setMonthCount(Number(v))}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5, 6].map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              {n} month{n !== 1 ? "s" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Custom date-range mode ── */}
+                {dateMode === "custom" && (
+                  <div className="flex items-center gap-2">
+                    {/* Start date picker */}
+                    <div className="flex-1">
+                      <label className="text-xs text-slate-500 mb-1 block">Start date</label>
+                      <Popover open={startPickerOpen} onOpenChange={setStartPickerOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className={`flex items-center gap-2 w-full h-8 rounded-md border px-3 text-sm bg-white text-left transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+                              customStart ? "text-slate-800 border-slate-300" : "text-slate-400 border-slate-300"
+                            }`}
+                          >
+                            <CalendarIcon className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            {customStart ? format(customStart, "MMM d, yyyy") : "Pick a date…"}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start" sideOffset={4}>
+                          <Calendar
+                            mode="single"
+                            selected={customStart}
+                            onSelect={(d) => {
+                              setCustomStart(d);
+                              // If end is now before start, clear it
+                              if (d && customEnd && customEnd < d) setCustomEnd(undefined);
+                              setStartPickerOpen(false);
+                            }}
+                            captionLayout="dropdown"
+                            fromYear={new Date().getFullYear() - 1}
+                            toYear={new Date().getFullYear() + 3}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    <span className="text-slate-400 text-xs mt-5 shrink-0">to</span>
+
+                    {/* End date picker */}
+                    <div className="flex-1">
+                      <label className="text-xs text-slate-500 mb-1 block">End date</label>
+                      <Popover open={endPickerOpen} onOpenChange={setEndPickerOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className={`flex items-center gap-2 w-full h-8 rounded-md border px-3 text-sm bg-white text-left transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+                              customEnd ? "text-slate-800 border-slate-300" : "text-slate-400 border-slate-300"
+                            }`}
+                          >
+                            <CalendarIcon className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            {customEnd ? format(customEnd, "MMM d, yyyy") : "Pick a date…"}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start" sideOffset={4}>
+                          <Calendar
+                            mode="single"
+                            selected={customEnd}
+                            onSelect={(d) => {
+                              setCustomEnd(d);
+                              setEndPickerOpen(false);
+                            }}
+                            disabled={customStart ? { before: customStart } : undefined}
+                            captionLayout="dropdown"
+                            fromYear={new Date().getFullYear() - 1}
+                            toYear={new Date().getFullYear() + 3}
+                            defaultMonth={customStart ?? new Date()}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                )}
+
+                {/* Date range summary label */}
+                {dateRangeValid && dateRangeLabel ? (
+                  <p className="text-xs text-blue-700 font-medium bg-blue-50 border border-blue-200 rounded px-2 py-1">
+                    {dateRangeLabel}
+                  </p>
+                ) : dateMode === "custom" && (!customStart || !customEnd) ? (
+                  <p className="text-xs text-slate-400 italic">
+                    Select a start and end date above.
+                  </p>
+                ) : dateMode === "custom" && customStart && customEnd && customStartDate > customEndDate ? (
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">
+                    End date must be on or after the start date.
+                  </p>
+                ) : null}
               </div>
 
               {/* Technician selector */}
@@ -532,7 +686,7 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
                   setEmailResults(null);
                   handleFetch();
                 }}
-                disabled={fetching || selectedIds.size === 0}
+                disabled={fetching || selectedIds.size === 0 || !dateRangeValid}
               >
                 {fetching ? (
                   <>

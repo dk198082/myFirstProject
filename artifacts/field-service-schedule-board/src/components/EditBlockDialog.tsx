@@ -213,10 +213,6 @@ export function EditBlockDialog({
   });
 
   const submit = () => {
-    if (blockType === "custom" && !customTitle.trim()) {
-      toast({ title: "Title required", description: "Please enter a title for the custom block.", variant: "destructive" });
-      return;
-    }
     const start = fromLocalInput(startTime);
     const end = fromLocalInput(endTime);
     if (!start || !end) {
@@ -231,7 +227,7 @@ export function EditBlockDialog({
       id: block.id,
       data: {
         block_type: blockType,
-        title: blockType === "custom" ? customTitle.trim() : null,
+        title: blockType === "custom" ? customTitle.trim() || null : null,
         start_time: start,
         end_time: end,
         notes: notes.trim() || null,
@@ -296,7 +292,7 @@ export function EditBlockDialog({
           {blockType === "custom" && (
             <div className="space-y-1.5 min-w-0">
               <Label htmlFor="block-title">
-                Title <span className="text-destructive">*</span>
+                Title <span className="text-muted-foreground">(optional)</span>
               </Label>
               <Input
                 id="block-title"

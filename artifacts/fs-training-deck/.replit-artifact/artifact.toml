@@ -1,0 +1,28 @@
+kind = "slides"
+previewPath = "/fs-training-deck/"
+title = "Field Service Schedule Board Training"
+description = "A 10-slide dispatcher training presentation for the Field Service Schedule Board application, covering sign-in, board navigation, reading chips, adding schedule blocks, rescheduling jobs, dispatcher notes, the Calendar Report, and quick-reference tips."
+version = "1.0.0"
+id = "artifacts/fs-training-deck"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/fs-training-deck/" ]
+localPort = 23788
+
+[services.development]
+run = "pnpm --filter @workspace/fs-training-deck run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/fs-training-deck", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/fs-training-deck/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23788"
+BASE_PATH = "/fs-training-deck/"

@@ -35,7 +35,8 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     paddingLeft: 26,
     paddingRight: 26,
-    fontSize: 9,
+    // Keep the exported report readable when printed or viewed as an email attachment.
+    fontSize: 10,
     fontFamily: "Helvetica",
     color: "#1a202c",
   },
@@ -50,15 +51,15 @@ const styles = StyleSheet.create({
   },
   techName:    { fontSize: 17, fontFamily: "Helvetica-Bold", color: COL_BLUE },
   dateRange:   { fontSize: 10, color: COL_MUTED, marginTop: 2 },
-  generatedAt: { fontSize: 9,  color: COL_MUTED, textAlign: "right" },
+  generatedAt: { fontSize: 10, color: COL_MUTED, textAlign: "right" },
   // ── Legend ───────────────────────────────────────────────────────────────
-  legendRow:   { flexDirection: "row", gap: 10, marginBottom: 8, flexWrap: "wrap" },
+  legendRow:   { flexDirection: "row", gap: 12, marginBottom: 10, flexWrap: "wrap" },
   legendItem:  { flexDirection: "row", alignItems: "center", gap: 3 },
-  legendSwatch: { width: 8, height: 8, borderRadius: 1 },
-  legendLabel:  { fontSize: 8, color: COL_MUTED },
+  legendSwatch: { width: 9, height: 9, borderRadius: 1 },
+  legendLabel:  { fontSize: 9.5, color: COL_MUTED },
   // ── Month heading ─────────────────────────────────────────────────────────
-  monthHeader:     { backgroundColor: COL_BLUE, paddingVertical: 4, paddingHorizontal: 8, marginTop: 10 },
-  monthHeaderText: { color: "white", fontSize: 11, fontFamily: "Helvetica-Bold" },
+  monthHeader:     { backgroundColor: COL_BLUE, paddingVertical: 5, paddingHorizontal: 8, marginTop: 12 },
+  monthHeaderText: { color: "white", fontSize: 12, fontFamily: "Helvetica-Bold" },
   // ── Day-name header row ───────────────────────────────────────────────────
   headRow: {
     flexDirection: "row",
@@ -69,18 +70,18 @@ const styles = StyleSheet.create({
   },
   headWeekCell: {
     width: 74,
-    paddingVertical: 4,
+    paddingVertical: 5,
     paddingLeft: 5,
     borderRight: `1pt solid ${COL_BORDER}`,
   },
   headDayCell: {
     flex: 1,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRight: `1pt solid ${COL_BORDER}`,
   },
   headDayCellLast: { borderRight: "0" },
-  headText: { fontSize: 9, fontFamily: "Helvetica-Bold", color: COL_BLUE, textAlign: "center" },
-  headWeekText: { fontSize: 9, fontFamily: "Helvetica-Bold", color: COL_BLUE },
+  headText: { fontSize: 11.5, fontFamily: "Helvetica-Bold", color: COL_BLUE, textAlign: "center" },
+  headWeekText: { fontSize: 11.5, fontFamily: "Helvetica-Bold", color: COL_BLUE },
   // ── Week row ─────────────────────────────────────────────────────────────
   weekRow: {
     flexDirection: "row",
@@ -96,21 +97,21 @@ const styles = StyleSheet.create({
     borderRight: `1pt solid ${COL_BORDER}`,
     backgroundColor: "#f8fafc",
   },
-  weekLabel: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: "#334155" },
+  weekLabel: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#334155" },
   dayCell: {
     flex: 1,
-    paddingVertical: 3,
+    paddingVertical: 4,
     paddingHorizontal: 3,
     borderRight: `1pt solid ${COL_BORDER}`,
   },
   dayCellLast: { borderRight: "0" },
-  dayNum: { fontSize: 8, color: COL_MUTED, marginBottom: 3 },
+  dayNum: { fontSize: 9.5, color: COL_MUTED, marginBottom: 4 },
   // ── Event chip ────────────────────────────────────────────────────────────
-  chip: { paddingVertical: 3, paddingHorizontal: 4, marginBottom: 3, borderRadius: 1 },
-  chipName:     { fontSize: 8.5 },
-  chipSubline:  { fontSize: 7.5, color: COL_MUTED },
+  chip: { paddingVertical: 4, paddingHorizontal: 4, marginBottom: 4, borderRadius: 1 },
+  chipName:     { fontSize: 11.5 },
+  chipSubline:  { fontSize: 10.5, color: COL_MUTED },
   // ── Page number ───────────────────────────────────────────────────────────
-  pageNumber: { position: "absolute", bottom: 16, right: 26, fontSize: 8, color: COL_MUTED },
+  pageNumber: { position: "absolute", bottom: 16, right: 26, fontSize: 9, color: COL_MUTED },
 });
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;
@@ -241,7 +242,7 @@ function TechPdfDoc({ tech, dateRangeLabel, startDate, endDate }: TechPdfDocProp
         })}
 
         {exportEvents.length === 0 && (
-          <Text style={{ fontSize: 9, color: COL_MUTED, fontStyle: "italic", marginTop: 16 }}>
+          <Text style={{ fontSize: 10, color: COL_MUTED, fontStyle: "italic", marginTop: 16 }}>
             No scheduled activity in this period.
           </Text>
         )}

@@ -61,7 +61,7 @@ function weekLabelHeaderCell(): TableCell {
     verticalAlign: VerticalAlign.CENTER,
     children: [
       new Paragraph({
-        children: [new TextRun({ text: "Week", bold: true, size: 15, color: BLUE })],
+        children: [new TextRun({ text: "Week", bold: true, size: 19, color: BLUE })],
       }),
     ],
   });
@@ -76,7 +76,7 @@ function dayNameHeaderCell(name: string): TableCell {
     children: [
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: name, bold: true, size: 15, color: BLUE })],
+        children: [new TextRun({ text: name, bold: true, size: 19, color: BLUE })],
       }),
     ],
   });
@@ -89,7 +89,7 @@ function weekLabelCell(text: string): TableCell {
     margins: { top: 40, bottom: 40, left: 60, right: 60 },
     children: [
       new Paragraph({
-        children: [new TextRun({ text, bold: true, size: 14, color: "334155" })],
+        children: [new TextRun({ text, bold: true, size: 17, color: "334155" })],
       }),
     ],
   });
@@ -108,8 +108,8 @@ function eventParagraphs(ev: CalEvent): Paragraph[] {
       border: { left: { style: BorderStyle.SINGLE, size: 12, color: s.docxBorder } },
       children: [
         new TextRun({
-          text: truncate(line, 36),
-          size: index === 0 ? 16 : 14,
+          text: truncate(line, index === 0 ? 32 : 38),
+          size: index === 0 ? 22 : 20,
           color: index === 0 ? "1A202C" : "64748B",
         }),
       ],
@@ -120,7 +120,7 @@ function eventParagraphs(ev: CalEvent): Paragraph[] {
 function dayCell(events: CalEvent[], dayNum: number): TableCell {
   const paras: Paragraph[] = [
     new Paragraph({
-      children: [new TextRun({ text: String(dayNum), size: 14, color: "94A3B8" })],
+      children: [new TextRun({ text: String(dayNum), size: 18, color: "94A3B8" })],
       spacing: { after: 20 },
     }),
     ...events.flatMap((ev) => eventParagraphs(ev)),
@@ -177,8 +177,8 @@ function buildLegendParagraph(): Paragraph {
     children: EXPORT_EVENT_KINDS.flatMap((k, i) => {
       const s = EVENT_STYLE_MAP[k];
       return [
-        new TextRun({ text: "■ ", color: s.docxBorder, size: 14 }),
-        new TextRun({ text: s.label + (i < EXPORT_EVENT_KINDS.length - 1 ? "   " : ""), size: 16, color: "64748B" }),
+        new TextRun({ text: "■ ", color: s.docxBorder, size: 17 }),
+        new TextRun({ text: s.label + (i < EXPORT_EVENT_KINDS.length - 1 ? "   " : ""), size: 20, color: "64748B" }),
       ];
     }),
   });
@@ -258,7 +258,7 @@ export async function generateTechDocx(
             text: "No scheduled activity in this period.",
             italics: true,
             color: "64748B",
-            size: 18,
+            size: 22,
           }),
         ],
       }),
