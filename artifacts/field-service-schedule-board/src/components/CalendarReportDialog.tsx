@@ -41,7 +41,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import {
   fetchCalendarReport,
@@ -288,14 +288,23 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
   const customStartDate = customStart ? fmtIso(customStart) : "";
-  const customEndDate   = customEnd   ? fmtIso(customEnd)   : "";
+  // customEndDate is the user-facing, INCLUSIVE end date (the last day they want
+  // included in the report). Every downstream consumer — the /wb/calendar-report
+  // query, buildReportWeeks, and the report's own date-range labels — expects an
+  // EXCLUSIVE end date (the day AFTER the last day), matching how month-range mode
+  // computes monthEndDate via addMonths(). Sending the inclusive picked date straight
+  // through silently drops that whole last day's bookings/blocks from the report.
+  const customEndDate           = customEnd ? fmtIso(customEnd) : "";
+  const customEndDateExclusive  = customEnd ? fmtIso(addDays(customEnd, 1)) : "";
 
   const startDate      = dateMode === "month" ? monthStartDate : customStartDate;
-  const endDate        = dateMode === "month" ? monthEndDate   : customEndDate;
+  const endDate        = dateMode === "month" ? monthEndDate   : customEndDateExclusive;
   const dateRangeValid = dateMode === "month" || (!!customStartDate && !!customEndDate && customStartDate <= customEndDate);
-  const dateRangeLabel = dateRangeValid && startDate && endDate
-    ? buildDateRangeLabel(startDate, endDate)
-    : "";
+  const dateRangeLabel = !dateRangeValid || !startDate || !endDate
+    ? ""
+    : dateMode === "month"
+      ? buildDateRangeLabel(startDate, endDate)
+      : `${format(customStart!, "MMM d, yyyy")} – ${format(customEnd!, "MMM d, yyyy")}`;
 
   // ── Fetch / preview state ─────────────────────────────────────────────────
   const [phase, setPhase] = useState<Phase>("configure");

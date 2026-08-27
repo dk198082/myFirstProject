@@ -482,7 +482,7 @@ const children = [
   // ── 12. Calendar Report ─────────────────────────────────────────────────
   sectionHeading('12.  Calendar Report  [Editor only]'),
   spacer(100),
-  para('The Calendar Report generates a personal schedule summary for one or more technicians covering the current board date range. Click Calendar Report in the controls row to open the dialog.', { size: 11, after: 100 }),
+  para('The Calendar Report generates a personal schedule summary for one or more technicians across a chosen date range. All output formats use larger, more readable typography. Click Calendar Report in the controls row to open the dialog.', { size: 11, after: 100 }),
   minorHeading('What is included?'),
   featureTable([
     ['Scheduled CRM bookings',       'Included — Customer name + city/state + WO number on separate lines.'],
@@ -494,15 +494,18 @@ const children = [
   ]),
   spacer(80),
   minorHeading('How to generate and send a report'),
-  step(1, 'Navigate the board to the date range you want to report on.'),
-  step(2, 'Click Calendar Report in the controls row.'),
-  step(3, 'Select one or more technicians from the picker.'),
-  step(4, 'Choose an output format:'),
-  bullet('Download PDF — multi-page PDF, one technician per page, with larger readable font and event chips per day.', 1),
+  step(1, 'Click Calendar Report in the controls row.'),
+  step(2, 'Choose how to define the date range using the Month range / Custom toggle at the top of the dialog:'),
+  bullet('Month range — select a start month from the dropdown, then pick a span of 1–6 months.', 1),
+  bullet('Custom — pick an exact start date and end date using the date picker popovers. The end date picker prevents selecting a date before the chosen start. The Load button stays disabled until both dates are set.', 1),
+  step(3, 'Click Load Schedule Data to fetch the schedule for the chosen range.'),
+  step(4, 'Select one or more technicians from the picker.'),
+  step(5, 'Choose an output format:'),
+  bullet('Download PDF — multi-page PDF, one technician per page, with large readable font and event chips per day.', 1),
   bullet('Download Word (.docx) — same layout in an editable Word document.', 1),
   bullet('Send Email — sends the report to the technician\'s work email via Microsoft Graph. The greeting uses the technician\'s first name; the sign-off uses the sending dispatcher\'s name.', 1),
   spacer(80),
-  callout('Tip:', 'Use Next quarter or Next year navigation before opening the dialog to pre-select your planning period — the report automatically covers whatever date range the board is showing.', C.blueLight, C.blue),
+  callout('Tip:', 'Use Custom date range when you need a report that crosses month boundaries or covers an exact period such as a project duration or a technician\'s upcoming schedule.', C.blueLight, C.blue),
 
   // ── 13. Other reports ───────────────────────────────────────────────────
   sectionHeading('13.  Other Built-in Reports'),
