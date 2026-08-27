@@ -75,6 +75,7 @@ app.use(
     // expire, plus an index on expire, in every environment (dev and production).
     store: new PgSession({
       pool: localPool,
+      schemaName: "crm",
       tableName: "sessions",
       createTableIfMissing: false,
     }),
@@ -86,7 +87,7 @@ app.use(
     rolling: true,
     cookie: {
       httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 24 * 30,
+      maxAge: 60 * 60 * 1000,
       // Development: the app is used inside the Replit preview iframe, where
       // the browser treats it as third-party and withholds SameSite=Lax
       // cookies. SameSite=None (which requires Secure) lets the embedded
