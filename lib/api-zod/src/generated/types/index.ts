@@ -53,6 +53,7 @@ export * from './resourceUtilizationResponse';
 export * from './scheduleBlock';
 export * from './scheduleBlockBlockType';
 export * from './scheduleBoard';
+export * from './scheduleBoardCoordinatorDefault';
 export * from './scheduleBoardView';
 export * from './scheduledJob';
 export * from './scheduleJob';

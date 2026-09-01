@@ -5,6 +5,7 @@
  * Technician Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+import type { ScheduleBoardCoordinatorDefault } from './scheduleBoardCoordinatorDefault';
 import type { ScheduleBoardView } from './scheduleBoardView';
 import type { ScheduleRegion } from './scheduleRegion';
 
@@ -13,6 +14,16 @@ export interface ScheduleBoard {
   range_start: string;
   range_end: string;
   day_count: number;
+  /**
+     * Authenticated user's email for guarding user-specific cached defaults
+     * @nullable
+     */
+  viewer_email?: string | null;
+  /**
+     * Default regions derived from crm.territory.managerid and the matching crm.systemuser.domainname
+     * @nullable
+     */
+  coordinator_default?: ScheduleBoardCoordinatorDefault;
   /** Legacy alias for `range_start` */
   week_start: string;
   /** Legacy alias for `range_end` */

@@ -1735,6 +1735,24 @@ components:
           type: string
         day_count:
           type: integer
+        viewer_email:
+          type: ["string", "null"]
+          description: Authenticated user's email for guarding user-specific cached defaults
+        coordinator_default:
+          type: ["object", "null"]
+          description: Default regions derived from crm.territory.managerid and the matching crm.systemuser.domainname
+          properties:
+            email:
+              type: string
+            full_name:
+              type: ["string", "null"]
+            region_names:
+              type: array
+              items:
+                type: string
+          required:
+            - email
+            - region_names
         week_start:
           type: string
           description: Legacy alias for `range_start`

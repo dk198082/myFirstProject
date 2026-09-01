@@ -22,6 +22,7 @@ export type CalEvent = {
   state?: string | null;
   title?: string | null;         // WO type label
   booking_status?: string | null;
+  notes?: string | null;         // Potential-job notes
   equipment_names?: string[];
 };
 
@@ -295,6 +296,7 @@ export function eventLines(e: CalEvent): string[] {
   const sub = eventSubline(e);
   if (sub) lines.push(sub);
   if (e.kind === "potential" && e.booking_status) lines.push(e.booking_status);
+  if (e.kind === "potential" && e.notes?.trim()) lines.push(`Notes: ${e.notes.trim()}`);
   return lines;
 }
 

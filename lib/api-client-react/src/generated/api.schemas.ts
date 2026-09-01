@@ -571,6 +571,17 @@ export const ScheduleBoardView = {
   month: 'month',
 } as const;
 
+/**
+ * Default regions derived from crm.territory.managerid and the matching crm.systemuser.domainname
+ * @nullable
+ */
+export type ScheduleBoardCoordinatorDefault = {
+  email: string;
+  /** @nullable */
+  full_name?: string | null;
+  region_names: string[];
+} | null;
+
 export interface ScheduleJob {
   booking_id: string;
   /** @nullable */
@@ -651,6 +662,16 @@ export interface ScheduleBoard {
   range_start: string;
   range_end: string;
   day_count: number;
+  /**
+     * Authenticated user's email for guarding user-specific cached defaults
+     * @nullable
+     */
+  viewer_email?: string | null;
+  /**
+     * Default regions derived from crm.territory.managerid and the matching crm.systemuser.domainname
+     * @nullable
+     */
+  coordinator_default?: ScheduleBoardCoordinatorDefault;
   /** Legacy alias for `range_start` */
   week_start: string;
   /** Legacy alias for `range_end` */

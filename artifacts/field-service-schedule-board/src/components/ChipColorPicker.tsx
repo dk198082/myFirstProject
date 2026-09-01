@@ -17,6 +17,7 @@ export const PALETTE_SWATCHES = [
   "#fde047",
   "#fca5a5",
   "#d1d5db",
+  "#fca5a5",
 ];
 
 interface ChipColorPickerProps {

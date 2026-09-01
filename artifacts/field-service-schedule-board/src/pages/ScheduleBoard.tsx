@@ -220,6 +220,8 @@ const TECH_PALETTE = [
   { chip: "bg-yellow-100 text-yellow-900 border-yellow-500 hover:bg-yellow-200", dot: "bg-yellow-500" },
   { chip: "bg-red-100    text-red-900    border-red-400    hover:bg-red-200", dot: "bg-red-500" },
   { chip: "bg-gray-100  text-gray-700   border-gray-300   hover:bg-gray-200", dot: "bg-gray-400" },
+  // R5 default: brighter red while keeping black text legible.
+  { chip: "bg-red-300    text-black      border-red-600    hover:bg-red-400", dot: "bg-red-600" },
 ];
 
 
@@ -229,14 +231,14 @@ const REGION_COLOR_MAP: Record<string, number> = {
   R2: 13,  // yellow
   R3: 4,   // violet / purple
   R4: 12,  // sky blue
-  R5: 8,   // orange
+  R5: 16,  // bright red with black text
   R8: 14,  // red
   R99: 15, // gray
 };
 
 const REGION_POTENTIAL_COLOR_MAP: Record<string, number> = {
   ...REGION_COLOR_MAP,
-  R4: 13, // yellow
+  R4: 10, // Colour 11 — pink
 };
 
 const REGION_CUSTOM_COLOR_MAP: Record<string, number> = {
@@ -245,6 +247,22 @@ const REGION_CUSTOM_COLOR_MAP: Record<string, number> = {
 };
 
 type RegionColorKind = "potential" | "custom" | "standard";
+
+const REGION_TECHNICIAN_ORDER: Record<string, readonly string[]> = {
+  R2: [
+    "Gene Leitheiser",
+    "Steve Lockhart",
+    "Brian Uniejewski",
+    "Eric Vennemeyer",
+    "Josh Whitta",
+  ],
+  R5: [
+    "Matthew Piechoski",
+    "George Hopf",
+    "Garrett Glidden",
+    "Robert Walck",
+  ],
+};
 
 function regionColorIndex(
   regionName: string | null | undefined,
@@ -297,6 +315,55 @@ type ScheduleJob = {
   equipment_names?: string[] | null;
   notes?: string | null;
 };
+
+type CrossLocationBooking = {
+  locationId: string;
+  locationName: string;
+  homeRegionName: string | null;
+  job: ScheduleJob;
+};
+
+function CrossLocationBookingIndicator({
+  bookings,
+  testId,
+}: {
+  bookings: CrossLocationBooking[];
+  testId: string;
+}) {
+  const bookingDetails = bookings.map(({ locationName, homeRegionName, job }) => {
+    const start = fmtLocalTime(job.crmstart_time, job.crmstarttime);
+    const end = fmtLocalTime(job.crmend_time, job.crmendtime);
+    const time = start && end ? `${start} – ${end}` : start || end;
+    return {
+      region: homeRegionName || "another region",
+      location: [job.city, job.state].filter(Boolean).join(", ") || locationName,
+      time: time || "—",
+    };
+  });
+  const firstBooking = bookingDetails[0];
+
+  return (
+    <div
+      className="relative z-10 flex w-full items-start gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-left text-[10px] font-semibold leading-tight text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
+      data-testid={testId}
+      role="status"
+      aria-label={`Booked in ${firstBooking?.region}; Location: ${firstBooking?.location}; Time: ${firstBooking?.time}`}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <MapPin className="mt-0.5 h-2.5 w-2.5 shrink-0" aria-hidden />
+      <span className="min-w-0">
+        <span className="block truncate">Booked in {firstBooking?.region}</span>
+        <span className="block truncate font-medium opacity-80">
+          Location: {firstBooking?.location}
+        </span>
+        <span className="block truncate font-medium opacity-80">
+          Time: {firstBooking?.time}
+          {bookingDetails.length > 1 && ` · +${bookingDetails.length - 1} more`}
+        </span>
+      </span>
+    </div>
+  );
+}
 
 // Build the shape EditBookingDialog expects (WbWorkOrder) from a board tile.
 function buildEditRow(job: ScheduleJob, technicianId: string): WbWorkOrder {
@@ -1488,7 +1555,7 @@ export default function ScheduleBoard() {
   // an unscheduled job, so the dialog can auto-fill the end time.
   const [editingDuration, setEditingDuration] = useState<number | null>(null);
   const [utilRegions, setUtilRegions] = useState<Set<string> | null>(null); // null = all
-  // Calendar (tech) view weekend visibility. Default off — the calendar shows
+  // Calendar and Week view weekend visibility. Default off — both views show
   // Mon–Fri only; when true, Saturday and Sunday columns are included.
   const [showWeekends, setShowWeekends] = useState(false);
   // Grouping mode toggle. Default "tech-region" matches the original view;
@@ -2082,28 +2149,61 @@ export default function ScheduleBoard() {
   // technicians with no jobs in the current range, so coordinators can see
   // capacity at a glance without an extra toggle.
   const allRegions = useMemo(() => data?.regions ?? [], [data]);
+  const regionDefaultAppliedFor = useRef<string | null>(null);
+
+  // Apply CRM territory-manager defaults once after authentication and the
+  // matching user's board response are both available. `null` means all
+  // regions, so users who are not managers of R1-R5 retain the existing
+  // all-regions default. The ref prevents background refetches from overriding
+  // a user's manual filter changes.
+  useEffect(() => {
+    const authUser = user;
+    const email = authUser?.email?.trim().toLocaleLowerCase();
+    if (!authUser || !email) {
+      regionDefaultAppliedFor.current = null;
+      return;
+    }
+    if (allRegions.length === 0) return;
+    const responseViewerEmail = data?.viewer_email?.trim().toLocaleLowerCase();
+    if (responseViewerEmail !== email) return;
+
+    const userKey = `${authUser.entraOid}:${email}`;
+    if (regionDefaultAppliedFor.current === userKey) return;
+    regionDefaultAppliedFor.current = userKey;
+
+    const defaultRegionNames = new Set(
+      (data?.coordinator_default?.region_names ?? []).map((region) =>
+        region.trim().toLocaleUpperCase(),
+      ),
+    );
+    if (defaultRegionNames.size === 0) {
+      setSelectedRegions(null);
+      return;
+    }
+
+    const defaultRegionIds = allRegions
+      .filter((region) => defaultRegionNames.has(region.region.trim().toLocaleUpperCase()))
+      .map((region) => region.regionid_id);
+
+    setSelectedRegions(defaultRegionIds.length > 0 ? new Set(defaultRegionIds) : null);
+  }, [allRegions, data?.coordinator_default, data?.viewer_email, user]);
+
   const regions = useMemo(
     () => {
-      const r2TechnicianOrder = new Map(
-        [
-          "Gene Leitheiser",
-          "Steve Lockhart",
-          "Brian Uniejewski",
-          "Eric Vennemeyer",
-          "Josh Whitta",
-        ].map((name, index) => [name.toLocaleLowerCase(), index]),
-      );
-
       const sortTechnicians = (region: (typeof allRegions)[number]) => {
-        if (region.region.toLocaleLowerCase() !== "r2") return region;
+        const regionOrder = REGION_TECHNICIAN_ORDER[region.region.toLocaleUpperCase()];
+        if (!regionOrder) return region;
+        const technicianOrder = new Map(
+          regionOrder.map((name, index) => [name.toLocaleLowerCase(), index]),
+        );
 
         return {
           ...region,
           technicians: [...region.technicians].sort((a, b) => {
             const aName = (a.resource_name ?? "").toLocaleLowerCase();
             const bName = (b.resource_name ?? "").toLocaleLowerCase();
-            const aOrder = r2TechnicianOrder.get(aName);
-            const bOrder = r2TechnicianOrder.get(bName);
+            const aOrder = technicianOrder.get(aName);
+            const bOrder = technicianOrder.get(bName);
 
             if (aOrder !== undefined && bOrder !== undefined) {
               return aOrder - bOrder;
@@ -2124,6 +2224,43 @@ export default function ScheduleBoard() {
     },
     [allRegions, selectedRegions],
   );
+
+  const technicianHomeRegionById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const region of utilData?.regions ?? []) {
+      for (const technician of region.technicians ?? []) {
+        map.set(technician.technician_id, region.region);
+      }
+    }
+    return map;
+  }, [utilData]);
+
+  // Service Location rows contain only jobs performed in that location. Keep a
+  // cross-location lookup so each day cell can still show when the technician
+  // has a CRM booking in another location group.
+  const serviceLocationBookingsByTechAndDay = useMemo(() => {
+    const map = new Map<string, CrossLocationBooking[]>();
+    if (groupBy !== "service-location" || !data) return map;
+
+    for (const region of data.regions ?? []) {
+      for (const technician of region.technicians ?? []) {
+        for (const job of technician.jobs as ScheduleJob[]) {
+          if (!Number.isInteger(job.day_index) || !job.booking_id) continue;
+          const key = `${technician.technician_id}:${job.day_index}`;
+          const bookings = map.get(key) ?? [];
+          bookings.push({
+            locationId: region.regionid_id,
+            locationName: region.region,
+            homeRegionName: technicianHomeRegionById.get(technician.technician_id) ?? null,
+            job,
+          });
+          map.set(key, bookings);
+        }
+      }
+    }
+
+    return map;
+  }, [data, groupBy, technicianHomeRegionById]);
 
   const totalJobs = regions.reduce(
     (s, r) => s + r.technicians.reduce((ts, t) => ts + distinctJobCount(t.jobs), 0),
@@ -2614,7 +2751,9 @@ export default function ScheduleBoard() {
     return () => { if (timer !== undefined) clearTimeout(timer); };
   }, [effectiveFocusedTechId, stackedWeeks.length]);
 
-  // Headers for the Calendar view — Mon–Fri by default, all 7 days when showWeekends is on
+  // Headers for Week and Calendar views — Mon–Fri by default, all 7 days when
+  // showWeekends is on. Keep dayIdx tied to the full API range so drag/drop
+  // continues to address the correct underlying day when weekends are hidden.
   const weekdayHeaders = useMemo(
     () =>
       dayHeaders
@@ -2630,10 +2769,11 @@ export default function ScheduleBoard() {
         })),
     [dayHeaders, showWeekends],
   );
+  const weekDayHeaders = weekdayHeaders;
 
   const dayColTemplate =
     view === "week"
-      ? `180px repeat(${dayCount}, minmax(0, 1fr))`
+      ? `180px repeat(${weekDayHeaders.length}, minmax(0, 1fr))`
       : `180px repeat(${dayCount}, minmax(80px, 1fr))`;
   const minBoardWidth = view === "week" ? 1000 : 180 + dayCount * 80;
 
@@ -2860,14 +3000,14 @@ export default function ScheduleBoard() {
           </div>
             </>
           )}
-          {view === "tech" && (
+          {(view === "tech" || view === "week") && (
             <button
               type="button"
               role="switch"
               aria-checked={showWeekends}
               onClick={() => setShowWeekends((v) => !v)}
               data-testid="toggle-show-weekends"
-              title="Show Saturday and Sunday columns in the calendar"
+              title="Show Saturday and Sunday columns"
               className={`ml-auto inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
                 showWeekends
                   ? "bg-primary text-primary-foreground border-primary"
@@ -3991,7 +4131,7 @@ export default function ScheduleBoard() {
                       <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-r border-border">
                         Technician
                       </div>
-                      {dayHeaders.map((dh) => (
+                      {weekDayHeaders.map((dh) => (
                         <div
                           key={dh.iso}
                           className="px-2 py-2 text-xs font-semibold text-center border-r border-border last:border-r-0"
@@ -4098,15 +4238,22 @@ export default function ScheduleBoard() {
                               })()}
                             </div>
                           </div>
-                          {jobsByDay.map((jobs, i) => {
-                            const cellKey = `${tech.technician_id}:${i}`;
+                          {weekDayHeaders.map(({ iso, dayIdx }) => {
+                            const jobs = jobsByDay[dayIdx] ?? [];
+                            const cellKey = `${tech.technician_id}:${dayIdx}`;
+                            const otherLocationBookings =
+                              groupBy === "service-location"
+                                ? (serviceLocationBookingsByTechAndDay.get(cellKey) ?? []).filter(
+                                    ({ locationId }) => locationId !== rg.regionid_id,
+                                  )
+                                : [];
                             const isDropTarget =
                               (draggingId !== null ||
                                 draggingBlockId !== null ||
                                 draggingPlaceholderId !== null) &&
                               dragOverCell === cellKey;
                             const conflictDrop =
-                              draggingId !== null && dropWouldConflict(tech.technician_id, i);
+                              draggingId !== null && dropWouldConflict(tech.technician_id, dayIdx);
                             const dropCue = conflictDrop
                               ? isDropTarget
                                 ? "bg-amber-100 ring-2 ring-inset ring-amber-500"
@@ -4116,9 +4263,9 @@ export default function ScheduleBoard() {
                                 : "";
                             const isEmptyCell =
                               jobs.length === 0 &&
-                              blocksForCell(tech.technician_id, dayHeaders[i].iso).length === 0 &&
-                              placeholderJobsForCell(tech.technician_id, dayHeaders[i].iso).length === 0;
-                            const orderKey = `${tech.technician_id}|${dayHeaders[i].iso}`;
+                              blocksForCell(tech.technician_id, iso).length === 0 &&
+                              placeholderJobsForCell(tech.technician_id, iso).length === 0;
+                            const orderKey = `${tech.technician_id}|${iso}`;
                             const cellItems = applyChipOrder(orderKey, [
                               ...jobs.map((j) => ({
                                 key: `job:${j.booking_id}`,
@@ -4139,12 +4286,12 @@ export default function ScheduleBoard() {
                                   />
                                 ),
                               })),
-                              ...blocksForCell(tech.technician_id, dayHeaders[i].iso).map((blk) => ({
+                              ...blocksForCell(tech.technician_id, iso).map((blk) => ({
                                 key: `block:${blk.id}`,
                                 node: (
                                   <BlockChip
                                     block={blk}
-                                    dayIso={dayHeaders[i].iso}
+                                    dayIso={iso}
                                     onEdit={isEditor ? () => setEditingBlock({ block: blk, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region }) : undefined}
                                     onDelete={isEditor ? () => deleteBlockMutation.mutate({ id: blk.id }) : undefined}
                                     onDragStart={isEditor ? () => startBlockDrag(blk, "move") : undefined}
@@ -4155,12 +4302,12 @@ export default function ScheduleBoard() {
                                   />
                                 ),
                               })),
-                              ...placeholderJobsForCell(tech.technician_id, dayHeaders[i].iso).map((phj) => ({
+                              ...placeholderJobsForCell(tech.technician_id, iso).map((phj) => ({
                                 key: `ph:${phj.id}`,
                                 node: (
                                   <PlaceholderJobChip
                                     job={phj}
-                                    dayIso={dayHeaders[i].iso}
+                                    dayIso={iso}
                                     technicianId={tech.technician_id}
                                     onEdit={isEditor ? () => setEditingPlaceholder({ job: phj, technicianName: tech.resource_name ?? "Unknown", regionName: rg.region }) : undefined}
                                     onDelete={isEditor ? () => deletePlaceholderMutation.mutate({ id: phj.id }) : undefined}
@@ -4177,9 +4324,9 @@ export default function ScheduleBoard() {
                             const orderedKeys = cellItems.map((it) => it.key);
                             return (
                               <div
-                                key={i}
-                                className={`group relative border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dropCue} ${isEmptyCell ? "cursor-pointer" : ""}`}
-                                data-testid={`cell-${tech.technician_id}-${i}`}
+                                key={iso}
+                                className={`group relative border-r border-border last:border-r-0 p-1 space-y-1 min-h-[60px] transition-colors ${dropCue} ${otherLocationBookings.length > 0 ? "bg-amber-50/40 dark:bg-amber-950/20" : ""} ${isEmptyCell ? "cursor-pointer" : ""}`}
+                                data-testid={`cell-${tech.technician_id}-${dayIdx}`}
                                 aria-label={conflictDrop ? "Conflicting drop slot" : undefined}
                                 onClick={
                                   isEditor && isEmptyCell
@@ -4187,7 +4334,7 @@ export default function ScheduleBoard() {
                                         setAddingBlock({
                                           technicianId: tech.technician_id,
                                           technicianName: tech.resource_name ?? "Unknown",
-                                          date: dayHeaders[i].iso,
+                                          date: iso,
                                           regionName: rg.region,
                                         })
                                     : undefined
@@ -4206,16 +4353,22 @@ export default function ScheduleBoard() {
                                   e.preventDefault();
                                   if (!isEditor) return;
                                   if (dragBlockRef.current) {
-                                    handleBlockDropOnCell(tech.technician_id, dayHeaders[i].iso);
+                                    handleBlockDropOnCell(tech.technician_id, iso);
                                     return;
                                   }
                                   if (dragPlaceholderRef.current) {
-                                    handlePlaceholderDropOnCell(tech.technician_id, dayHeaders[i].iso);
+                                    handlePlaceholderDropOnCell(tech.technician_id, iso);
                                     return;
                                   }
-                                  handleDropOnCell(tech.technician_id, i, tech.resource_name);
+                                  handleDropOnCell(tech.technician_id, dayIdx, tech.resource_name);
                                 }}
                               >
+                                {otherLocationBookings.length > 0 && (
+                                  <CrossLocationBookingIndicator
+                                    bookings={otherLocationBookings}
+                                    testId={`cross-location-booking-${tech.technician_id}-${dayIdx}`}
+                                  />
+                                )}
                                 {cellItems.map((it) => (
                                   <div
                                     key={it.key}
@@ -4247,7 +4400,7 @@ export default function ScheduleBoard() {
                                     setAddingBlock({
                                       technicianId: tech.technician_id,
                                       technicianName: tech.resource_name ?? "Unknown",
-                                      date: dayHeaders[i].iso,
+                                      date: iso,
                                       regionName: rg.region,
                                     });
                                   }}

@@ -948,6 +948,12 @@ export const GetScheduleBoardResponse = zod.object({
   "range_start": zod.string(),
   "range_end": zod.string(),
   "day_count": zod.number(),
+  "viewer_email": zod.string().nullish().describe('Authenticated user\'s email for guarding user-specific cached defaults'),
+  "coordinator_default": zod.object({
+  "email": zod.string(),
+  "full_name": zod.string().nullish(),
+  "region_names": zod.array(zod.string())
+}).nullish().describe('Default regions derived from crm.territory.managerid and the matching crm.systemuser.domainname'),
   "week_start": zod.string().describe('Legacy alias for `range_start`'),
   "week_end": zod.string().describe('Legacy alias for `range_end`'),
   "regions": zod.array(zod.object({
@@ -1001,6 +1007,12 @@ export const GetWbScheduleBoardResponse = zod.object({
   "range_start": zod.string(),
   "range_end": zod.string(),
   "day_count": zod.number(),
+  "viewer_email": zod.string().nullish().describe('Authenticated user\'s email for guarding user-specific cached defaults'),
+  "coordinator_default": zod.object({
+  "email": zod.string(),
+  "full_name": zod.string().nullish(),
+  "region_names": zod.array(zod.string())
+}).nullish().describe('Default regions derived from crm.territory.managerid and the matching crm.systemuser.domainname'),
   "week_start": zod.string().describe('Legacy alias for `range_start`'),
   "week_end": zod.string().describe('Legacy alias for `range_end`'),
   "regions": zod.array(zod.object({
