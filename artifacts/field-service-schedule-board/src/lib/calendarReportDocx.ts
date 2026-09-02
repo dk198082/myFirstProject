@@ -27,7 +27,7 @@ import {
   eventsForDay,
   eventLines,
   EVENT_STYLE_MAP,
-  EXPORT_EVENT_KINDS,
+  eventKindsForExport,
   eventsForExport,
 } from "./calendarReportApi";
 
@@ -171,14 +171,15 @@ function buildWeekTable(weeks: ReportWeek[], allEvents: CalEvent[]): Table {
 
 // ── Legend ────────────────────────────────────────────────────────────────────
 
-function buildLegendParagraph(): Paragraph {
+function buildLegendParagraph(includeCustomBlocks = false): Paragraph {
+  const exportKinds = eventKindsForExport(includeCustomBlocks);
   return new Paragraph({
     spacing: { after: 240 },
-    children: EXPORT_EVENT_KINDS.flatMap((k, i) => {
+    children: exportKinds.flatMap((k, i) => {
       const s = EVENT_STYLE_MAP[k];
       return [
         new TextRun({ text: "■ ", color: s.docxBorder, size: 17 }),
-        new TextRun({ text: s.label + (i < EXPORT_EVENT_KINDS.length - 1 ? "   " : ""), size: 20, color: "64748B" }),
+        new TextRun({ text: s.label + (i < exportKinds.length - 1 ? "   " : ""), size: 20, color: "64748B" }),
       ];
     }),
   });
@@ -192,6 +193,7 @@ export async function generateTechDocx(
   dateRangeLabel: string,
   startDate: string,
   endDate: string,
+  includeCustomBlocks = false,
 ): Promise<Blob> {
   const generatedAt = new Date().toLocaleDateString("en-US", {
     month: "long",
@@ -200,7 +202,7 @@ export async function generateTechDocx(
   });
 
   const weeks = buildReportWeeks(startDate, endDate);
-  const exportEvents = eventsForExport(tech.events);
+  const exportEvents = eventsForExport(tech.events, includeCustomBlocks);
 
   // Group weeks by month for month headings
   const byMonth = new Map<string, { label: string; weeks: ReportWeek[] }>();
@@ -248,7 +250,7 @@ export async function generateTechDocx(
   );
 
   // Legend
-  children.push(buildLegendParagraph());
+  children.push(buildLegendParagraph(includeCustomBlocks));
 
   if (exportEvents.length === 0) {
     children.push(

@@ -181,6 +181,64 @@ describe("GET /wb/calendar-report — role enforcement", () => {
     expect(res.body).toHaveProperty("technicians");
     expect(Array.isArray(res.body.technicians)).toBe(true);
   });
+
+  it("includes Travel Time, PTO, and Custom schedule blocks as report events", async () => {
+    const fakePool = {
+      query: vi
+        .fn()
+        .mockResolvedValueOnce({
+          rows: [{
+            technician_id: "t1",
+            resource_name: "Jane",
+            user_email: "jane@example.com",
+            entra_object_id: null,
+            user_principal_name: null,
+          }],
+        })
+        .mockResolvedValueOnce({ rows: [] }),
+    };
+    mocks.getCrmPool.mockReturnValue(fakePool);
+    mocks.localQuery
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            technician_id: "t1",
+            block_type: "drive_time",
+            title: null,
+            start_time: new Date("2026-08-03T15:00:00.000Z"),
+            end_time: new Date("2026-08-03T17:00:00.000Z"),
+          },
+          {
+            technician_id: "t1",
+            block_type: "pto",
+            title: null,
+            start_time: new Date("2026-08-04T15:00:00.000Z"),
+            end_time: new Date("2026-08-04T23:00:00.000Z"),
+          },
+          {
+            technician_id: "t1",
+            block_type: "custom",
+            title: "Safety Training",
+            start_time: new Date("2026-08-05T15:00:00.000Z"),
+            end_time: new Date("2026-08-05T17:00:00.000Z"),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const agent = request.agent(buildApp());
+    await agent.get("/__test/seed-editor");
+    const res = await agent
+      .get("/wb/calendar-report")
+      .query({ technician_ids: "t1", start_date: "2026-08-01", end_date: "2026-09-01" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.technicians[0].events).toEqual([
+      expect.objectContaining({ kind: "drive", title: null }),
+      expect.objectContaining({ kind: "pto", title: null }),
+      expect.objectContaining({ kind: "custom", title: "Safety Training" }),
+    ]);
+  });
 });
 
 // ---------------------------------------------------------------------------

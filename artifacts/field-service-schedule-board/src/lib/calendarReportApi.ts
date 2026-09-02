@@ -63,13 +63,21 @@ export const EVENT_KINDS: ReadonlyArray<CalEvent["kind"]> = [
   "job", "potential", "drive", "pto", "custom",
 ];
 
-/** Event kinds included in downloadable PDF and Word reports. */
+/** Event kinds included in downloadable PDF and Word reports by default. */
 export const EXPORT_EVENT_KINDS: ReadonlyArray<Exclude<CalEvent["kind"], "custom">> = [
   "job", "potential", "drive", "pto",
 ];
 
-export function eventsForExport(events: CalEvent[]): CalEvent[] {
-  return events.filter((event) => event.kind !== "custom");
+export function eventKindsForExport(includeCustomBlocks = false): ReadonlyArray<CalEvent["kind"]> {
+  return includeCustomBlocks
+    ? [...EXPORT_EVENT_KINDS, "custom"]
+    : EXPORT_EVENT_KINDS;
+}
+
+export function eventsForExport(events: CalEvent[], includeCustomBlocks = false): CalEvent[] {
+  return includeCustomBlocks
+    ? events
+    : events.filter((event) => event.kind !== "custom");
 }
 
 // ── API calls ─────────────────────────────────────────────────────────────────

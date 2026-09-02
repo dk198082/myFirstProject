@@ -258,6 +258,7 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
   const [customEnd,   setCustomEnd]   = useState<Date | undefined>(undefined);
   const [startPickerOpen, setStartPickerOpen] = useState(false);
   const [endPickerOpen,   setEndPickerOpen]   = useState(false);
+  const [includeCustomBlocks, setIncludeCustomBlocks] = useState(false);
 
   const monthOptions = buildMonthOptions();
 
@@ -344,13 +345,25 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
     setPdfState("loading");
     try {
       if (reportData.length === 1) {
-        const blob = await generateTechPdf(reportData[0], dateRangeLabel, startDate, endDate);
+        const blob = await generateTechPdf(
+          reportData[0],
+          dateRangeLabel,
+          startDate,
+          endDate,
+          includeCustomBlocks,
+        );
         const fname = `Schedule_${safeName(reportData[0].resource_name ?? "Tech")}_${safeName(dateRangeLabel)}.pdf`;
         downloadBlob(blob, fname);
       } else {
         // Multiple technicians → one private file per technician.
         for (const [index, tech] of reportData.entries()) {
-          const blob = await generateTechPdf(tech, dateRangeLabel, startDate, endDate);
+          const blob = await generateTechPdf(
+            tech,
+            dateRangeLabel,
+            startDate,
+            endDate,
+            includeCustomBlocks,
+          );
           const fname = `Schedule_${safeName(tech.resource_name ?? "Tech")}_${safeName(dateRangeLabel)}.pdf`;
           downloadBlob(blob, fname);
           await pauseBetweenDownloads(index, reportData.length);
@@ -363,7 +376,7 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
       toast({ title: "PDF generation failed", description: msg, variant: "destructive" });
       setPdfState("idle");
     }
-  }, [reportData, dateRangeLabel, toast]);
+  }, [reportData, dateRangeLabel, includeCustomBlocks, toast]);
 
   // ── Word download ─────────────────────────────────────────────────────────
   const [wordState, setWordState] = useState<ActionState>("idle");
@@ -373,13 +386,25 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
     setWordState("loading");
     try {
       if (reportData.length === 1) {
-        const blob = await generateTechDocx(reportData[0], dateRangeLabel, startDate, endDate);
+        const blob = await generateTechDocx(
+          reportData[0],
+          dateRangeLabel,
+          startDate,
+          endDate,
+          includeCustomBlocks,
+        );
         const fname = `Schedule_${safeName(reportData[0].resource_name ?? "Tech")}_${safeName(dateRangeLabel)}.docx`;
         downloadBlob(blob, fname);
       } else {
         // Multiple technicians → one private file per technician.
         for (const [index, tech] of reportData.entries()) {
-          const blob = await generateTechDocx(tech, dateRangeLabel, startDate, endDate);
+          const blob = await generateTechDocx(
+            tech,
+            dateRangeLabel,
+            startDate,
+            endDate,
+            includeCustomBlocks,
+          );
           const fname = `Schedule_${safeName(tech.resource_name ?? "Tech")}_${safeName(dateRangeLabel)}.docx`;
           downloadBlob(blob, fname);
           await pauseBetweenDownloads(index, reportData.length);
@@ -392,7 +417,7 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
       toast({ title: "Word generation failed", description: msg, variant: "destructive" });
       setWordState("idle");
     }
-  }, [reportData, dateRangeLabel, toast]);
+  }, [reportData, dateRangeLabel, includeCustomBlocks, toast]);
 
   // ── Email ─────────────────────────────────────────────────────────────────
   const [emailState, setEmailState] = useState<ActionState>("idle");
@@ -424,7 +449,13 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
         setEmailProgress(
           `Sending ${i + 1} of ${techsWithEmail.length}: ${tech.resource_name ?? ""}…`,
         );
-        const pdfBlob = await generateTechPdf(tech, dateRangeLabel, startDate, endDate);
+        const pdfBlob = await generateTechPdf(
+          tech,
+          dateRangeLabel,
+          startDate,
+          endDate,
+          includeCustomBlocks,
+        );
         const pdfBase64 = await blobToBase64(pdfBlob);
         const result = await sendCalendarReportEmail({
           technician_id: tech.technician_id,
@@ -455,7 +486,7 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
       setEmailState("idle");
       setEmailProgress(null);
     }
-  }, [reportData, techsWithEmail, dateRangeLabel, toast]);
+  }, [reportData, techsWithEmail, dateRangeLabel, includeCustomBlocks, toast]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   const selectedTechs = technicians.filter((t) => selectedIds.has(t.id));
@@ -638,6 +669,13 @@ export function CalendarReportDialog({ technicians, onClose }: Props) {
                     End date must be on or after the start date.
                   </p>
                 ) : null}
+                <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                  <Checkbox
+                    checked={includeCustomBlocks}
+                    onCheckedChange={(checked) => setIncludeCustomBlocks(checked === true)}
+                  />
+                  <span>Include Custom Blocks</span>
+                </label>
               </div>
 
               {/* Technician selector */}

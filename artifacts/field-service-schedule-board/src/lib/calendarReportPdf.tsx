@@ -2,8 +2,10 @@
  * PDF generation for the technician calendar report.
  * Renders a stacked-weeks calendar grid (one row per week, Mon–Fri columns)
  * matching the board's single-technician Calendar View.
- * Includes scheduled jobs, potential jobs, Travel Time, and PTO.
+ * Includes scheduled jobs, potential jobs, Travel Time, and PTO by default;
+ * Custom blocks can be included per report.
  */
+import React from "react";
 import { Document, Page, View, Text, StyleSheet, pdf } from "@react-pdf/renderer";
 import type { ReportTechnician, CalEvent } from "./calendarReportApi";
 import {
@@ -11,7 +13,7 @@ import {
   eventsForDay,
   eventLines,
   EVENT_STYLE_MAP,
-  EXPORT_EVENT_KINDS,
+  eventKindsForExport,
   eventsForExport,
 } from "./calendarReportApi";
 
@@ -143,16 +145,24 @@ type TechPdfDocProps = {
   dateRangeLabel: string;
   startDate: string;
   endDate: string;
+  includeCustomBlocks: boolean;
 };
 
-function TechPdfDoc({ tech, dateRangeLabel, startDate, endDate }: TechPdfDocProps) {
+function TechPdfDoc({
+  tech,
+  dateRangeLabel,
+  startDate,
+  endDate,
+  includeCustomBlocks,
+}: TechPdfDocProps) {
   const generatedAt = new Date().toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
   const weeks = buildReportWeeks(startDate, endDate);
-  const exportEvents = eventsForExport(tech.events);
+  const exportEvents = eventsForExport(tech.events, includeCustomBlocks);
+  const exportKinds = eventKindsForExport(includeCustomBlocks);
 
   let lastMonth = "";
 
@@ -173,7 +183,7 @@ function TechPdfDoc({ tech, dateRangeLabel, startDate, endDate }: TechPdfDocProp
 
         {/* Legend */}
         <View style={styles.legendRow}>
-          {EXPORT_EVENT_KINDS.map((k) => {
+          {exportKinds.map((k) => {
             const s = EVENT_STYLE_MAP[k];
             return (
               <View key={k} style={styles.legendItem}>
@@ -266,6 +276,7 @@ export async function generateTechPdf(
   dateRangeLabel: string,
   startDate: string,
   endDate: string,
+  includeCustomBlocks = false,
 ): Promise<Blob> {
   return pdf(
     <TechPdfDoc
@@ -273,6 +284,7 @@ export async function generateTechPdf(
       dateRangeLabel={dateRangeLabel}
       startDate={startDate}
       endDate={endDate}
+      includeCustomBlocks={includeCustomBlocks}
     />,
   ).toBlob();
 }
