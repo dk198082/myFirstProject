@@ -199,8 +199,8 @@ function featureTable(rows) {
 
 function chipColourTable() {
   const rows = [
-    ['Scheduled Job (CRM)',        'Region colour — solid border',  'WO# · Customer · City/State · Duration'],
-    ['Potential Job',              'Yellow (R4); region colour (others) — dashed border + diagonal stripe', 'Customer · City/State · Status · Notes'],
+    ['Scheduled Job (CRM)',        'Region colour — solid border',  'WO# · Customer · City/State/Postal Code · Duration'],
+    ['Potential Job',              'Yellow (R4); region colour (others) — dashed border + diagonal stripe', 'Customer · City/State/Postal Code · Status · Notes'],
     ['Travel Time Block',          'Region colour — solid border',  '🚗 Travel Time · Duration'],
     ['PTO Block',                  'Region colour — solid border',  '☀️ PTO · Duration'],
     ['Custom Block',               'Orange (R4); region colour (others) — solid border', '✏️ Title (or "Custom") · Duration'],
@@ -387,7 +387,7 @@ const children = [
   para('Every entry on the board is a colour-coded chip. All text wraps within the chip — no content is hidden by truncation.', { size: 11, after: 120 }),
   chipColourTable(),
   spacer(100),
-  callout('Region colour defaults:', 'R1 = Blue · R2 = Yellow · R3 = Violet · R4 = Sky Blue (jobs), Yellow (potential), Orange (custom) · R5 = Teal · R99 = Gray. Any chip colour can be overridden per-entry from the add/edit dialog.', C.blueLight, C.blue),
+  callout('Region colour defaults:', 'R1 = Blue · R2 = Yellow · R3 = Violet · R4 = Sky Blue (jobs), Yellow (potential), Orange (custom) · R5 = Lighter Salmon · R99 = Gray. Any chip colour can be overridden per-entry from the add/edit dialog.', C.blueLight, C.blue),
 
   // ── 5. Rescheduling ─────────────────────────────────────────────────────
   sectionHeading('5.  Rescheduling a Job  [Editor only]'),
@@ -489,7 +489,7 @@ const children = [
     ['Potential (placeholder) jobs', 'Included.'],
     ['Travel Time blocks',           'Included.'],
     ['PTO blocks',                   'Included.'],
-    ['Custom blocks',                'Excluded from PDF and Word downloads (visible in in-app preview only).'],
+    ['Custom blocks',                'Visible in the in-app preview. Check Include Custom Blocks to add them to PDF, Word, and emailed PDF reports.'],
     ['Multi-day bookings',           'Appear on every weekday they span — a Mon–Thu booking shows on Mon, Tue, Wed, Thu.'],
   ]),
   spacer(80),
@@ -498,7 +498,7 @@ const children = [
   step(2, 'Choose how to define the date range using the Month range / Custom toggle at the top of the dialog:'),
   bullet('Month range — select a start month from the dropdown, then pick a span of 1–6 months.', 1),
   bullet('Custom — pick an exact start date and end date using the date picker popovers. The end date picker prevents selecting a date before the chosen start. The Load button stays disabled until both dates are set.', 1),
-  step(3, 'Click Load Schedule Data to fetch the schedule for the chosen range.'),
+  step(3, 'Optionally check Include Custom Blocks, then click Load Schedule Data to fetch the schedule for the chosen range.'),
   step(4, 'Select one or more technicians from the picker.'),
   step(5, 'Choose an output format:'),
   bullet('Download PDF — multi-page PDF, one technician per page, with large readable font and event chips per day.', 1),

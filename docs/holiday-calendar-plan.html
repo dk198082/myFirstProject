@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Regional Holiday Calendar — Feature Plan</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #f5f6f8;
+    color: #1a1f2e;
+    line-height: 1.6;
+  }
+
+  /* ── Header ── */
+  .doc-header {
+    background: #1e3a5f;
+    color: #fff;
+    padding: 48px 56px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .doc-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 320px; height: 320px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 50%;
+    transform: translate(40%, 40%);
+  }
+  .doc-header .tag {
+    display: inline-block;
+    background: rgba(255,255,255,0.15);
+    color: #a8cce8;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+  }
+  .doc-header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 10px;
+  }
+  .doc-header .subtitle {
+    color: #8eb8d9;
+    font-size: 15px;
+  }
+  .meta-row {
+    display: flex;
+    gap: 24px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .meta-item .label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6a9fca;
+  }
+  .meta-item .value {
+    font-size: 13px;
+    color: #d0e8f8;
+    font-weight: 500;
+  }
+
+  /* ── Layout ── */
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 32px 80px;
+  }
+
+  /* ── Section ── */
+  .section {
+    background: #fff;
+    border: 1px solid #e2e6ef;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom: 1px solid #e8edf5;
+    background: #fafbfd;
+  }
+  .section-icon {
+    width: 30px; height: 30px;
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .icon-blue   { background: #dbeafe; }
+  .icon-green  { background: #d1fae5; }
+  .icon-amber  { background: #fef3c7; }
+  .icon-purple { background: #ede9fe; }
+  .icon-red    { background: #fee2e2; }
+  .icon-slate  { background: #e2e8f0; }
+
+  .section-header h2 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a1f2e;
+    letter-spacing: -0.2px;
+  }
+  .section-body {
+    padding: 20px 24px;
+  }
+
+  /* ── Prose ── */
+  p { font-size: 14px; color: #4a5568; margin-bottom: 10px; }
+  p:last-child { margin-bottom: 0; }
+
+  /* ── Bullet lists ── */
+  ul.plan-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  ul.plan-list li {
+    display: flex;
+    gap: 10px;
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.55;
+  }
+  ul.plan-list li::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #3b82f6;
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+  ul.plan-list.amber li::before { background: #f59e0b; }
+  ul.plan-list.red   li::before { background: #ef4444; }
+  ul.plan-list.slate li::before { background: #94a3b8; }
+
+  /* ── Sub-sections ── */
+  .sub-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #f0f2f7;
+  }
+  .sub-section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+  .sub-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: 10px;
+  }
+
+  /* ── Steps ── */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .step {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .step-num {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: #1e3a5f;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-content { flex: 1; }
+  .step-content strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1f2e;
+    margin-bottom: 3px;
+  }
+  .step-content span {
+    font-size: 13px;
+    color: #4a5568;
+    line-height: 1.55;
+  }
+
+  /* ── Type pills ── */
+  .pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .pill-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+  .pill-blue   { background: #dbeafe; color: #1d4ed8; }
+  .pill-amber  { background: #fef3c7; color: #92400e; }
+  .pill-red    { background: #fee2e2; color: #991b1b; }
+  .pill-grey   { background: #f3f4f6; color: #374151; }
+
+  /* ── Region badges ── */
+  .regions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .region-badge {
+    padding: 3px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .badge-us { background: #dbeafe; color: #1e3a8a; }
+  .badge-uk { background: #d1fae5; color: #065f46; }
+
+  /* ── Two-col grid ── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+
+  .info-card {
+    background: #f8faff;
+    border: 1px solid #e2e6ef;
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .info-card .card-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: 8px;
+  }
+
+  /* ── Out of scope ── */
+  .oos-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+    color: #6b7280;
+    padding: 6px 0;
+    border-bottom: 1px solid #f3f4f6;
+    line-height: 1.5;
+  }
+  .oos-item:last-child { border-bottom: none; }
+  .oos-x {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    color: #9ca3af;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* ── Footer ── */
+  .doc-footer {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 12px;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e6ef;
+  }
+
+  code {
+    background: #f0f2f7;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    color: #374151;
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-header">
+  <div class="tag">Feature Plan · Task #116</div>
+  <h1>Regional Holiday Calendar</h1>
+  <p class="subtitle">Customisable, region-scoped non-working day management for the Field Service Schedule Board</p>
+  <div class="meta-row">
+    <div class="meta-item">
+      <span class="label">Scope</span>
+      <span class="value">Field Service Schedule Board</span>
+    </div>
+    <div class="meta-item">
+      <span class="label">Authored</span>
+      <span class="value">August 2026</span>
+    </div>
+    <div class="meta-item">
+      <span class="label">Managed by</span>
+      <span class="value">IT / Admin role</span>
+    </div>
+    <div class="meta-item">
+      <span class="label">Status</span>
+      <span class="value">Planned — ready to build</span>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- What & Why -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-blue">💡</div>
+      <h2>What &amp; Why</h2>
+    </div>
+    <div class="section-body">
+      <p>Dispatchers need to see non-working days per region on the schedule board and calendar report — public holidays, company closures, and planned site shutdowns — so capacity planning is accurate. IT/Admin must be able to manage this calendar year-on-year without developer involvement.</p>
+      <p>The system launches pre-loaded with draft standard public holidays so the board is useful on day one, and IT reviews and confirms them at their own pace.</p>
+    </div>
+  </div>
+
+  <!-- Auto-seeded drafts -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-green">🗓️</div>
+      <h2>Auto-Seeded Drafts on Launch</h2>
+    </div>
+    <div class="section-body">
+      <p>On first deployment, the system automatically inserts draft entries for standard public holidays covering the current year and the next year.</p>
+      <div class="two-col" style="margin-top:14px;">
+        <div class="info-card">
+          <div class="card-label">US Federal Holidays</div>
+          <div class="regions">
+            <span class="region-badge badge-us">R1</span>
+            <span class="region-badge badge-us">R2</span>
+            <span class="region-badge badge-us">R3</span>
+            <span class="region-badge badge-us">R5</span>
+          </div>
+          <p style="margin-top:10px; font-size:13px; color:#4a5568;">New Year's Day, MLK Jr. Day, Presidents' Day, Memorial Day, Juneteenth, Independence Day, Labour Day, Columbus Day, Veterans Day, Thanksgiving, Christmas</p>
+        </div>
+        <div class="info-card">
+          <div class="card-label">UK Bank Holidays (England &amp; Wales)</div>
+          <div class="regions">
+            <span class="region-badge badge-uk">R4</span>
+          </div>
+          <p style="margin-top:10px; font-size:13px; color:#4a5568;">New Year's Day, Good Friday, Easter Monday, Early May BH, Spring BH, Summer BH, Christmas Day, Boxing Day</p>
+        </div>
+      </div>
+      <p style="margin-top:14px; font-size:13px; color:#6b7280; background:#f8faff; border:1px solid #e2e6ef; border-radius:6px; padding:10px 14px;">All seeded entries carry <strong>Draft</strong> status — they appear on the board immediately so dispatchers can use them, but IT can review, edit, confirm, or remove them before finalising.</p>
+    </div>
+  </div>
+
+  <!-- Admin UI -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-purple">⚙️</div>
+      <h2>Holiday Calendar Admin Tab</h2>
+    </div>
+    <div class="section-body">
+
+      <div class="sub-section">
+        <div class="sub-title">Access</div>
+        <ul class="plan-list">
+          <li>A new <strong>Admin</strong> link appears in the app header — visible to Admin-role users only.</li>
+          <li>Opens an admin area with a <strong>Holiday Calendar</strong> tab. Additional admin tabs (e.g. Sync operations) can be added here in future.</li>
+        </ul>
+      </div>
+
+      <div class="sub-section">
+        <div class="sub-title">Tab Layout</div>
+        <ul class="plan-list">
+          <li><strong>Top bar:</strong> Region selector (All / R1 / R2 / R3 / R4 / R5) · Year dropdown · Status filter (All / Draft / Confirmed) · <strong>Add Entry</strong> button.</li>
+          <li><strong>Load standard holidays panel:</strong> "Load [year] standard holidays for US regions" and "Load [year] standard holidays for R4 (UK)" — inserts missing public holidays as Draft for any chosen year, never overwrites existing entries.</li>
+          <li><strong>Entries table:</strong> Date · Name · Type (colour-coded pill) · Regions · Status · Actions.</li>
+          <li><strong>Row actions:</strong> Edit (opens drawer) · Delete (with confirmation).</li>
+          <li><strong>Bulk actions:</strong> Checkbox select + "Confirm selected" to approve multiple drafts at once.</li>
+        </ul>
+      </div>
+
+      <div class="sub-section">
+        <div class="sub-title">Edit / Create Flow</div>
+        <ul class="plan-list">
+          <li>Click any row → edit drawer opens. Fields: Date, End Date (optional, for multi-day ranges), Name, Entry Type, Region(s) (multi-select), Status, Notes. Save / Cancel / Delete.</li>
+          <li>Add Entry uses the same form, defaulting to Draft and the current year.</li>
+          <li>Validation: date, name, and at least one region are required.</li>
+        </ul>
+      </div>
+
+      <div class="sub-section">
+        <div class="sub-title">Entry Types</div>
+        <div class="pills">
+          <span class="pill pill-blue"><span class="pill-dot" style="background:#1d4ed8;"></span>Public Holiday</span>
+          <span class="pill pill-amber"><span class="pill-dot" style="background:#f59e0b;"></span>Company Holiday</span>
+          <span class="pill pill-red"><span class="pill-dot" style="background:#ef4444;"></span>Site Shutdown</span>
+          <span class="pill pill-grey"><span class="pill-dot" style="background:#6b7280;"></span>Other</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Board & Report display -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-blue">📋</div>
+      <h2>Board &amp; Calendar Report Display</h2>
+    </div>
+    <div class="section-body">
+      <div class="sub-section">
+        <div class="sub-title">Schedule Board</div>
+        <ul class="plan-list">
+          <li>Day column headers show compact, colour-coded banners (by entry type) beneath the date — matching entries for the technician's region.</li>
+          <li>Draft entries display with a dashed border or muted style so dispatchers can see they are awaiting confirmation.</li>
+          <li>Multiple entries on the same day stack vertically.</li>
+          <li>Entries are <strong>advisory only</strong> — they do not block scheduling or restrict job placement.</li>
+          <li>Fetched as part of the existing board data call — no extra API round-trip.</li>
+        </ul>
+      </div>
+      <div class="sub-section">
+        <div class="sub-title">Calendar Report (PDF / Word)</div>
+        <ul class="plan-list">
+          <li>Holiday entries for the covered date range appear as labelled rows in exported reports.</li>
+          <li>Visible in both PDF and Word exports so printed schedules reflect non-working days.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- IT Annual Workflow -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-green">📅</div>
+      <h2>IT's Annual Workflow</h2>
+    </div>
+    <div class="section-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <strong>Open Admin → Holiday Calendar</strong>
+            <span>Select the upcoming year from the year dropdown.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <strong>Load standard holidays</strong>
+            <span>Click "Load [year] standard holidays for US regions" and/or "Load [year] standard holidays for R4 (UK)". Standard public holidays are inserted as Draft. Nothing already entered is touched.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <strong>Review the draft entries</strong>
+            <span>Edit individual entries to fix names or dates, or delete anything not applicable to your business.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <strong>Add company-specific dates</strong>
+            <span>Use Add Entry to create Company Holiday, Site Shutdown, or Other entries for specific date ranges and regions.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <strong>Bulk confirm</strong>
+            <span>Select all reviewed entries and click "Confirm selected" to mark them as confirmed in one action. The board updates immediately.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Implementation Steps -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-slate">🔧</div>
+      <h2>Implementation Steps</h2>
+    </div>
+    <div class="section-body">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <strong>Database schema</strong>
+            <span>Create <code>region_calendar_entries</code> table: <code>id</code>, <code>entry_date</code>, <code>end_date</code> (nullable), <code>name</code>, <code>entry_type</code>, <code>region_names</code> (text array), <code>status</code> (draft / confirmed), <code>notes</code>, <code>created_at</code>, <code>updated_at</code>.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <strong>Standard-holiday utility</strong>
+            <span>Reusable function: given country (US or UK) and year, returns full list of public holiday dates and names. Used by both the seed migration and the admin load action.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <strong>Seed migration</strong>
+            <span>On first deployment, insert US holidays (current + next year → R1/R2/R3/R5) and UK holidays (current + next year → R4) as draft. Upsert logic so re-running is safe.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <strong>API — CRUD routes (Admin role)</strong>
+            <span>List, create, update, delete, bulk-confirm, and "load year" endpoints. All gated to Admin role.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <strong>API — schedule-board query</strong>
+            <span>Extend the board data endpoint to include matching <code>calendarEntries</code> for the visible date window and technician regions.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">6</div>
+          <div class="step-content">
+            <strong>Admin area shell</strong>
+            <span>Add Admin nav link (Admin role only) with a tabbed container. Holiday Calendar is the first tab; extensible for future admin tools.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">7</div>
+          <div class="step-content">
+            <strong>Holiday Calendar tab UI</strong>
+            <span>Filters, Load buttons, entries table, row edit/delete, bulk-confirm, Add Entry form with full field set.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">8</div>
+          <div class="step-content">
+            <strong>Board UI — day column banners</strong>
+            <span>Colour-coded type banners in day headers; draft entries visually distinguished; multiple entries stack.</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">9</div>
+          <div class="step-content">
+            <strong>Calendar report</strong>
+            <span>Include holiday rows in PDF and Word exports for the covered date range.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Out of scope -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-red">🚫</div>
+      <h2>Out of Scope</h2>
+    </div>
+    <div class="section-body">
+      <div class="oos-item"><div class="oos-x">✕</div><span>Syncing calendar entries to or from Dynamics 365</span></div>
+      <div class="oos-item"><div class="oos-x">✕</div><span>Automatically reducing utilisation calculations on holiday days</span></div>
+      <div class="oos-item"><div class="oos-x">✕</div><span>Per-technician holiday overrides</span></div>
+      <div class="oos-item"><div class="oos-x">✕</div><span>Regions R8 or R99</span></div>
+      <div class="oos-item"><div class="oos-x">✕</div><span>Email or push notifications on holiday dates</span></div>
+      <div class="oos-item"><div class="oos-x">✕</div><span>Holiday entry access for non-Admin roles</span></div>
+    </div>
+  </div>
+
+  <div class="doc-footer">
+    Field Service Schedule Board · Regional Holiday Calendar Plan · Task #116 · August 2026
+  </div>
+
+</div>
+</body>
+</html>
