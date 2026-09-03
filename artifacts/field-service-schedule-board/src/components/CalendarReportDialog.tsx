@@ -200,7 +200,16 @@ function TechPreview({ tech }: { tech: ReportTechnician }) {
                           {ev.kind === "job" ? (
                             <div className="space-y-0.5">
                               {lines.map((line, lineIndex) => (
-                                <div key={lineIndex} className={lineIndex === 0 ? "font-medium" : "text-slate-500"}>
+                                  <div
+                                    key={lineIndex}
+                                    className={
+                                      line.startsWith("Dispatcher Notes:") || line.startsWith("Notes:")
+                                        ? "text-xs text-slate-500 whitespace-pre-wrap break-words"
+                                        : lineIndex === 0
+                                          ? "font-medium"
+                                          : "text-slate-500"
+                                    }
+                                  >
                                   {line}
                                 </div>
                               ))}

@@ -18,12 +18,17 @@ export interface PlaceholderJob {
   /** @nullable */
   state?: string | null;
   /**
+     * Postal code resolved from the linked CRM service location when available
+     * @nullable
+     */
+  postal_code?: string | null;
+  /**
      * CRM account ID of the linked service location (null when freeform)
      * @nullable
      */
   service_location_id?: string | null;
   /**
-     * 0–14 index into the board's colour palette; null = match technician swimlane colour
+     * 0–18 index into the board's colour palette; null = match technician swimlane colour
      * @nullable
      */
   color_index?: number | null;

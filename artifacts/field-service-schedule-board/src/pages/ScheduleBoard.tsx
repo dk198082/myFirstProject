@@ -220,8 +220,10 @@ const TECH_PALETTE = [
   { chip: "bg-yellow-100 text-yellow-900 border-yellow-500 hover:bg-yellow-200", dot: "bg-yellow-500" },
   { chip: "bg-red-100    text-red-900    border-red-400    hover:bg-red-200", dot: "bg-red-500" },
   { chip: "bg-gray-100  text-gray-700   border-gray-300   hover:bg-gray-200", dot: "bg-gray-400" },
-  // R5 default: brighter red while keeping black text legible.
+  // R5 default: light salmon/rose with a readable deep-rose label.
   { chip: "bg-red-300    text-black      border-red-600    hover:bg-red-400", dot: "bg-red-600" },
+  { chip: "bg-rose-200  text-rose-950  border-rose-500  hover:bg-rose-300", dot: "bg-rose-500" },
+  { chip: "bg-rose-100  text-rose-950  border-rose-400  hover:bg-rose-200", dot: "bg-rose-400" },
 ];
 
 
@@ -231,7 +233,7 @@ const REGION_COLOR_MAP: Record<string, number> = {
   R2: 13,  // yellow
   R3: 4,   // violet / purple
   R4: 12,  // sky blue
-  R5: 16,  // bright red with black text
+  R5: 18,  // Colour 19 — lighter salmon/rose
   R8: 14,  // red
   R99: 15, // gray
 };
@@ -309,6 +311,7 @@ type ScheduleJob = {
   end_time?: string | null;
   city?: string | null;
   state?: string | null;
+  postal_code?: string | null;
   day_index: number;
   span_start_day?: number | null;
   span_end_day?: number | null;
@@ -319,7 +322,6 @@ type ScheduleJob = {
 type CrossLocationBooking = {
   locationId: string;
   locationName: string;
-  homeRegionName: string | null;
   job: ScheduleJob;
 };
 
@@ -330,13 +332,15 @@ function CrossLocationBookingIndicator({
   bookings: CrossLocationBooking[];
   testId: string;
 }) {
-  const bookingDetails = bookings.map(({ locationName, homeRegionName, job }) => {
+  const bookingDetails = bookings.map(({ locationName, job }) => {
     const start = fmtLocalTime(job.crmstart_time, job.crmstarttime);
     const end = fmtLocalTime(job.crmend_time, job.crmendtime);
     const time = start && end ? `${start} – ${end}` : start || end;
     return {
-      region: homeRegionName || "another region",
-      location: [job.city, job.state].filter(Boolean).join(", ") || locationName,
+      region: locationName || "another region",
+      workOrderNumber: job.work_order_number || "Work Order",
+      customer: job.customer_name || "Customer unavailable",
+      location: [job.city, job.state, job.postal_code].filter(Boolean).join(", ") || locationName,
       time: time || "—",
     };
   });
@@ -347,12 +351,17 @@ function CrossLocationBookingIndicator({
       className="relative z-10 flex w-full items-start gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-left text-[10px] font-semibold leading-tight text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
       data-testid={testId}
       role="status"
-      aria-label={`Booked in ${firstBooking?.region}; Location: ${firstBooking?.location}; Time: ${firstBooking?.time}`}
+      aria-label={`Booked in ${firstBooking?.region} on ${firstBooking?.workOrderNumber}; ${firstBooking?.customer}; Location: ${firstBooking?.location}; Time: ${firstBooking?.time}`}
       onClick={(event) => event.stopPropagation()}
     >
       <MapPin className="mt-0.5 h-2.5 w-2.5 shrink-0" aria-hidden />
       <span className="min-w-0">
-        <span className="block truncate">Booked in {firstBooking?.region}</span>
+        <span className="block truncate">
+          Booked in {firstBooking?.region} on {firstBooking?.workOrderNumber}
+        </span>
+        <span className="block truncate font-medium opacity-80">
+          {firstBooking?.customer}
+        </span>
         <span className="block truncate font-medium opacity-80">
           Location: {firstBooking?.location}
         </span>
@@ -414,6 +423,7 @@ function jobMatchesSearch(job: ScheduleJob, q: string): boolean {
     job.customer_name?.toLowerCase().includes(lower) ||
     job.city?.toLowerCase().includes(lower) ||
     job.state?.toLowerCase().includes(lower) ||
+    job.postal_code?.toLowerCase().includes(lower) ||
     job.technician_name?.toLowerCase().includes(lower) ||
     job.title?.toLowerCase().includes(lower)
   );
@@ -426,6 +436,7 @@ function placeholderJobMatchesSearch(job: PlaceholderJob, q: string, techName?: 
     job.customer_name?.toLowerCase().includes(lower) ||
     job.city?.toLowerCase().includes(lower) ||
     job.state?.toLowerCase().includes(lower) ||
+    job.postal_code?.toLowerCase().includes(lower) ||
     job.status?.toLowerCase().includes(lower) ||
     job.title?.toLowerCase().includes(lower) ||
     techName?.toLowerCase().includes(lower)
@@ -692,7 +703,7 @@ function PlaceholderJobChip({
      ? TECH_PALETTE[job.color_index]?.chip ?? regionPaletteEntry(regionName, "potential").chip
      : regionPaletteEntry(regionName, "potential").chip;
   const duration = fmtBlockDuration(job.start_time, job.end_time);
-  const location = [job.city, job.state].filter(Boolean).join(", ");
+  const location = [job.city, job.state, job.postal_code].filter(Boolean).join(", ");
 
   const startDay = job.start_time.slice(0, 10);
   const endDay = effectiveEndDay(job.end_time);
@@ -810,10 +821,10 @@ function PlaceholderJobChip({
                 {locDetail?.name ?? job.customer_name}
               </div>
             )}
-            {[locDetail?.city ?? job.city, locDetail?.state ?? job.state].filter(Boolean).join(", ") && (
+            {[locDetail?.city ?? job.city, locDetail?.state ?? job.state, locDetail?.postal_code ?? job.postal_code].filter(Boolean).join(", ") && (
               <div>
                 <span className="font-medium opacity-70">Location:</span>{" "}
-                {[locDetail?.city ?? job.city, locDetail?.state ?? job.state].filter(Boolean).join(", ")}
+                {[locDetail?.city ?? job.city, locDetail?.state ?? job.state, locDetail?.postal_code ?? job.postal_code].filter(Boolean).join(", ")}
               </div>
             )}
             {isMultiDay ? (
@@ -976,9 +987,9 @@ function JobChip({
         )}
       </div>
       {!compact && <div className="opacity-90 whitespace-normal break-words">{job.customer_name ?? "—"}</div>}
-      {!compact && (job.city || job.state) && (
+      {!compact && (job.city || job.state || job.postal_code) && (
         <div className="opacity-75 whitespace-normal break-words">
-          {[job.city, job.state].filter(Boolean).join(", ")}
+          {[job.city, job.state, job.postal_code].filter(Boolean).join(", ")}
         </div>
       )}
       {!compact && (job.crmstarttime || job.crmendtime) && showDuration && (
@@ -1031,10 +1042,10 @@ function JobChip({
               ? ` (${fmtDuration(job.crmstarttime ?? undefined, job.crmendtime ?? undefined)})`
               : ""}
           </div>
-          {(job.city || job.state) && (
+          {(job.city || job.state || job.postal_code) && (
             <div>
               <span className="font-medium opacity-70">Location:</span>{" "}
-              {[job.city, job.state].filter(Boolean).join(", ") || "—"}
+              {[job.city, job.state, job.postal_code].filter(Boolean).join(", ") || "—"}
             </div>
           )}
           {job.system_status && (
@@ -2225,16 +2236,6 @@ export default function ScheduleBoard() {
     [allRegions, selectedRegions],
   );
 
-  const technicianHomeRegionById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const region of utilData?.regions ?? []) {
-      for (const technician of region.technicians ?? []) {
-        map.set(technician.technician_id, region.region);
-      }
-    }
-    return map;
-  }, [utilData]);
-
   // Service Location rows contain only jobs performed in that location. Keep a
   // cross-location lookup so each day cell can still show when the technician
   // has a CRM booking in another location group.
@@ -2251,7 +2252,6 @@ export default function ScheduleBoard() {
           bookings.push({
             locationId: region.regionid_id,
             locationName: region.region,
-            homeRegionName: technicianHomeRegionById.get(technician.technician_id) ?? null,
             job,
           });
           map.set(key, bookings);
@@ -2260,7 +2260,7 @@ export default function ScheduleBoard() {
     }
 
     return map;
-  }, [data, groupBy, technicianHomeRegionById]);
+  }, [data, groupBy]);
 
   const totalJobs = regions.reduce(
     (s, r) => s + r.technicians.reduce((ts, t) => ts + distinctJobCount(t.jobs), 0),

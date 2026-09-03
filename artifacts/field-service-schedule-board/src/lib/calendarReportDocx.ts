@@ -38,6 +38,10 @@ function truncate(value: string, max: number): string {
   return s.length <= max ? s : s.slice(0, Math.max(1, max - 1)).trimEnd() + "…";
 }
 
+function isNoteLine(line: string): boolean {
+  return line.startsWith("Dispatcher Notes:") || line.startsWith("Notes:");
+}
+
 const BORDER_HEX = "CBD5E1";
 const BLUE = "1E3A5F";
 const LIGHT_BLUE = "E8F0F7";
@@ -108,8 +112,8 @@ function eventParagraphs(ev: CalEvent): Paragraph[] {
       border: { left: { style: BorderStyle.SINGLE, size: 12, color: s.docxBorder } },
       children: [
         new TextRun({
-          text: truncate(line, index === 0 ? 32 : 38),
-          size: index === 0 ? 22 : 20,
+          text: isNoteLine(line) ? line : truncate(line, index === 0 ? 32 : 38),
+          size: isNoteLine(line) ? 17 : index === 0 ? 22 : 20,
           color: index === 0 ? "1A202C" : "64748B",
         }),
       ],

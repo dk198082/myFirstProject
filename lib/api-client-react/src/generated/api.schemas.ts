@@ -170,12 +170,17 @@ export interface PlaceholderJob {
   /** @nullable */
   state?: string | null;
   /**
+     * Postal code resolved from the linked CRM service location when available
+     * @nullable
+     */
+  postal_code?: string | null;
+  /**
      * CRM account ID of the linked service location (null when freeform)
      * @nullable
      */
   service_location_id?: string | null;
   /**
-     * 0–14 index into the board's colour palette; null = match technician swimlane colour
+     * 0–18 index into the board's colour palette; null = match technician swimlane colour
      * @nullable
      */
   color_index?: number | null;
@@ -204,7 +209,7 @@ export interface CreatePlaceholderJob {
      */
   service_location_id?: string | null;
   /**
-     * 0–15 palette index; null = match region default colour
+     * 0–18 palette index; null = match region default colour
      * @nullable
      */
   color_index?: number | null;
@@ -232,7 +237,7 @@ export interface UpdatePlaceholderJob {
      */
   service_location_id?: string | null;
   /**
-     * 0–15 palette index; null to reset to region default colour
+     * 0–18 palette index; null to reset to region default colour
      * @nullable
      */
   color_index?: number | null;
@@ -262,6 +267,8 @@ export interface WbServiceLocation {
   city?: string | null;
   /** @nullable */
   state?: string | null;
+  /** @nullable */
+  postal_code?: string | null;
   /** @nullable */
   address?: string | null;
 }
@@ -624,6 +631,8 @@ export interface ScheduleJob {
   city?: string | null;
   /** @nullable */
   state?: string | null;
+  /** @nullable */
+  postal_code?: string | null;
   /** 0-based offset from `range_start` (0 = first day in range) */
   day_index: number;
   /**

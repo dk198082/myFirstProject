@@ -20,9 +20,11 @@ export type CalEvent = {
   customer_name?: string | null;
   city?: string | null;
   state?: string | null;
+  postal_code?: string | null;
   title?: string | null;         // WO type label
   booking_status?: string | null;
   notes?: string | null;         // Potential-job notes
+  dispatcher_notes?: string | null; // Scheduled-job dispatcher notes
   equipment_names?: string[];
 };
 
@@ -270,41 +272,46 @@ export function eventDisplayName(e: CalEvent): string {
 
 /**
  * Secondary info line for an event, or null if none.
- * Jobs → "WO-12345 · Springfield, IL"
- * Potential → "Springfield, IL"
+ * Jobs → "WO-12345 · Springfield, IL, 62701"
+ * Potential → "Springfield, IL, 62701"
  * Blocks → null
  */
 export function eventSubline(e: CalEvent): string | null {
   if (e.kind === "job") {
-    const loc = [e.city, e.state].filter(Boolean).join(", ");
+    const loc = [e.city, e.state, e.postal_code].filter(Boolean).join(", ");
     const parts = [e.work_order_number, loc].filter(Boolean);
     return parts.length ? parts.join(" · ") : null;
   }
   if (e.kind === "potential") {
-    return [e.city, e.state].filter(Boolean).join(", ") || null;
+    return [e.city, e.state, e.postal_code].filter(Boolean).join(", ") || null;
   }
   return null;
 }
 
 /**
  * Lines shown inside downloadable report chips.
- * Scheduled jobs intentionally use exactly three lines:
- * customer, city/state, and job number.
+ * Scheduled jobs show customer, location, job number, and dispatcher notes.
  */
 export function eventLines(e: CalEvent): string[] {
   if (e.kind === "job") {
-    return [
+    const lines = [
       e.customer_name ?? "—",
-      [e.city, e.state].filter(Boolean).join(", ") || "—",
+      [e.city, e.state, e.postal_code].filter(Boolean).join(", ") || "—",
       e.work_order_number ?? "—",
     ];
+    if (e.dispatcher_notes?.trim()) {
+      lines.push(`Dispatcher Notes: ${e.dispatcher_notes.trim()}`);
+    }
+    return lines;
   }
 
   const lines = [eventDisplayName(e)];
   const sub = eventSubline(e);
   if (sub) lines.push(sub);
   if (e.kind === "potential" && e.booking_status) lines.push(e.booking_status);
-  if (e.kind === "potential" && e.notes?.trim()) lines.push(`Notes: ${e.notes.trim()}`);
+  if ((e.kind === "potential" || e.kind === "custom") && e.notes?.trim()) {
+    lines.push(`Notes: ${e.notes.trim()}`);
+  }
   return lines;
 }
 

@@ -24,6 +24,10 @@ function truncate(value: string, max: number): string {
   return s.length <= max ? s : s.slice(0, Math.max(1, max - 1)).trimEnd() + "…";
 }
 
+function isNoteLine(line: string): boolean {
+  return line.startsWith("Dispatcher Notes:") || line.startsWith("Notes:");
+}
+
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const COL_BLUE   = "#1e3a5f";
@@ -112,6 +116,7 @@ const styles = StyleSheet.create({
   chip: { paddingVertical: 4, paddingHorizontal: 4, marginBottom: 4, borderRadius: 1 },
   chipName:     { fontSize: 11.5 },
   chipSubline:  { fontSize: 10.5, color: COL_MUTED },
+  chipNote:     { fontSize: 8.5, color: COL_MUTED, lineHeight: 1.2 },
   // ── Page number ───────────────────────────────────────────────────────────
   pageNumber: { position: "absolute", bottom: 16, right: 26, fontSize: 9, color: COL_MUTED },
 });
@@ -128,10 +133,16 @@ function EventChip({ event }: { event: CalEvent }) {
       {lines.map((line, index) => (
         <Text
           key={index}
-          style={index === 0 ? [styles.chipName, { color: s.pdfText }] : styles.chipSubline}
-          wrap={false}
+          style={
+            isNoteLine(line)
+              ? styles.chipNote
+              : index === 0
+                ? [styles.chipName, { color: s.pdfText }]
+                : styles.chipSubline
+          }
+          wrap
         >
-          {truncate(line, index === 0 ? 26 : 30)}
+          {isNoteLine(line) ? line : truncate(line, index === 0 ? 26 : 30)}
         </Text>
       ))}
     </View>

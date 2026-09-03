@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Field Service Schedule Board — App Overview</title>
+<title>Field Service Schedule Board — App Overview &amp; Training Guide</title>
 <style>
   :root {
     --brand: #2563eb;
@@ -29,19 +29,16 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--neutral-700); background: var(--neutral-50); line-height: 1.6; }
 
-  /* ── Layout ─────────────────────────────────────────────────────────── */
   .page { max-width: 1100px; margin: 0 auto; padding: 48px 24px 96px; }
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 
-  /* ── Header ─────────────────────────────────────────────────────────── */
   .doc-header { background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand) 100%); color: #fff; border-radius: 12px; padding: 40px 48px; margin-bottom: 48px; }
   .doc-header h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; }
   .doc-header .subtitle { opacity: 0.8; margin-top: 6px; font-size: 1.05rem; }
-  .doc-header .meta { display: flex; gap: 24px; margin-top: 20px; font-size: 0.85rem; opacity: 0.7; }
+  .doc-header .meta { display: flex; gap: 24px; margin-top: 20px; font-size: 0.85rem; opacity: 0.7; flex-wrap: wrap; }
   .doc-header .meta span::before { content: '• '; }
 
-  /* ── TOC ─────────────────────────────────────────────────────────────── */
   .toc { background: #fff; border: 1px solid var(--neutral-200); border-radius: 10px; padding: 24px 28px; margin-bottom: 48px; }
   .toc h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: var(--neutral-400); margin-bottom: 12px; }
   .toc ol { padding-left: 20px; }
@@ -49,7 +46,6 @@
   .toc a { color: var(--brand); text-decoration: none; font-weight: 500; }
   .toc a:hover { text-decoration: underline; }
 
-  /* ── Sections ────────────────────────────────────────────────────────── */
   section { margin-bottom: 56px; }
   h2.section-title { font-size: 1.5rem; font-weight: 700; color: var(--neutral-900); border-bottom: 2px solid var(--brand-light); padding-bottom: 10px; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
   h2.section-title .icon { width: 32px; height: 32px; background: var(--brand-light); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
@@ -59,7 +55,6 @@
   ul, ol { padding-left: 20px; margin-bottom: 12px; }
   li { margin: 4px 0; }
 
-  /* ── Cards ───────────────────────────────────────────────────────────── */
   .card { background: #fff; border: 1px solid var(--neutral-200); border-radius: 10px; padding: 20px 24px; }
   .card h4 { margin-top: 0; color: var(--brand-dark); }
   .feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
@@ -69,8 +64,8 @@
   .badge-viewer { background: var(--viewer-bg); color: var(--viewer-border); border: 1px solid var(--viewer-border); }
   .badge-any { background: var(--brand-light); color: var(--brand-dark); border: 1px solid var(--brand); }
   .badge-admin { background: var(--admin-bg); color: var(--admin-border); border: 1px solid var(--admin-border); }
+  .badge-new { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; }
 
-  /* ── API Table ───────────────────────────────────────────────────────── */
   .api-group { margin-bottom: 32px; }
   .api-group-header { background: var(--neutral-100); border: 1px solid var(--neutral-200); border-radius: 8px 8px 0 0; padding: 10px 16px; font-weight: 700; font-size: 0.9rem; color: var(--neutral-900); display: flex; align-items: center; gap: 8px; }
   .api-group-header .group-icon { font-size: 1rem; }
@@ -94,11 +89,9 @@
   .route-path { font-family: monospace; color: var(--neutral-900); font-weight: 500; }
   .note { font-size: 0.8rem; color: var(--neutral-400); margin-top: 2px; }
 
-  /* ── Data flow ───────────────────────────────────────────────────────── */
   .flow-diagram { background: #fff; border: 1px solid var(--neutral-200); border-radius: 10px; padding: 32px; overflow-x: auto; }
   .flow-diagram svg { display: block; margin: 0 auto; }
 
-  /* ── Security ────────────────────────────────────────────────────────── */
   .perm-matrix table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: #fff; border: 1px solid var(--neutral-200); border-radius: 8px; overflow: hidden; }
   .perm-matrix th { background: var(--neutral-100); padding: 10px 14px; text-align: left; font-weight: 600; color: var(--neutral-600); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--neutral-200); }
   .perm-matrix td { padding: 10px 14px; border-bottom: 1px solid var(--neutral-100); }
@@ -111,9 +104,7 @@
   .callout-info  { background: var(--brand-light); border-left: 4px solid var(--brand); }
   .callout-warn  { background: #fef9c3; border-left: 4px solid var(--warn); }
   .callout-ok    { background: #dcfce7; border-left: 4px solid var(--success); }
-  .callout .icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
 
-  /* ── Arch boxes ─────────────────────────────────────────────────────── */
   .arch-row { display: flex; align-items: stretch; gap: 0; margin: 24px 0; }
   .arch-box { flex: 1; border: 2px solid var(--neutral-200); border-radius: 10px; padding: 16px 18px; background: #fff; }
   .arch-box h4 { margin-top: 0; font-size: 0.9rem; }
@@ -122,6 +113,22 @@
   .arch-box.ext { border-color: var(--neutral-400); background: var(--neutral-50); }
   .tag-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .tag { font-size: 0.72rem; background: var(--neutral-100); border: 1px solid var(--neutral-200); border-radius: 4px; padding: 2px 8px; color: var(--neutral-600); }
+
+  /* Training guide styles */
+  .step-list { counter-reset: steps; padding-left: 0; list-style: none; }
+  .step-list > li { counter-increment: steps; padding: 14px 16px 14px 56px; position: relative; border-left: 3px solid var(--brand-light); margin-bottom: 8px; background: #fff; border-radius: 0 8px 8px 0; }
+  .step-list > li::before { content: counter(steps); position: absolute; left: 14px; top: 14px; width: 26px; height: 26px; background: var(--brand); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; }
+  .chip-demo { display: inline-flex; flex-direction: column; border: 1px solid; border-radius: 5px; padding: 5px 8px; font-size: 0.78rem; line-height: 1.4; font-family: -apple-system,sans-serif; max-width: 160px; vertical-align: top; margin: 4px; }
+  .chip-job { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+  .chip-block-drive { background: #e2e8f0; border-color: #94a3b8; color: #334155; border-style: solid; }
+  .chip-block-pto { background: #dcfce7; border-color: #86efac; color: #14532d; }
+  .chip-block-custom { background: #ede9fe; border-color: #c4b5fd; color: #4c1d95; }
+  .chip-placeholder { background: #fef9c3; border-color: #fde68a; color: #78350f; border-style: dashed; }
+  .chip-conflict { background: #fef2f2; border-color: #fca5a5; color: #991b1b; outline: 2px solid #fbbf24; outline-offset: 0; }
+  .color-dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
+  .workflow-box { background: #fff; border: 1.5px solid var(--neutral-200); border-radius: 10px; padding: 20px 24px; margin-bottom: 16px; }
+  .workflow-box h4 { margin-top: 0; font-size: 1rem; color: var(--brand-dark); display: flex; align-items: center; gap: 8px; }
+  .kbd { display: inline-block; background: var(--neutral-100); border: 1px solid var(--neutral-200); border-radius: 4px; padding: 1px 6px; font-family: monospace; font-size: 0.8rem; color: var(--neutral-700); }
 
   @media (max-width: 700px) {
     .two-col, .three-col { grid-template-columns: 1fr; }
@@ -133,26 +140,40 @@
 <body>
 <div class="page">
 
-<!-- ════════════════════════════════════════════════════════════════════ -->
-<!--  HEADER                                                              -->
-<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- HEADER -->
 <div class="doc-header">
   <h1>📅 Field Service Schedule Board</h1>
-  <p class="subtitle">App Overview · API Reference · Data Flow · Security &amp; Permissions</p>
+  <p class="subtitle">App Overview · User Training Guide · API Reference · Security &amp; Permissions</p>
   <div class="meta">
     <span>Last updated: August 2026</span>
     <span>API version: v1</span>
     <span>Auth: Microsoft Entra ID + Admin Console</span>
+    <span>CRM: Dynamics 365 Field Service</span>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════════ -->
-<!--  TABLE OF CONTENTS                                                   -->
-<!-- ════════════════════════════════════════════════════════════════════ -->
+<!-- TOC -->
 <div class="toc">
   <h2>Contents</h2>
   <ol>
     <li><a href="#overview">Application Overview</a></li>
+    <li><a href="#training">User Training Guide</a>
+      <ol style="margin:4px 0 0;padding-left:18px">
+        <li><a href="#t-signin">Signing In</a></li>
+        <li><a href="#t-board-controls">Board Controls &amp; Navigation</a></li>
+        <li><a href="#t-views">Board Views</a></li>
+        <li><a href="#t-chips">Reading Board Chips</a></li>
+        <li><a href="#t-reschedule">Rescheduling a Job</a></li>
+        <li><a href="#t-blocks">Adding Schedule Blocks</a></li>
+        <li><a href="#t-placeholders">Adding Potential (Placeholder) Jobs</a></li>
+        <li><a href="#t-unscheduled">Scheduling Unscheduled Jobs</a></li>
+        <li><a href="#t-notes">Dispatcher Notes</a></li>
+        <li><a href="#t-search">Searching Jobs</a></li>
+        <li><a href="#t-utilization">Resource Utilization</a></li>
+        <li><a href="#t-calendar-report">Calendar Report</a></li>
+        <li><a href="#t-reports">Other Reports</a></li>
+      </ol>
+    </li>
     <li><a href="#architecture">Architecture &amp; Tech Stack</a></li>
     <li><a href="#features">Feature Reference</a></li>
     <li><a href="#dataflow">Data Flow Diagrams</a></li>
@@ -172,7 +193,7 @@
   <p>The <strong>Field Service Schedule Board</strong> is a web application used by dispatchers and service managers to view, schedule, and manage field technician bookings synced from <strong>Microsoft Dynamics 365 Field Service (CRM)</strong>. It provides a live calendar view of every technician's work across all regions, supports drag-and-drop rescheduling, and writes changes back to Dynamics in real time.</p>
 
   <div class="callout callout-info">
-    <span class="icon">ℹ️</span>
+    <span>ℹ️</span>
     <div>Access is controlled by the <strong>Admin Console</strong>. All users must sign in with their Microsoft work account (Entra ID). The Admin Console maps each user to either <em>Read-Only (Viewer)</em> or <em>Read/Write (Editor)</em>.</div>
   </div>
 
@@ -189,16 +210,420 @@
       <ul>
         <li>Live calendar board for all technicians across all regions</li>
         <li>Drag-and-drop booking rescheduling (queued or direct CRM write)</li>
-        <li>Schedule blocks: Drive Time, PTO, Custom</li>
-        <li>Placeholder jobs for pre-sales or unconfirmed work</li>
+        <li>Schedule blocks: Travel Time, PTO, Custom</li>
+        <li>Placeholder (potential) jobs for pre-sales or unconfirmed work</li>
         <li>Utilization tracking and reporting</li>
+        <li>Calendar Report: PDF, Word, and email delivery to technicians</li>
       </ul>
     </div>
   </div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════════════════ -->
-<!--  2. ARCHITECTURE                                                     -->
+<!--  2. USER TRAINING GUIDE                                              -->
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<section id="training">
+  <h2 class="section-title"><span class="icon">🎓</span> User Training Guide</h2>
+  <p>This section walks through every common task a dispatcher or manager needs to perform. Screenshots are described in text — the board renders live data from Dynamics.</p>
+
+  <!-- ─── 2.1 Signing In ─────────────────────────────────── -->
+  <h3 id="t-signin">2.1 Signing In</h3>
+  <div class="workflow-box">
+    <h4>🔐 How to log in</h4>
+    <ol class="step-list">
+      <li>Navigate to the app URL. If you are not signed in, you will see a <em>"Sign in required"</em> card.</li>
+      <li>Click <strong>Sign in with Microsoft</strong>. Your browser opens a Microsoft login page (this cannot be embedded in an iframe — if you see it blocked, open the app URL directly in its own tab).</li>
+      <li>Sign in with your <strong>company Microsoft work account</strong>.</li>
+      <li>The Admin Console checks your account. If you have been granted access, you are redirected back to the board.</li>
+      <li>Your role (<em>Viewer</em> or <em>Editor</em>) is set at login. It applies for the entire session (30 days rolling). Editor controls are hidden entirely from Viewer sessions.</li>
+    </ol>
+    <div class="callout callout-warn" style="margin-top:12px">
+      <span>⚠️</span>
+      <div>If you see <em>"Access denied"</em>, your account has not been granted permission to this application. Contact your system administrator to be added in the Admin Console.</div>
+    </div>
+  </div>
+
+  <!-- ─── 2.2 Board Controls ─────────────────────────────── -->
+  <h3 id="t-board-controls">2.2 Board Controls &amp; Navigation</h3>
+  <p>The controls row sits above the board. All buttons are visually outlined for clarity. Two groups exist:</p>
+
+  <div class="two-col">
+    <div class="card">
+      <h4>⬅ Date Navigation (left side)</h4>
+      <ul>
+        <li><strong>← / →</strong> arrows — move back or forward by one week (Week view) or one month (Calendar view)</li>
+        <li><strong>Today</strong> — jump to the current week or month containing today</li>
+        <li><strong>Next quarter</strong> — jump to the Monday of the first week of the next calendar quarter (e.g. clicking in August 2026 jumps to the week of October 1, 2026)</li>
+        <li><strong>Next year</strong> — jump to the same date one year from now (e.g. August 11, 2026 → week of August 11, 2027)</li>
+      </ul>
+      <p class="note">These buttons work identically in both Week and Calendar views, and in the focused single-technician Calendar view.</p>
+    </div>
+    <div class="card">
+      <h4>⚙ View &amp; Grouping (right side)</h4>
+      <ul>
+        <li><strong>Week</strong> — shows a 7-day swimlane grid, one row per technician, one column per day. Chips show WO number, customer, city/state, and duration.</li>
+        <li><strong>Calendar</strong> — shows 4–5 weeks in a stacked monthly grid. Chips are condensed. Click a technician row's header to enter the <em>focused single-tech view</em>.</li>
+        <li><strong>By Tech Region</strong> — group technicians under their CRM service territory (R1, R2, R3, R4, etc.)</li>
+        <li><strong>By Service Location</strong> — group work orders by the state/city of the job site</li>
+        <li><strong>Calendar Report</strong> — opens the calendar report dialog (visible to Editors only)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h4>Region &amp; Technician Filters</h4>
+  <p>Below the controls row, a row of region toggle pills lets you show or hide entire regions. Click a region pill to toggle it; <strong>Select All</strong> and <strong>Clear</strong> buttons reset the selection. A similar technician filter panel appears when data is loaded — narrow down to specific technicians by name.</p>
+
+  <!-- ─── 2.3 Views ──────────────────────────────────────── -->
+  <h3 id="t-views">2.3 Board Views</h3>
+
+  <div class="three-col">
+    <div class="card">
+      <h4>📅 Week View</h4>
+      <p>The default view. Shows Mon–Sun (or Mon–Fri depending on settings) for one week. Each region is a collapsible section header; each technician is one row. Chips in a cell are stacked vertically.</p>
+      <ul>
+        <li>Shows work order number, customer name, city/state, start–end time or duration</li>
+        <li>Long text wraps within the chip — no text is hidden</li>
+        <li>Multi-day bookings span across columns</li>
+        <li>Conflict indicators (amber ring) show double-booked slots</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>🗓 Calendar View</h4>
+      <p>Month-at-a-glance view. Regions and technicians are stacked in a compact monthly grid. Best for planning and spotting gaps over a longer horizon.</p>
+      <ul>
+        <li>Click any technician's name to enter <strong>focused single-tech view</strong> — a 13-week stacked calendar showing only that technician's schedule</li>
+        <li>The focused view has its own Today / Next quarter / Next year navigation</li>
+        <li>Click <strong>All technicians</strong> to return to the full board</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>👷 Single-Tech Focused View</h4>
+      <p>Entered by clicking a technician's name in Calendar view. Shows 13 weeks (≈ one quarter) of that technician's schedule in a stacked Mon–Fri grid.</p>
+      <ul>
+        <li>Full chip detail: WO number, customer, city/state, duration, notes</li>
+        <li>Blocks (Travel Time, PTO, Custom) and Potential Jobs are shown inline</li>
+        <li>Navigate with the Today / Next quarter / Next year / ← → controls in the view header</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─── 2.4 Reading Chips ─────────────────────────────── -->
+  <h3 id="t-chips">2.4 Reading Board Chips</h3>
+  <p>Each entry on the board is rendered as a colour-coded chip. Long text wraps within the chip so all content is visible.</p>
+
+  <div style="display:flex;flex-wrap:wrap;gap:12px;margin:16px 0;align-items:flex-start">
+    <div>
+      <div class="chip-demo chip-job">
+        <span style="font-weight:700;font-size:0.85rem">WO-10042</span>
+        <span>Acme Industrial</span>
+        <span>Dallas, TX</span>
+        <span style="opacity:0.75">8:00 AM – 4:00 PM</span>
+      </div>
+      <div style="font-size:0.78rem;color:#475569;margin-top:4px;text-align:center">Scheduled Job</div>
+    </div>
+    <div>
+      <div class="chip-demo chip-placeholder" style="border:1.5px dashed #fde68a">
+        <span>Smith Corp</span>
+        <span>Austin, TX</span>
+        <span style="opacity:0.6">PO Received</span>
+      </div>
+      <div style="font-size:0.78rem;color:#475569;margin-top:4px;text-align:center">Potential Job</div>
+    </div>
+    <div>
+      <div class="chip-demo chip-block-drive">
+        <span style="font-weight:700">🚗 Travel Time</span>
+        <span style="opacity:0.8">2 hrs</span>
+      </div>
+      <div style="font-size:0.78rem;color:#475569;margin-top:4px;text-align:center">Travel Time Block</div>
+    </div>
+    <div>
+      <div class="chip-demo chip-block-pto">
+        <span style="font-weight:700">☀️ PTO</span>
+        <span style="opacity:0.8">8 hrs</span>
+      </div>
+      <div style="font-size:0.78rem;color:#475569;margin-top:4px;text-align:center">PTO Block</div>
+    </div>
+    <div>
+      <div class="chip-demo chip-block-custom">
+        <span style="font-weight:700">✏️ Training Day</span>
+        <span style="opacity:0.8">Custom · 8 hrs</span>
+      </div>
+      <div style="font-size:0.78rem;color:#475569;margin-top:4px;text-align:center">Custom Block</div>
+    </div>
+    <div>
+      <div class="chip-demo chip-conflict">
+        <span style="font-weight:700">WO-10099 ⚠️</span>
+        <span>Overlap detected</span>
+      </div>
+      <div style="font-size:0.78rem;color:#991b1c;margin-top:4px;text-align:center">Conflict</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h4>Scheduled Jobs (from CRM)</h4>
+      <ul>
+        <li>Colour matches the technician's <strong>region palette</strong></li>
+        <li>Shows: WO number · Customer name · City, State · Duration or start–end time</li>
+        <li>Cancelled bookings render in a muted strikethrough palette</li>
+        <li>A spinning sync icon <code>↻</code> appears during the ~22-second CRM write-back window after a save</li>
+        <li>An amber ring indicates a <strong>conflict</strong> (double-booked slot)</li>
+        <li>Click the chip to open the full work order detail drawer</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Potential Jobs (Placeholder)</h4>
+      <ul>
+        <li>Rendered with a <strong>dashed border</strong> and a subtle diagonal stripe overlay to distinguish them from confirmed jobs</li>
+        <li>Shows: Customer name · City, State · Status (PO Received, Credit Hold, etc.) · Notes</li>
+        <li>Colour defaults: <strong>Yellow</strong> for R4 potential jobs; other regions use their region colour</li>
+        <li>Click the chip to edit or delete</li>
+        <li>A small ✕ in the corner allows quick deletion without opening the dialog</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Schedule Blocks</h4>
+      <ul>
+        <li><strong>Travel Time</strong> — solid border, car icon 🚗. Shown in region colour.</li>
+        <li><strong>PTO</strong> — sun icon ☀️. Shown in region colour.</li>
+        <li><strong>Custom</strong> — pencil icon ✏️. Title entered by dispatcher. Colour defaults: <strong>Orange</strong> for R4 custom blocks.</li>
+        <li>Multi-day blocks span columns; only the start-day chip can be dragged to a new start day; only the end-day chip shows the resize handle</li>
+        <li>A small ✕ allows quick deletion; click anywhere else to open the edit dialog</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Chip Colour System</h4>
+      <p>Colours are drawn from a 16-entry shared palette (index 0–15). Defaults by region:</p>
+      <table style="width:100%;font-size:0.82rem;border-collapse:collapse">
+        <tr style="background:#f1f5f9"><th style="padding:4px 8px">Region</th><th style="padding:4px 8px">Scheduled / Blocks</th><th style="padding:4px 8px">Potential Job</th><th style="padding:4px 8px">Custom Block</th></tr>
+        <tr><td style="padding:4px 8px">R1</td><td style="padding:4px 8px"><span class="color-dot" style="background:#3b82f6"></span>Blue</td><td style="padding:4px 8px">Blue</td><td style="padding:4px 8px">Blue</td></tr>
+        <tr><td style="padding:4px 8px">R2</td><td style="padding:4px 8px"><span class="color-dot" style="background:#eab308"></span>Yellow</td><td style="padding:4px 8px">Yellow</td><td style="padding:4px 8px">Yellow</td></tr>
+        <tr><td style="padding:4px 8px">R3</td><td style="padding:4px 8px"><span class="color-dot" style="background:#8b5cf6"></span>Violet</td><td style="padding:4px 8px">Violet</td><td style="padding:4px 8px">Violet</td></tr>
+        <tr><td style="padding:4px 8px"><strong>R4</strong></td><td style="padding:4px 8px"><span class="color-dot" style="background:#38bdf8"></span>Sky Blue</td><td style="padding:4px 8px"><span class="color-dot" style="background:#eab308"></span><strong>Yellow</strong></td><td style="padding:4px 8px"><span class="color-dot" style="background:#f97316"></span><strong>Orange</strong></td></tr>
+        <tr><td style="padding:4px 8px">R99</td><td style="padding:4px 8px"><span class="color-dot" style="background:#6b7280"></span>Gray</td><td style="padding:4px 8px">Gray</td><td style="padding:4px 8px">Gray</td></tr>
+      </table>
+      <p class="note">Any chip's colour can be overridden per-entry using the colour picker in the add/edit dialog. The chosen colour is saved and persists across edits.</p>
+    </div>
+  </div>
+
+  <!-- ─── 2.5 Rescheduling ──────────────────────────────── -->
+  <h3 id="t-reschedule">2.5 Rescheduling a Job <span class="badge badge-editor" style="vertical-align:middle">Editor Only</span></h3>
+
+  <div class="workflow-box">
+    <h4>✏️ Option A — Drag &amp; Drop (quick move)</h4>
+    <ol class="step-list">
+      <li>Find the booking chip you want to move. Only the <strong>start-day chip</strong> of a multi-day booking is draggable; single-day chips are always draggable.</li>
+      <li>Click and hold the chip until the cursor changes to a grab hand.</li>
+      <li>Drag to the target technician's row and target day column. The cell highlights when it accepts the drop.</li>
+      <li>Release. The chip moves immediately on screen and a write-back is queued. A spinning sync icon confirms it is pending CRM save.</li>
+      <li>Use the <strong>Edit Booking</strong> dialog (click the chip) if you also need to change the start/end times.</li>
+    </ol>
+  </div>
+
+  <div class="workflow-box">
+    <h4>✏️ Option B — Edit Dialog (full control)</h4>
+    <ol class="step-list">
+      <li>Click the booking chip to open the <strong>Work Order Detail</strong> drawer.</li>
+      <li>Click <strong>Reschedule</strong> (or the edit button on the chip).</li>
+      <li>In the dialog: change the <strong>Start time</strong>, <strong>End time</strong>, or <strong>Technician</strong>.</li>
+      <li>Click <strong>Save to CRM</strong> to write directly to Dynamics (immediate), or <strong>Queue</strong> to add to the pending write-back list for batch processing.</li>
+      <li>The board refreshes. A sync icon on the chip confirms the save is in flight.</li>
+    </ol>
+  </div>
+
+  <div class="callout callout-info">
+    <span>ℹ️</span>
+    <div><strong>Conflict detection:</strong> If the technician you are scheduling already has another booking that overlaps with the new times, the chip gains an amber ring ⚠️ and a warning is shown. You can proceed anyway or pick a different slot.</div>
+  </div>
+
+  <!-- ─── 2.6 Adding Schedule Blocks ───────────────────── -->
+  <h3 id="t-blocks">2.6 Adding Schedule Blocks <span class="badge badge-editor" style="vertical-align:middle">Editor Only</span></h3>
+  <p>Schedule blocks (Travel Time, PTO, Custom) are <strong>local entries</strong> — they live in the app's database, not in Dynamics. Use them to mark a technician as unavailable or to annotate planned travel.</p>
+
+  <div class="workflow-box">
+    <h4>➕ Adding a block</h4>
+    <ol class="step-list">
+      <li>Hover over the technician's row for the target day. A faint <strong>+ Add</strong> button appears in the cell.</li>
+      <li>Click <strong>+ Add</strong>. The <em>Add</em> dialog opens.</li>
+      <li>Choose the <strong>Type</strong>:
+        <ul>
+          <li><strong>Potential Job</strong> — unconfirmed prospective job (see §2.7 below)</li>
+          <li><strong>Travel Time</strong> — marks travel or drive time</li>
+          <li><strong>PTO</strong> — marks paid time off</li>
+          <li><strong>Custom</strong> — any other annotation; requires a title</li>
+        </ul>
+      </li>
+      <li>Set <strong>Start time</strong> and <strong>End time</strong> (defaults: 8:00 AM – 5:00 PM for Potential Jobs).</li>
+      <li>Optionally add <strong>Notes</strong>. Multi-line notes are supported — press Enter for a new line; each line shows as a separate bullet on the chip.</li>
+      <li>Pick a <strong>Colour</strong> from the colour palette if you want to override the region default.</li>
+      <li>Click <strong>Save</strong>. The chip appears immediately on the board.</li>
+    </ol>
+    <p class="note">Switching between Type options in the dialog automatically updates the colour picker to the region default for that type (e.g. switching to Custom in R4 selects Orange). If you manually pick a colour first, that manual choice is preserved when you switch types.</p>
+  </div>
+
+  <div class="workflow-box">
+    <h4>✏️ Editing or deleting a block</h4>
+    <ul>
+      <li><strong>Click the chip</strong> to open the edit dialog. All fields are editable.</li>
+      <li>Click the small <strong>✕</strong> in the chip corner to delete it immediately (no confirmation dialog).</li>
+      <li>In the edit dialog, click <strong>Delete</strong> for a confirmation-prompted delete.</li>
+      <li><strong>Multi-day blocks</strong>: drag the start-day chip to move the block's start date; drag the resize handle on the end-day chip to extend or shorten the block.</li>
+    </ul>
+  </div>
+
+  <!-- ─── 2.7 Placeholder / Potential Jobs ─────────────── -->
+  <h3 id="t-placeholders">2.7 Adding Potential (Placeholder) Jobs <span class="badge badge-editor" style="vertical-align:middle">Editor Only</span></h3>
+  <p>Potential jobs let you pre-schedule speculative or unconfirmed work on the board <strong>without creating a Dynamics booking</strong>. They are visually distinct (dashed border + diagonal stripe) and are counted separately in utilization.</p>
+
+  <div class="workflow-box">
+    <h4>➕ Adding a potential job</h4>
+    <ol class="step-list">
+      <li>Click <strong>+ Add</strong> in a technician's day cell and choose <strong>Potential Job</strong>.</li>
+      <li>Fill in the fields:
+        <ul>
+          <li><strong>Service location</strong> — search the CRM service location database by location ID, name, or city. Selecting a CRM location auto-fills customer name, city, and state.</li>
+          <li><strong>Customer name</strong> — free-text if no CRM location is linked.</li>
+          <li><strong>City / State</strong> — shown on the chip.</li>
+          <li><strong>Status</strong> — optional. Choose from: <em>PO Received, Credit Hold, Quote Sent, Waiting on Parts, Site Survey Needed, On Hold, Cancelled, None</em>.</li>
+          <li><strong>Start / End time</strong> — default 8:00 AM – 5:00 PM.</li>
+          <li><strong>Notes</strong> — free text; multi-line supported.</li>
+          <li><strong>Colour</strong> — defaults to Yellow for R4; other regions default to their region colour.</li>
+        </ul>
+      </li>
+      <li>Click <strong>Save</strong>. The potential job chip appears on the board with a dashed border.</li>
+    </ol>
+  </div>
+
+  <div class="callout callout-info">
+    <span>ℹ️</span>
+    <div><strong>Service Location Picker tip:</strong> Type at least 2 characters to search. The picker searches by location ID (e.g. <code>S402310-2</code>), address name, city, and state across all ~6,600+ active CRM service locations. If the CRM is temporarily unavailable, you can still enter the customer name and city manually.</div>
+  </div>
+
+  <!-- ─── 2.8 Scheduling Unscheduled Jobs ──────────────── -->
+  <h3 id="t-unscheduled">2.8 Scheduling Unscheduled Jobs <span class="badge badge-editor" style="vertical-align:middle">Editor Only</span></h3>
+  <p>The <strong>Unscheduled Jobs panel</strong> slides out from the right side of the board and lists all work orders with no active booking.</p>
+
+  <div class="workflow-box">
+    <h4>📋 Using the Unscheduled Jobs panel</h4>
+    <ol class="step-list">
+      <li>Click the <strong>Unscheduled Jobs</strong> button (visible in the board). The panel opens on the right.</li>
+      <li>Each job card shows: WO number · Customer · City/State · Estimated duration · Due date · <em>Best-fit technician suggestions</em> (ranked by nearby job density — the algorithm prefers techs who already have jobs in the same area).</li>
+      <li>Jobs are grouped into buckets: <em>Overdue, Due this week, Due next week, Due later, No due date</em>.</li>
+      <li>Click a best-fit technician suggestion to navigate the board to that technician.</li>
+      <li>Drag the job card from the panel onto the board — drop it on a technician's day cell. An <strong>Edit Booking</strong> dialog opens to confirm the start/end times before the booking is created in Dynamics.</li>
+      <li>Alternatively, click <strong>Schedule</strong> on the card to open the dialog directly without dragging.</li>
+    </ol>
+  </div>
+
+  <!-- ─── 2.9 Dispatcher Notes ──────────────────────────── -->
+  <h3 id="t-notes">2.9 Dispatcher Notes <span class="badge badge-editor" style="vertical-align:middle">Editor Only</span></h3>
+  <p>Notes can be attached to any CRM booking. They are stored in the app's local database (not in Dynamics) and shown on the chip in <em>italic</em> text and in the work order detail drawer.</p>
+
+  <div class="workflow-box">
+    <h4>📝 Adding or editing a note</h4>
+    <ol class="step-list">
+      <li>Click the booking chip to open the Work Order Detail drawer.</li>
+      <li>Scroll to the <strong>Dispatcher Note</strong> field at the bottom of the drawer.</li>
+      <li>Type your note. Multi-line notes are supported.</li>
+      <li>Click <strong>Save note</strong>. The note appears on the chip immediately.</li>
+    </ol>
+    <p class="note">Notes persist even if the booking is rescheduled to a different technician or time. They are tied to the booking ID, not the time slot.</p>
+  </div>
+
+  <!-- ─── 2.10 Search ───────────────────────────────────── -->
+  <h3 id="t-search">2.10 Searching Jobs</h3>
+  <p>The global search bar is at the top of the board. It searches across <strong>scheduled, unscheduled, and potential</strong> jobs simultaneously.</p>
+  <ul>
+    <li>Type at least 2 characters. Results appear after a 200 ms debounce.</li>
+    <li>Results are categorised: Scheduled, Potential, Unscheduled.</li>
+    <li>Each result shows the work order number, customer, technician (if scheduled), and location.</li>
+    <li>Clicking a result navigates the board to the relevant date and highlights the matching chip.</li>
+    <li>Chips that do not match the search are dimmed (20% opacity) while the search is active.</li>
+  </ul>
+
+  <!-- ─── 2.11 Utilization ──────────────────────────────── -->
+  <h3 id="t-utilization">2.11 Resource Utilization</h3>
+  <p>The <strong>Resource Utilization</strong> panel (expandable at the bottom of the board) shows booked hours vs capacity for each technician, grouped by region.</p>
+
+  <div class="two-col">
+    <div class="card">
+      <h4>Reading the utilization panel</h4>
+      <ul>
+        <li><strong>Bar chart per technician</strong> — filled portion = utilized hours ÷ capacity hours. The bar turns red if over 100%.</li>
+        <li><strong>Breakdown</strong>: CRM job hours are shown in the region colour; Potential Job hours are shown as a secondary segment.</li>
+        <li>Default capacity: <strong>40 hours/week</strong> (8 h/day × 5 days). The cap is applied server-side.</li>
+        <li>View toggles: <strong>Week / Month / Quarter</strong> — each recalculates utilization over the selected period.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Filtering the utilization panel</h4>
+      <ul>
+        <li>Use the region filter pills within the utilization panel to narrow to specific regions.</li>
+        <li>The panel respects the same region filters as the board above.</li>
+        <li>Utilization minutes already include placeholder (potential) job minutes server-side — they are never double-counted.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─── 2.12 Calendar Report ─────────────────────────── -->
+  <h3 id="t-calendar-report">2.12 Calendar Report <span class="badge badge-editor" style="vertical-align:middle">Editor Only</span></h3>
+  <p>The Calendar Report generates a personal schedule summary for one or more technicians across a chosen date range. It can be previewed in-app, downloaded as PDF or Word, or emailed directly to technicians via Microsoft Graph. All output formats use larger, more readable typography for easy reading on screen and in print.</p>
+
+  <div class="workflow-box">
+    <h4>📄 Generating a Calendar Report</h4>
+    <ol class="step-list">
+      <li>Click <strong>Calendar Report</strong> in the controls row (visible only to Editors when data is loaded).</li>
+      <li>The <strong>Calendar Report dialog</strong> opens. Choose how to define the date range using the <strong>Month range</strong> or <strong>Custom</strong> toggle:
+        <ul>
+          <li><strong>Month range</strong> — select a start month from the dropdown then pick a span of 1–6 months.</li>
+          <li><strong>Custom</strong> — pick an exact start date and end date using the date picker popovers. The end date picker automatically prevents selecting a date before the chosen start date. The <em>Load Schedule Data</em> button stays disabled until both dates are set.</li>
+        </ul>
+      </li>
+      <li>Click <strong>Load Schedule Data</strong> to fetch the schedule for the chosen range.</li>
+      <li>Events included in the report:
+        <ul>
+          <li>✅ Scheduled CRM bookings (customer name + city/state + WO number on separate lines)</li>
+          <li>✅ Potential (placeholder) jobs</li>
+          <li>✅ Travel Time blocks</li>
+          <li>✅ PTO blocks</li>
+          <li>◻️ <strong>Include Custom Blocks</strong> is unchecked by default, so reports behave as before. Check it to include Custom blocks in the PDF, Word download, and emailed PDF; Custom blocks remain visible in the in-app preview.</li>
+        </ul>
+      </li>
+      <li>Select one or more technicians from the technician picker in the dialog.</li>
+      <li>Choose an action:
+        <ul>
+          <li><strong>Download PDF</strong> — generates a multi-page PDF. Each page is one technician, with large readable font and event chips per day.</li>
+          <li><strong>Download Word (.docx)</strong> — same layout as PDF, in an editable Word document.</li>
+          <li><strong>Send Email</strong> — sends the report directly to the technician's work email (resolved from CRM) via Microsoft Graph. The email greeting uses the technician's first name; the sign-off uses the sending user's first name.</li>
+        </ul>
+      </li>
+    </ol>
+    <div class="callout callout-info" style="margin-top:12px">
+      <span>ℹ️</span>
+      <div>Multi-day bookings appear on <strong>every weekday they span</strong> in the report. A booking from Monday to Thursday shows on Mon, Tue, Wed, Thu. The report uses a half-open interval [start, end) so events ending at midnight on Friday do not bleed into Saturday.</div>
+    </div>
+  </div>
+
+  <!-- ─── 2.13 Other Reports ────────────────────────────── -->
+  <h3 id="t-reports">2.13 Other Reports</h3>
+  <div class="three-col">
+    <div class="card">
+      <h4>Completed Not Approved</h4>
+      <p>Service orders that have reached <em>Completed</em> status but not yet been approved. Filter by region, year, month. Useful for billing pipeline management.</p>
+    </div>
+    <div class="card">
+      <h4>Approved Not Invoiced</h4>
+      <p>Service orders approved but not yet exported to the invoicing system (AX). Filter by region. Flags stalled invoicing.</p>
+    </div>
+    <div class="card">
+      <h4>Weekly Approved</h4>
+      <p>Volume of approved orders grouped by approver and week. Filter by region, approver, year, month. Tracks throughput per approval workflow.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════ -->
+<!--  3. ARCHITECTURE                                                     -->
 <!-- ════════════════════════════════════════════════════════════════════ -->
 <section id="architecture">
   <h2 class="section-title"><span class="icon">🏗</span> Architecture &amp; Tech Stack</h2>
@@ -214,6 +639,8 @@
         <span class="tag">Tailwind CSS</span>
         <span class="tag">shadcn/ui</span>
         <span class="tag">Wouter (routing)</span>
+        <span class="tag">@react-pdf/renderer</span>
+        <span class="tag">docx (Word export)</span>
       </div>
     </div>
     <div class="arch-arrow">→</div>
@@ -223,10 +650,11 @@
         <span class="tag">Node.js</span>
         <span class="tag">Express</span>
         <span class="tag">TypeScript (esbuild)</span>
-        <span class="tag">Fastify Pino logger</span>
+        <span class="tag">Pino logger</span>
         <span class="tag">connect-pg-simple sessions</span>
         <span class="tag">Drizzle ORM</span>
         <span class="tag">MSAL (Entra auth)</span>
+        <span class="tag">Microsoft Graph (email)</span>
       </div>
     </div>
     <div class="arch-arrow">→</div>
@@ -236,6 +664,7 @@
         <span class="tag">PostgreSQL (FS DB)</span>
         <span class="tag">PostgreSQL (CRM mirror)</span>
         <span class="tag">Dynamics Dataverse API</span>
+        <span class="tag">Microsoft Graph API</span>
       </div>
     </div>
   </div>
@@ -253,7 +682,7 @@
     <div class="arch-arrow">↔</div>
     <div class="arch-box ext">
       <h4>📦 Shared Library</h4>
-      <p style="font-size:0.82rem;margin:0"><code>@workspace/api-client-react</code> — generated TypeScript types, React Query hooks, and custom fetch layer shared between frontend and potentially other consumers.</p>
+      <p style="font-size:0.82rem;margin:0"><code>@workspace/api-client-react</code> — generated TypeScript types, React Query hooks, and custom fetch layer. Generated from OpenAPI spec via Orval.</p>
     </div>
   </div>
 
@@ -265,7 +694,7 @@
     </div>
     <div class="card">
       <h4>artifacts/api-server</h4>
-      <p>Express API server bundled with esbuild. Handles auth, data queries, CRM write-back.</p>
+      <p>Express API server bundled with esbuild. Handles auth, data queries, CRM write-back, Calendar Report email.</p>
     </div>
     <div class="card">
       <h4>lib/api-client-react</h4>
@@ -275,97 +704,103 @@
 </section>
 
 <!-- ════════════════════════════════════════════════════════════════════ -->
-<!--  3. FEATURES                                                         -->
+<!--  4. FEATURES                                                         -->
 <!-- ════════════════════════════════════════════════════════════════════ -->
 <section id="features">
   <h2 class="section-title"><span class="icon">✨</span> Feature Reference</h2>
 
-  <h3>Schedule Board (Main View)</h3>
+  <h3>Schedule Board</h3>
   <div class="feature-grid">
     <div class="feature-card">
       <span class="badge badge-any">All Users</span>
       <h4>Board Views</h4>
-      <p>Week and month calendar views. Toggle between <em>by-region</em> (technicians grouped under their service territory) and <em>stacked single-tech</em> view (focused drill-down for one technician). Navigation arrows move forward/back by week or month.</p>
+      <p><strong>Week</strong> (7-day swimlane, one row per technician) and <strong>Calendar</strong> (monthly stacked grid). Click a technician header in Calendar view to enter the <strong>focused single-tech 13-week view</strong>. All views share the same date navigation controls.</p>
+    </div>
+    <div class="feature-card">
+      <span class="badge badge-any">All Users</span>
+      <h4>Date Navigation</h4>
+      <p>← / → arrows, <strong>Today</strong>, <strong>Next quarter</strong> (first week of next quarter), and <strong>Next year</strong> (same date next year). All buttons are uniformly outlined at the same text size. Available in both main view and focused tech view.</p>
+    </div>
+    <div class="feature-card">
+      <span class="badge badge-any">All Users</span>
+      <h4>Grouping Toggles</h4>
+      <p><strong>By Tech Region</strong> — groups technicians under their CRM service territory. <strong>By Service Location</strong> — groups work orders by the state/city of the work site.</p>
+    </div>
+    <div class="feature-card">
+      <span class="badge badge-any">All Users</span>
+      <h4>Chip Text Wrapping</h4>
+      <p>All board chip text (customer names, locations, WO numbers, status, notes) wraps within the chip. No content is hidden by truncation. Chips grow vertically to show all text.</p>
     </div>
     <div class="feature-card">
       <span class="badge badge-any">All Users</span>
       <h4>Bookings Display</h4>
-      <p>CRM bookings shown as colour-coded chips on each technician's row. Each chip shows work order number, customer, city/state, and duration. Conflict detection highlights overlapping bookings in red.</p>
+      <p>CRM bookings shown as colour-coded chips. Each chip shows WO number, customer, city/state, and duration. Chips grow to show full content without clipping. Cancelled bookings render in a muted palette. Conflict detection highlights overlapping bookings with an amber ring.</p>
     </div>
     <div class="feature-card">
       <span class="badge badge-editor">Editor Only</span>
       <h4>Drag &amp; Drop Reschedule</h4>
-      <p>Drag a booking chip to a new technician/day cell to stage a reschedule. Drop re-assigns the technician and date. Changes are queued as pending write-backs until synced, or saved directly to CRM via the direct-save path.</p>
+      <p>Drag a booking chip to a new technician/day cell. Changes are queued as pending write-backs or saved directly to CRM via the direct-save path. The sync spinning indicator confirms write-back is in flight.</p>
     </div>
     <div class="feature-card">
       <span class="badge badge-editor">Editor Only</span>
-      <h4>Schedule Blocks</h4>
-      <p>Create <strong>Drive Time</strong>, <strong>PTO</strong>, or <strong>Custom</strong> blocks for any technician on any date. Blocks carry optional title, notes, duration, and colour. Blocks are stored locally in PostgreSQL, not in Dynamics.</p>
+      <h4>Schedule Blocks (Travel Time, PTO, Custom)</h4>
+      <p>Create blocks for any technician on any date. Blocks carry optional title, notes, duration, and colour override. Multi-day blocks are draggable (start) and resizable (end). Stored in local PostgreSQL, not in Dynamics. <strong>Travel Time</strong> is the user-facing label (was "Drive Time").</p>
     </div>
     <div class="feature-card">
       <span class="badge badge-editor">Editor Only</span>
-      <h4>Placeholder Jobs</h4>
-      <p>Pre-schedule unconfirmed or prospective jobs on the board. Store customer name, city/state, service location, notes, colour, and status (PO received, credit hold, etc.). Optionally link to a service location record for full detail.</p>
+      <h4>Potential (Placeholder) Jobs</h4>
+      <p>Pre-schedule unconfirmed or prospective jobs. Store customer name, city/state, service location (CRM-linked or freeform), notes, colour, and status. Defaults to 8:00 AM – 5:00 PM. R4 colour default: Yellow. Rendered with dashed border + diagonal stripe overlay.</p>
     </div>
     <div class="feature-card">
       <span class="badge badge-any">All Users</span>
       <h4>Unscheduled Jobs Panel</h4>
-      <p>Side panel listing all work orders with no active booking. Each unscheduled job shows customer, location, duration, due date, and <em>best-fit technician suggestions</em> ranked by nearby job density. Editors can drag these onto the board to create a booking.</p>
+      <p>Lists all work orders with no active booking. Each shows customer, location, estimated duration, due date, and best-fit technician suggestions. Editors can drag these onto the board or click Schedule to create a CRM booking.</p>
     </div>
     <div class="feature-card">
       <span class="badge badge-any">All Users</span>
-      <h4>Search</h4>
-      <p>Global search across scheduled, unscheduled, and potential (placeholder) jobs by work order number or customer name. Results navigate to the relevant date on the board.</p>
+      <h4>Global Search</h4>
+      <p>Search across scheduled, unscheduled, and potential jobs by WO number or customer name. Results navigate to the relevant date; non-matching chips are dimmed.</p>
     </div>
     <div class="feature-card">
       <span class="badge badge-any">All Users</span>
       <h4>Work Order Detail</h4>
-      <p>Click any booking chip to open a detail drawer showing full work order info: customer, contact, service address, equipment list (with calibration dates), products, services, priority, and booking history.</p>
+      <p>Click any booking chip to open the full detail drawer: customer, contact, service address, equipment list with calibration dates, products, services, priority, and booking history.</p>
     </div>
     <div class="feature-card">
       <span class="badge badge-editor">Editor Only</span>
-      <h4>Booking Notes</h4>
-      <p>Attach a free-text dispatcher note to any CRM booking. Notes are stored locally (PostgreSQL) and shown on the chip tooltip. Notes persist across rescheduling.</p>
+      <h4>Dispatcher Notes</h4>
+      <p>Attach free-text notes to any CRM booking. Stored locally; shown in italic on the chip and in the detail drawer. Notes survive rescheduling.</p>
     </div>
     <div class="feature-card">
       <span class="badge badge-any">All Users</span>
       <h4>Resource Utilization</h4>
-      <p>Panel showing each technician's booked hours vs capacity (default 40 h/week). Breakdowns by region with per-technician percentages. Includes placeholder-job minutes separately. Supports week, month, and quarter views.</p>
+      <p>Per-technician booked hours vs capacity (default 40 h/week). Breakdown by region. Placeholder job minutes are counted separately and never double-counted. Supports week, month, and quarter views.</p>
+    </div>
+    <div class="feature-card">
+      <span class="badge badge-editor">Editor Only</span>
+      <h4>Calendar Report</h4>
+      <p>Per-technician schedule summary for any chosen date range. Select dates by <strong>month range</strong> (1–6 months) or an exact <strong>custom start/end date</strong> using date picker popovers. Download as <strong>PDF</strong> or <strong>Word (.docx)</strong>, or <strong>send by email</strong> via Microsoft Graph. Multi-day events appear on every weekday they span. Custom blocks can be included with the optional checkbox. Personalized greetings (first-name based). Larger, readable typography throughout all output formats.</p>
+    </div>
+    <div class="feature-card">
+      <span class="badge badge-editor">Editor Only</span>
+      <h4>R4 Colour Defaults</h4>
+      <p>R4 region uses type-specific colour defaults: <strong>Sky Blue</strong> for scheduled jobs and standard blocks, <strong>Yellow</strong> for Potential Jobs, <strong>Orange</strong> for Custom blocks. Overrides are saved per-entry and persist across edits.</p>
     </div>
     <div class="feature-card">
       <span class="badge badge-any">All Users</span>
-      <h4>Writeback Queue Status</h4>
-      <p>View page (<code>/writebacks</code>) showing all pending, synced, and errored write-backs. Each entry shows booking ID, technician, times, status, and any error message from Dynamics.</p>
-    </div>
-    <div class="feature-card">
-      <span class="badge badge-admin">Admin / Editor</span>
-      <h4>CRM Sync &amp; Mirror</h4>
-      <p>Manual trigger to process the writeback queue and push changes to Dynamics. Admin routes to sync the CRM mirror database and backfill historical data from Dynamics. Sync status is displayed in the writeback list.</p>
-    </div>
-  </div>
-
-  <h3>Reporting</h3>
-  <div class="feature-grid">
-    <div class="feature-card">
-      <span class="badge badge-any">All Users</span>
-      <h4>Completed Not Approved</h4>
-      <p>Service orders that have reached "Completed" status but have not yet been approved. Filterable by region, year, and month.</p>
+      <h4>CRM Mirror &amp; Write-back</h4>
+      <p>All read data comes from a PostgreSQL mirror of Dynamics (fast, no throttling). Writes go directly to Dynamics Dataverse via REST API. Two write paths: queued (batch) or direct-save (immediate). Sync pending indicator on chips during the 22-second CRM write window.</p>
     </div>
     <div class="feature-card">
       <span class="badge badge-any">All Users</span>
-      <h4>Approved Not Invoiced</h4>
-      <p>Service orders approved but not yet exported to the invoicing system (AX). Filterable by region.</p>
-    </div>
-    <div class="feature-card">
-      <span class="badge badge-any">All Users</span>
-      <h4>Weekly Approved</h4>
-      <p>Volume of approved service orders grouped by approver and week. Filterable by region, approver, year, and month. Helps track throughput per approval workflow.</p>
+      <h4>Service Location Detail</h4>
+      <p>Navigate to <code>/service-location/:id</code> to view full address, contact, and equipment list (with calibration dates) for any CRM service location. Linked from potential job chips when a CRM location is attached.</p>
     </div>
   </div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════════════════ -->
-<!--  4. DATA FLOW                                                        -->
+<!--  5. DATA FLOW                                                        -->
 <!-- ════════════════════════════════════════════════════════════════════ -->
 <section id="dataflow">
   <h2 class="section-title"><span class="icon">🔄</span> Data Flow Diagrams</h2>
@@ -373,94 +808,55 @@
   <h3>Login &amp; Session Establishment</h3>
   <div class="flow-diagram">
     <svg width="900" height="280" viewBox="0 0 900 280" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-      <!-- Swimlane backgrounds -->
       <rect x="0" y="0" width="900" height="280" rx="8" fill="#f8fafc"/>
-      <!-- Labels -->
       <text x="14" y="22" font-size="11" fill="#94a3b8" font-weight="600">BROWSER</text>
       <text x="230" y="22" font-size="11" fill="#94a3b8" font-weight="600">API SERVER</text>
       <text x="490" y="22" font-size="11" fill="#94a3b8" font-weight="600">ENTRA ID</text>
       <text x="680" y="22" font-size="11" fill="#94a3b8" font-weight="600">ADMIN CONSOLE</text>
-
-      <!-- Dividers -->
       <line x1="195" y1="30" x2="195" y2="270" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
       <line x1="450" y1="30" x2="450" y2="270" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
       <line x1="650" y1="30" x2="650" y2="270" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
-
-      <!-- Step boxes -->
-      <!-- 1 Browser -->
       <rect x="20" y="44" width="155" height="36" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
       <text x="97" y="66" font-size="11.5" text-anchor="middle" fill="#1e40af" font-weight="600">GET /api/login</text>
-
-      <!-- Arrow 1→2 -->
       <line x1="175" y1="62" x2="215" y2="62" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
-
-      <!-- 2 API builds redirect -->
       <rect x="215" y="44" width="220" height="36" rx="6" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
       <text x="325" y="60" font-size="11" text-anchor="middle" fill="#334155">Build MSAL auth URL</text>
       <text x="325" y="74" font-size="10" text-anchor="middle" fill="#64748b">store random state in session</text>
-
-      <!-- Arrow 2→3 -->
       <line x1="435" y1="62" x2="475" y2="62" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
-
-      <!-- 3 Redirect to Entra -->
       <rect x="475" y="44" width="155" height="36" rx="6" fill="#fce7f3" stroke="#db2777" stroke-width="1.5"/>
       <text x="552" y="60" font-size="11" text-anchor="middle" fill="#9d174d" font-weight="600">Redirect to Entra</text>
       <text x="552" y="74" font-size="10" text-anchor="middle" fill="#9d174d">User signs in</text>
-
-      <!-- Arrow back: Entra → API callback -->
       <path d="M 552 80 Q 552 130 325 130" stroke="#db2777" stroke-width="1.5" fill="none" marker-end="url(#arr-pink)"/>
       <text x="440" y="118" font-size="10" fill="#9d174d" text-anchor="middle">code + state → /auth/callback</text>
-
-      <!-- 4 API exchanges code -->
       <rect x="215" y="148" width="220" height="36" rx="6" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
       <text x="325" y="163" font-size="11" text-anchor="middle" fill="#334155">Exchange code for token</text>
       <text x="325" y="177" font-size="10" text-anchor="middle" fill="#64748b">extract oid, email, display_name</text>
-
-      <!-- Arrow 4→AdminConsole -->
       <line x1="435" y1="166" x2="665" y2="166" stroke="#64748b" stroke-width="1.5" marker-end="url(#arr)"/>
       <text x="548" y="158" font-size="10" fill="#64748b" text-anchor="middle">GET /api/access-check?entraObjectId=…</text>
-
-      <!-- Admin response -->
       <rect x="665" y="148" width="215" height="36" rx="6" fill="#fef9c3" stroke="#ca8a04" stroke-width="1.5"/>
       <text x="772" y="163" font-size="11" text-anchor="middle" fill="#92400e" font-weight="600">Returns allowed + roles[]</text>
       <text x="772" y="177" font-size="10" text-anchor="middle" fill="#92400e">e.g. roles:["Read/Write"]</text>
-
-      <!-- Arrow back AdminConsole → API map role -->
       <path d="M 772 184 Q 772 220 325 220" stroke="#ca8a04" stroke-width="1.5" fill="none" marker-end="url(#arr-amber)"/>
-
-      <!-- 5 Map role, save session -->
       <rect x="215" y="230" width="220" height="36" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
       <text x="325" y="245" font-size="11" text-anchor="middle" fill="#14532d" font-weight="600">Map role → editor/viewer</text>
       <text x="325" y="259" font-size="10" text-anchor="middle" fill="#14532d">Regenerate session ID, store user</text>
-
-      <!-- Arrow 5→Browser redirect -->
       <path d="M 215 248 Q 100 248 97 82" stroke="#16a34a" stroke-width="1.5" fill="none" marker-end="url(#arr-green)"/>
       <text x="70" y="190" font-size="10" fill="#15803d" text-anchor="middle">Redirect to app</text>
-
-      <!-- Arrow markers -->
       <defs>
-        <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L0,6 L8,3 z" fill="#64748b"/>
-        </marker>
-        <marker id="arr-pink" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L0,6 L8,3 z" fill="#db2777"/>
-        </marker>
-        <marker id="arr-amber" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L0,6 L8,3 z" fill="#ca8a04"/>
-        </marker>
-        <marker id="arr-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-          <path d="M0,0 L0,6 L8,3 z" fill="#16a34a"/>
-        </marker>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#64748b"/></marker>
+        <marker id="arr-pink" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#db2777"/></marker>
+        <marker id="arr-amber" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#ca8a04"/></marker>
+        <marker id="arr-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#16a34a"/></marker>
       </defs>
     </svg>
   </div>
 
   <div class="callout callout-warn" style="margin-top:16px">
-    <span class="icon">⚠️</span>
-    <div><strong>Role change latency:</strong> Roles are evaluated once at login and stored in the session. If a user's entitlement changes in Admin Console, the change takes effect on their <em>next sign-in</em>. There is no mid-session re-check.</div>
+    <span>⚠️</span>
+    <div>Microsoft login cannot be embedded in an iframe. If the app is viewed inside an iframe (e.g. a Replit preview pane), clicking <strong>Sign in with Microsoft</strong> opens a new browser tab. Sign in there, then return to the original tab.</div>
   </div>
 
-  <h3 style="margin-top:32px">Schedule Board Load (Read Path)</h3>
+  <h3 style="margin-top:32px">Schedule Board Data Fetch (Read Path)</h3>
   <div class="flow-diagram">
     <svg width="900" height="200" viewBox="0 0 900 200" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
       <rect x="0" y="0" width="900" height="200" rx="8" fill="#f8fafc"/>
@@ -468,49 +864,33 @@
       <text x="270" y="18" font-size="10" fill="#94a3b8" font-weight="600">API SERVER</text>
       <text x="530" y="18" font-size="10" fill="#94a3b8" font-weight="600">CRM POSTGRES MIRROR</text>
       <text x="740" y="18" font-size="10" fill="#94a3b8" font-weight="600">FS POSTGRES</text>
-
       <line x1="230" y1="22" x2="230" y2="192" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
       <line x1="500" y1="22" x2="500" y2="192" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
       <line x1="720" y1="22" x2="720" y2="192" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
-
-      <!-- Parallel API calls from browser -->
       <rect x="15" y="30" width="200" height="30" rx="5" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
       <text x="115" y="50" text-anchor="middle" font-size="10.5" fill="#1e40af" font-weight="600">TanStack Query (parallel)</text>
-
-      <!-- 5 arrows out from browser box -->
       <line x1="215" y1="38" x2="240" y2="38" stroke="#2563eb" stroke-width="1.2" marker-end="url(#ba)"/>
       <line x1="215" y1="46" x2="240" y2="52" stroke="#2563eb" stroke-width="1.2" marker-end="url(#ba)"/>
       <line x1="215" y1="50" x2="240" y2="62" stroke="#2563eb" stroke-width="1.2" marker-end="url(#ba)"/>
       <line x1="215" y1="54" x2="240" y2="74" stroke="#2563eb" stroke-width="1.2" marker-end="url(#ba)"/>
       <line x1="215" y1="58" x2="240" y2="86" stroke="#2563eb" stroke-width="1.2" marker-end="url(#ba)"/>
-
-      <!-- Request labels -->
       <text x="250" y="42" font-size="9.5" fill="#334155">/wb/schedule-board?start=…  → CRM mirror</text>
       <text x="250" y="57" font-size="9.5" fill="#334155">/wb/resource-utilization?start=… → CRM mirror</text>
       <text x="250" y="67" font-size="9.5" fill="#334155">/wb/unscheduled-jobs  → CRM mirror</text>
       <text x="250" y="79" font-size="9.5" fill="#334155">/wb/schedule-blocks  → FS Postgres</text>
       <text x="250" y="91" font-size="9.5" fill="#334155">/wb/placeholder-jobs → FS Postgres</text>
-
-      <!-- CRM mirror box -->
       <rect x="510" y="36" width="195" height="60" rx="5" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
       <text x="607" y="54" text-anchor="middle" font-size="10.5" fill="#334155" font-weight="600">CRM Mirror DB</text>
       <text x="607" y="68" text-anchor="middle" font-size="9.5" fill="#64748b">bookingview, bookableresource,</text>
       <text x="607" y="80" text-anchor="middle" font-size="9.5" fill="#64748b">msdyn_workorder, territories…</text>
-
-      <!-- FS Postgres box -->
       <rect x="730" y="36" width="155" height="60" rx="5" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
       <text x="807" y="54" text-anchor="middle" font-size="10.5" fill="#334155" font-weight="600">FS PostgreSQL</text>
       <text x="807" y="68" text-anchor="middle" font-size="9.5" fill="#64748b">schedule_blocks</text>
       <text x="807" y="80" text-anchor="middle" font-size="9.5" fill="#64748b">placeholder_jobs</text>
-
-      <!-- Merged response arrows back -->
       <path d="M 510 66 Q 380 120 215 120" stroke="#16a34a" stroke-width="1.5" fill="none" marker-end="url(#ga)"/>
       <path d="M 730 66 Q 570 130 215 130" stroke="#16a34a" stroke-width="1.5" fill="none" marker-end="url(#ga)"/>
-
-      <!-- React renders -->
       <rect x="15" y="145" width="200" height="30" rx="5" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
       <text x="115" y="165" text-anchor="middle" font-size="10.5" fill="#14532d" font-weight="600">Merge &amp; render board</text>
-
       <defs>
         <marker id="ba" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L7,2.5 z" fill="#2563eb"/></marker>
         <marker id="ga" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L7,2.5 z" fill="#16a34a"/></marker>
@@ -526,55 +906,36 @@
       <text x="230" y="18" font-size="10" fill="#94a3b8" font-weight="600">API SERVER</text>
       <text x="480" y="18" font-size="10" fill="#94a3b8" font-weight="600">FS POSTGRES</text>
       <text x="660" y="18" font-size="10" fill="#94a3b8" font-weight="600">DYNAMICS DATAVERSE</text>
-
       <line x1="210" y1="22" x2="210" y2="232" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
       <line x1="440" y1="22" x2="440" y2="232" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
       <line x1="640" y1="22" x2="640" y2="232" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
-
-      <!-- Two paths: queued and direct -->
       <text x="14" y="45" font-size="10" fill="#94a3b8" font-weight="700" font-style="italic">PATH A — Queued write-back</text>
-
       <rect x="14" y="52" width="186" height="28" rx="5" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
       <text x="107" y="70" text-anchor="middle" font-size="10.5" fill="#1e40af">PATCH /wb/bookings/:id</text>
-
       <line x1="200" y1="66" x2="225" y2="66" stroke="#64748b" stroke-width="1.2" marker-end="url(#da)"/>
-
       <rect x="225" y="52" width="200" height="28" rx="5" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
       <text x="325" y="67" text-anchor="middle" font-size="10" fill="#334155">Validate, insert writeback row</text>
       <text x="325" y="79" text-anchor="middle" font-size="9" fill="#64748b">status = 'pending'</text>
-
       <line x1="425" y1="66" x2="455" y2="66" stroke="#64748b" stroke-width="1.2" marker-end="url(#da)"/>
-
       <rect x="455" y="52" width="170" height="28" rx="5" fill="#fef9c3" stroke="#ca8a04" stroke-width="1.5"/>
       <text x="540" y="70" text-anchor="middle" font-size="10.5" fill="#92400e" font-weight="600">writebacks table</text>
-
       <line x1="540" y1="80" x2="540" y2="110" stroke="#ca8a04" stroke-width="1.2" marker-end="url(#ya)"/>
       <text x="600" y="102" font-size="9.5" fill="#64748b">POST /wb/sync or scheduler</text>
-
       <rect x="655" y="110" width="230" height="28" rx="5" fill="#fce7f3" stroke="#db2777" stroke-width="1.5"/>
       <text x="770" y="128" text-anchor="middle" font-size="10.5" fill="#9d174d" font-weight="600">Dataverse PATCH booking</text>
-
       <line x1="655" y1="124" x2="440" y2="124" stroke="#16a34a" stroke-width="1.2" marker-end="url(#ga2)"/>
       <text x="548" y="118" font-size="9" fill="#15803d" text-anchor="middle">status → 'synced' / 'error'</text>
-
-      <!-- Divider -->
       <line x1="14" y1="156" x2="880" y2="156" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3,3"/>
       <text x="14" y="172" font-size="10" fill="#94a3b8" font-weight="700" font-style="italic">PATH B — Direct save (immediate)</text>
-
       <rect x="14" y="178" width="186" height="28" rx="5" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
       <text x="107" y="196" text-anchor="middle" font-size="10.5" fill="#1e40af">POST /wb/bookings/:id/save</text>
-
       <line x1="200" y1="192" x2="225" y2="192" stroke="#64748b" stroke-width="1.2" marker-end="url(#da)"/>
-
       <rect x="225" y="178" width="200" height="28" rx="5" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
       <text x="325" y="196" text-anchor="middle" font-size="10" fill="#334155">Validate booking times</text>
-
       <line x1="425" y1="192" x2="655" y2="192" stroke="#64748b" stroke-width="1.2" marker-end="url(#da)"/>
-
       <rect x="655" y="178" width="230" height="28" rx="5" fill="#fce7f3" stroke="#db2777" stroke-width="1.5"/>
       <text x="770" y="192" text-anchor="middle" font-size="10.5" fill="#9d174d" font-weight="600">Dataverse PATCH (direct)</text>
       <text x="770" y="204" text-anchor="middle" font-size="9" fill="#9d174d">no writeback queue row</text>
-
       <defs>
         <marker id="da" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L7,2.5 z" fill="#64748b"/></marker>
         <marker id="ya" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L7,2.5 z" fill="#ca8a04"/></marker>
@@ -582,10 +943,47 @@
       </defs>
     </svg>
   </div>
+
+  <h3 style="margin-top:32px">Calendar Report (Email Path)</h3>
+  <div class="flow-diagram">
+    <svg width="900" height="160" viewBox="0 0 900 160" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+      <rect x="0" y="0" width="900" height="160" rx="8" fill="#f8fafc"/>
+      <text x="14" y="18" font-size="10" fill="#94a3b8" font-weight="600">BROWSER</text>
+      <text x="230" y="18" font-size="10" fill="#94a3b8" font-weight="600">API SERVER</text>
+      <text x="490" y="18" font-size="10" fill="#94a3b8" font-weight="600">CRM MIRROR DB</text>
+      <text x="690" y="18" font-size="10" fill="#94a3b8" font-weight="600">MICROSOFT GRAPH</text>
+      <line x1="210" y1="22" x2="210" y2="152" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
+      <line x1="470" y1="22" x2="470" y2="152" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
+      <line x1="670" y1="22" x2="670" y2="152" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
+      <rect x="14" y="36" width="186" height="28" rx="5" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+      <text x="107" y="54" text-anchor="middle" font-size="10.5" fill="#1e40af">POST /wb/calendar-report/email</text>
+      <line x1="200" y1="50" x2="225" y2="50" stroke="#64748b" stroke-width="1.2" marker-end="url(#era)"/>
+      <rect x="225" y="36" width="230" height="42" rx="5" fill="#fff" stroke="#e2e8f0" stroke-width="1.5"/>
+      <text x="340" y="53" text-anchor="middle" font-size="10" fill="#334155">Build report events from CRM mirror</text>
+      <text x="340" y="66" text-anchor="middle" font-size="9" fill="#64748b">resolve recipient email from CRM systemuser</text>
+      <line x1="455" y1="57" x2="485" y2="57" stroke="#64748b" stroke-width="1.2" marker-end="url(#era)"/>
+      <rect x="485" y="36" width="170" height="28" rx="5" fill="#fef9c3" stroke="#ca8a04" stroke-width="1.5"/>
+      <text x="570" y="54" text-anchor="middle" font-size="10" fill="#92400e">workorder, bookings,</text>
+      <line x1="455" y1="78" x2="485" y2="78" stroke="#64748b" stroke-width="1.2" marker-end="url(#era)"/>
+      <text x="570" y="70" text-anchor="middle" font-size="9" fill="#64748b">cf_servicelocation data</text>
+      <line x1="655" y1="57" x2="680" y2="57" stroke="#64748b" stroke-width="1.2" marker-end="url(#era)"/>
+      <rect x="680" y="36" width="205" height="42" rx="5" fill="#fce7f3" stroke="#db2777" stroke-width="1.5"/>
+      <text x="782" y="53" text-anchor="middle" font-size="10.5" fill="#9d174d" font-weight="600">Graph Mail.Send</text>
+      <text x="782" y="67" text-anchor="middle" font-size="9" fill="#9d174d">personalised greeting + HTML body</text>
+      <rect x="14" y="108" width="186" height="28" rx="5" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="107" y="126" text-anchor="middle" font-size="10" fill="#14532d">{ sent: true } → UI confirmation</text>
+      <line x1="680" y1="80" x2="550" y2="108" stroke="#16a34a" stroke-width="1.2" fill="none" marker-end="url(#era-g)"/>
+      <line x1="225" y1="116" x2="200" y2="122" stroke="#16a34a" stroke-width="1.2" marker-end="url(#era-g)"/>
+      <defs>
+        <marker id="era" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L7,2.5 z" fill="#64748b"/></marker>
+        <marker id="era-g" markerWidth="7" markerHeight="7" refX="5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L7,2.5 z" fill="#16a34a"/></marker>
+      </defs>
+    </svg>
+  </div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════════════════ -->
-<!--  5. API REFERENCE                                                    -->
+<!--  6. API REFERENCE                                                    -->
 <!-- ════════════════════════════════════════════════════════════════════ -->
 <section id="api">
   <h2 class="section-title"><span class="icon">📡</span> Complete API Reference</h2>
@@ -593,465 +991,174 @@
   <p>All routes are mounted under the base path <code>/api</code>. Session cookies are sent automatically by the browser (<code>credentials: "include"</code>). The shared client library (<code>@workspace/api-client-react</code>) provides typed React Query hooks for every route.</p>
 
   <div class="callout callout-info">
-    <span class="icon">🔑</span>
+    <span>🔑</span>
     <div>
       <strong>Auth badges:</strong>
       <span class="auth-badge auth-open" style="margin-left:8px">Public</span> — no auth required &nbsp;|&nbsp;
       <span class="auth-badge auth-login">Login</span> — any authenticated session &nbsp;|&nbsp;
-      <span class="auth-badge auth-editor">Editor</span> — requires <code>role = editor</code> (Read/Write entitlement)
+      <span class="auth-badge auth-editor">Editor</span> — requires <code>role = editor</code>
     </div>
   </div>
 
-  <!-- ── Auth ─────────────────────────────────────────────────── -->
+  <!-- Auth -->
   <div class="api-group">
     <div class="api-group-header"><span class="group-icon">🔐</span> Authentication</div>
     <table class="api-table">
       <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/login</td>
-        <td><span class="auth-badge auth-open">Public</span></td>
-        <td><code>returnTo</code> query (optional, same-origin path)</td>
-        <td>302 redirect → Microsoft Entra ID login page</td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/auth/callback</td>
-        <td><span class="auth-badge auth-open">Public</span></td>
-        <td><code>code</code>, <code>state</code> query (from Entra)</td>
-        <td>302 redirect → <code>returnTo</code> or <code>/</code>. Sets encrypted session cookie.</td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/me</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td>—</td>
-        <td><code>{ entra_oid, email, display_name, role: "editor"|"viewer" }</code></td>
-      </tr>
-      <tr>
-        <td><span class="method post">POST</span></td>
-        <td class="route-path">/api/logout</td>
-        <td><span class="auth-badge auth-open">Public</span></td>
-        <td>—</td>
-        <td>302 redirect → Entra logout URL → <code>/</code>. Destroys session.</td>
-      </tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/login</td><td><span class="auth-badge auth-open">Public</span></td><td><code>returnTo</code> query (optional, same-origin path only)</td><td>302 redirect → Microsoft Entra ID login page</td></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/auth/callback</td><td><span class="auth-badge auth-open">Public</span></td><td><code>code</code>, <code>state</code> query (from Entra)</td><td>302 redirect → <code>returnTo</code> or <code>/</code>. Sets encrypted session cookie.</td></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/me</td><td><span class="auth-badge auth-login">Login</span></td><td>—</td><td><code>{ entra_oid, email, display_name, role: "editor"|"viewer" }</code></td></tr>
+      <tr><td><span class="method post">POST</span></td><td class="route-path">/api/logout</td><td><span class="auth-badge auth-open">Public</span></td><td>—</td><td>302 redirect → Entra logout URL → <code>/</code>. Destroys session.</td></tr>
     </table>
   </div>
 
-  <!-- ── Health ───────────────────────────────────────────────── -->
+  <!-- Health -->
   <div class="api-group">
     <div class="api-group-header"><span class="group-icon">💚</span> Health</div>
     <table class="api-table">
       <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/healthz</td>
-        <td><span class="auth-badge auth-open">Public</span></td>
-        <td>—</td>
-        <td><code>{ status: "ok" }</code></td>
-      </tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/healthz</td><td><span class="auth-badge auth-open">Public</span></td><td>—</td><td><code>{ status: "ok" }</code></td></tr>
     </table>
   </div>
 
-  <!-- ── Schedule Board ───────────────────────────────────────── -->
+  <!-- Schedule Board -->
   <div class="api-group">
     <div class="api-group-header"><span class="group-icon">📅</span> Schedule Board</div>
     <table class="api-table">
       <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/schedule-board</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>start</code> (YYYY-MM-DD, required), <code>view</code> week|month, <code>groupBy</code> tech-region|service-location</td>
-        <td><code>{ view, group_by, range_start, range_end, day_count, regions: [{ regionid_id, region, company, technicians: [{ technician_id, resource_name, user_email, jobs: [ScheduleJob] }] }] }</code></td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/schedule-board</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>start</code>, <code>view</code> week|month|stacked, <code>groupBy</code> tech-region|service-location</td>
-        <td>Same shape as above. Preferred route (wb = writeback-aware variant).</td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/resource-utilization</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>start</code> (YYYY-MM-DD), <code>view</code> week|month|quarter</td>
-        <td><code>{ view, range_start, range_end, period_weeks, default_weekly_capacity_hours, regions: [{ region, technicians: [UtilizationTech] }] }</code></td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/resource-utilization</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>start</code>, <code>view</code> week|month|quarter</td>
-        <td>Same utilization shape. <code>UtilizationTech</code> includes <code>placeholder_minutes</code> separately.</td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/unscheduled-jobs</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td>—</td>
-        <td><code>{ jobs: [UnscheduledJob] }</code>. Each job includes <code>best_fit_techs</code> ranked by job density.</td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/scheduled-jobs</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td>—</td>
-        <td><code>[{ region, technicians: [{ technician_id, resource_name, jobs: [ScheduledJob] }] }]</code></td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/jobs-by-region</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>status</code> (optional, filter by work order system status)</td>
-        <td>Array of region groups with technicians and their jobs.</td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/jobs-by-region</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>status</code> optional</td>
-        <td>Same shape as above.</td>
-      </tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/schedule-board</td><td><span class="auth-badge auth-login">Login</span></td><td><code>start</code> YYYY-MM-DD, <code>view</code> week|month|stacked, <code>groupBy</code> tech-region|service-location</td><td><code>{ view, group_by, range_start, day_count, regions: [{ regionid_id, region, company, technicians: [{ technician_id, resource_name, user_email, jobs: [ScheduleJob] }] }] }</code></td></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/resource-utilization</td><td><span class="auth-badge auth-login">Login</span></td><td><code>start</code>, <code>view</code> week|month|quarter</td><td><code>{ view, range_start, period_weeks, default_weekly_capacity_hours, regions: [UtilRegion] }</code>. Each tech includes <code>placeholder_minutes</code> separately.</td></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/unscheduled-jobs</td><td><span class="auth-badge auth-login">Login</span></td><td>—</td><td><code>{ jobs: [UnscheduledJob] }</code>. Each job includes <code>best_fit_techs</code> ranked by nearby job density.</td></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/search</td><td><span class="auth-badge auth-login">Login</span></td><td><code>q</code> (≥ 2 chars)</td><td><code>[WbSearchResult]</code> — type: scheduled|potential|unscheduled, WO number, customer, location, technician, start date.</td></tr>
     </table>
   </div>
 
-  <!-- ── Work Orders ──────────────────────────────────────────── -->
+  <!-- Work Orders -->
   <div class="api-group">
-    <div class="api-group-header"><span class="group-icon">📋</span> Work Orders &amp; Search</div>
+    <div class="api-group-header"><span class="group-icon">📋</span> Work Orders</div>
     <table class="api-table">
       <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/work-orders/:workOrderId</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td>Path: <code>workOrderId</code></td>
-        <td><code>WorkOrderDetail</code> — full work order including customer, contact, booking, products, services, equipment list with calibration dates.</td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/work-orders</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>search</code> (optional text), <code>limit</code> 1–500 (default 100)</td>
-        <td><code>[WbWorkOrder]</code> — each includes <code>pending_writeback</code> if one exists.</td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/work-orders/:workOrderId/detail</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td>Path: <code>workOrderId</code></td>
-        <td>Full <code>WorkOrderDetail</code> (CRM mirror variant; products/services may be empty).</td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/search</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>q</code> (required, ≥ 2 chars)</td>
-        <td><code>[WbSearchResult]</code> — type: scheduled|potential|unscheduled, work order number, customer, location, technician, start date.</td>
-      </tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/work-orders/:workOrderId/detail</td><td><span class="auth-badge auth-login">Login</span></td><td>Path: <code>workOrderId</code></td><td>Full <code>WorkOrderDetail</code> — customer, contact, booking, products, services, equipment list with calibration dates.</td></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/work-orders</td><td><span class="auth-badge auth-login">Login</span></td><td><code>search</code>, <code>limit</code> 1–500</td><td><code>[WbWorkOrder]</code></td></tr>
     </table>
   </div>
 
-  <!-- ── Technicians ──────────────────────────────────────────── -->
-  <div class="api-group">
-    <div class="api-group-header"><span class="group-icon">👷</span> Technicians</div>
-    <table class="api-table">
-      <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/technicians</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td>—</td>
-        <td><code>[{ technician_id, resource_name, user_email, phone, resource_type, is_active }]</code></td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/technicians/by-email</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>email</code> (required)</td>
-        <td><code>{ jobs, technicianEmail, technicianName }</code>. 404 if not found.</td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/technicians/:technicianId/work-orders</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td>Path: <code>technicianId</code></td>
-        <td><code>{ jobs: [ScheduledJob], technicianEmail, technicianName }</code></td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/technicians/:technicianId/summary</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td>Path: <code>technicianId</code></td>
-        <td><code>{ technician_id, total, by_status, by_priority, upcoming_today }</code></td>
-      </tr>
-    </table>
-  </div>
-
-  <!-- ── Bookings / Write-backs ───────────────────────────────── -->
+  <!-- Bookings -->
   <div class="api-group">
     <div class="api-group-header"><span class="group-icon">✏️</span> Bookings &amp; Write-backs</div>
     <table class="api-table">
       <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
-      <tr>
-        <td><span class="method patch">PATCH</span></td>
-        <td class="route-path">/api/wb/bookings/:bookingId</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>Body: <code>{ start_time?, end_time?, technician_id? }</code></td>
-        <td><code>WbWriteback</code> — queued write-back row. Status starts as <code>pending</code>.</td>
-      </tr>
-      <tr>
-        <td><span class="method post">POST</span></td>
-        <td class="route-path">/api/wb/work-orders/:workOrderId/booking</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>Body: booking times + technician_id</td>
-        <td><code>WbWriteback</code> — creates a new queued booking.</td>
-      </tr>
-      <tr>
-        <td><span class="method post">POST</span></td>
-        <td class="route-path">/api/wb/bookings/:bookingId/save</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>Body: booking times + technician_id</td>
-        <td><code>{ message: "Booking saved to CRM" }</code> — direct Dataverse write, no queue.</td>
-      </tr>
-      <tr>
-        <td><span class="method post">POST</span></td>
-        <td class="route-path">/api/wb/work-orders/:workOrderId/booking/save</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>Body: booking times + technician_id</td>
-        <td><code>{ message: "Booking created in CRM" }</code> — direct Dataverse create.</td>
-      </tr>
-      <tr>
-        <td><span class="method post">POST</span></td>
-        <td class="route-path">/api/wb/sync</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>—</td>
-        <td>Processes all <code>pending</code> write-backs. Returns sync result summary.</td>
-      </tr>
-      <tr>
-        <td><span class="method delete">DELETE</span></td>
-        <td class="route-path">/api/wb/writebacks/:id</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>Path: writeback <code>id</code></td>
-        <td><code>{ deleted: 1 }</code></td>
-      </tr>
+      <tr><td><span class="method patch">PATCH</span></td><td class="route-path">/api/wb/bookings/:bookingId</td><td><span class="auth-badge auth-editor">Editor</span></td><td>Body: <code>{ start_time?, end_time?, technician_id? }</code></td><td><code>WbWriteback</code> — queued row, status <code>pending</code>.</td></tr>
+      <tr><td><span class="method post">POST</span></td><td class="route-path">/api/wb/bookings/:bookingId/save</td><td><span class="auth-badge auth-editor">Editor</span></td><td>Body: booking times + technician_id</td><td><code>{ message: "Booking saved to CRM" }</code> — direct Dataverse write.</td></tr>
+      <tr><td><span class="method post">POST</span></td><td class="route-path">/api/wb/work-orders/:workOrderId/booking</td><td><span class="auth-badge auth-editor">Editor</span></td><td>Body: booking times + technician_id</td><td><code>WbWriteback</code> — creates queued booking.</td></tr>
+      <tr><td><span class="method post">POST</span></td><td class="route-path">/api/wb/work-orders/:workOrderId/booking/save</td><td><span class="auth-badge auth-editor">Editor</span></td><td>Body: booking times + technician_id</td><td><code>{ message: "Booking created in CRM" }</code> — direct Dataverse create.</td></tr>
+      <tr><td><span class="method post">POST</span></td><td class="route-path">/api/wb/sync</td><td><span class="auth-badge auth-editor">Editor</span></td><td>—</td><td>Processes all <code>pending</code> write-backs. Returns sync result summary.</td></tr>
+      <tr><td><span class="method delete">DELETE</span></td><td class="route-path">/api/wb/writebacks/:id</td><td><span class="auth-badge auth-editor">Editor</span></td><td>Path: writeback <code>id</code></td><td><code>{ deleted: 1 }</code></td></tr>
     </table>
   </div>
 
-  <!-- ── Schedule Blocks ──────────────────────────────────────── -->
+  <!-- Schedule Blocks -->
   <div class="api-group">
     <div class="api-group-header"><span class="group-icon">🟦</span> Schedule Blocks</div>
     <table class="api-table">
       <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/schedule-blocks</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>start_date</code>, <code>end_date</code> (optional YYYY-MM-DD, overlap filter)</td>
-        <td><code>[ScheduleBlock]</code></td>
-      </tr>
-      <tr>
-        <td><span class="method post">POST</span></td>
-        <td class="route-path">/api/wb/schedule-blocks</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td><code>{ technician_id, block_type: drive_time|pto|custom, start_time, end_time, title?, notes?, color_index? }</code></td>
-        <td>201 <code>ScheduleBlock</code></td>
-      </tr>
-      <tr>
-        <td><span class="method patch">PATCH</span></td>
-        <td class="route-path">/api/wb/schedule-blocks/:id</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>Partial <code>UpdateScheduleBlock</code> — any field optional</td>
-        <td>Updated <code>ScheduleBlock</code></td>
-      </tr>
-      <tr>
-        <td><span class="method delete">DELETE</span></td>
-        <td class="route-path">/api/wb/schedule-blocks/:id</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>Path: numeric <code>id</code></td>
-        <td>204 No Content</td>
-      </tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/schedule-blocks</td><td><span class="auth-badge auth-login">Login</span></td><td><code>start_date</code>, <code>end_date</code> (optional overlap filter)</td><td><code>[ScheduleBlock]</code></td></tr>
+      <tr><td><span class="method post">POST</span></td><td class="route-path">/api/wb/schedule-blocks</td><td><span class="auth-badge auth-editor">Editor</span></td><td><code>{ technician_id, block_type: drive_time|pto|custom, start_time, end_time, title?, notes?, color_index? }</code></td><td>201 <code>ScheduleBlock</code></td></tr>
+      <tr><td><span class="method patch">PATCH</span></td><td class="route-path">/api/wb/schedule-blocks/:id</td><td><span class="auth-badge auth-editor">Editor</span></td><td>Partial <code>UpdateScheduleBlock</code></td><td>Updated <code>ScheduleBlock</code></td></tr>
+      <tr><td><span class="method delete">DELETE</span></td><td class="route-path">/api/wb/schedule-blocks/:id</td><td><span class="auth-badge auth-editor">Editor</span></td><td>Path: numeric <code>id</code></td><td>204 No Content</td></tr>
     </table>
   </div>
 
-  <!-- ── Placeholder Jobs ─────────────────────────────────────── -->
+  <!-- Placeholder Jobs -->
   <div class="api-group">
-    <div class="api-group-header"><span class="group-icon">🟡</span> Placeholder Jobs</div>
+    <div class="api-group-header"><span class="group-icon">🟡</span> Placeholder (Potential) Jobs</div>
     <table class="api-table">
       <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/placeholder-jobs</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>start_date</code>, <code>end_date</code> (optional)</td>
-        <td><code>[PlaceholderJob]</code></td>
-      </tr>
-      <tr>
-        <td><span class="method post">POST</span></td>
-        <td class="route-path">/api/wb/placeholder-jobs</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td><code>CreatePlaceholderJob</code> — technician_id, title, start_time, end_time required; customer_name, city, state, service_location_id, color_index, notes, status optional</td>
-        <td>201 <code>PlaceholderJob</code></td>
-      </tr>
-      <tr>
-        <td><span class="method patch">PATCH</span></td>
-        <td class="route-path">/api/wb/placeholder-jobs/:id</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>Partial <code>UpdatePlaceholderJob</code></td>
-        <td>Updated <code>PlaceholderJob</code></td>
-      </tr>
-      <tr>
-        <td><span class="method delete">DELETE</span></td>
-        <td class="route-path">/api/wb/placeholder-jobs/:id</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>Path: numeric <code>id</code></td>
-        <td>204 No Content</td>
-      </tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/placeholder-jobs</td><td><span class="auth-badge auth-login">Login</span></td><td><code>start_date</code>, <code>end_date</code> (optional)</td><td><code>[PlaceholderJob]</code></td></tr>
+      <tr><td><span class="method post">POST</span></td><td class="route-path">/api/wb/placeholder-jobs</td><td><span class="auth-badge auth-editor">Editor</span></td><td><code>{ technician_id, title, start_time, end_time, customer_name?, city?, state?, service_location_id?, color_index?, notes?, status? }</code></td><td>201 <code>PlaceholderJob</code></td></tr>
+      <tr><td><span class="method patch">PATCH</span></td><td class="route-path">/api/wb/placeholder-jobs/:id</td><td><span class="auth-badge auth-editor">Editor</span></td><td>Partial <code>UpdatePlaceholderJob</code></td><td>Updated <code>PlaceholderJob</code></td></tr>
+      <tr><td><span class="method delete">DELETE</span></td><td class="route-path">/api/wb/placeholder-jobs/:id</td><td><span class="auth-badge auth-editor">Editor</span></td><td>Path: numeric <code>id</code></td><td>204 No Content</td></tr>
     </table>
   </div>
 
-  <!-- ── Service Locations ────────────────────────────────────── -->
+  <!-- Service Locations -->
   <div class="api-group">
     <div class="api-group-header"><span class="group-icon">📍</span> Service Locations</div>
     <table class="api-table">
       <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/service-locations</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>search</code> (optional text), <code>limit</code> (default 20, max 100)</td>
-        <td><code>[WbServiceLocation]</code> — id, service_loc_id, name, city, state, address</td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/service-locations/:locationId</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td>Path: <code>locationId</code></td>
-        <td><code>WbServiceLocationDetail</code> — full address, phone, email, special instructions, related contact, equipment list</td>
-      </tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/service-locations</td><td><span class="auth-badge auth-login">Login</span></td><td><code>search</code> (≥ 2 chars; searches id, name, city, state), <code>limit</code> (default 20, max 100)</td><td><code>[WbServiceLocation]</code> — id, service_loc_id, name, city, state, address. Only non-deleted records. ~6,600+ active locations.</td></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/service-locations/:locationId</td><td><span class="auth-badge auth-login">Login</span></td><td>Path: <code>locationId</code> (CRM UUID)</td><td><code>WbServiceLocationDetail</code> — full address, contact, equipment list with calibration dates.</td></tr>
     </table>
   </div>
 
-  <!-- ── Booking Notes ────────────────────────────────────────── -->
+  <!-- Booking Notes -->
   <div class="api-group">
     <div class="api-group-header"><span class="group-icon">📝</span> Booking Notes</div>
     <table class="api-table">
       <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/booking-notes</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>bookingIds</code> (optional comma-separated list)</td>
-        <td><code>[BookingNote]</code></td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/booking-notes/:bookingId</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td>Path: <code>bookingId</code></td>
-        <td><code>{ booking_id, note, updated_at }</code> — <code>note</code> is null if no note exists</td>
-      </tr>
-      <tr>
-        <td><span class="method put">PUT</span></td>
-        <td class="route-path">/api/wb/booking-notes/:bookingId</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>Body: <code>{ note: string }</code></td>
-        <td>Upserted <code>BookingNote</code></td>
-      </tr>
-      <tr>
-        <td><span class="method delete">DELETE</span></td>
-        <td class="route-path">/api/wb/booking-notes/:bookingId</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>Path: <code>bookingId</code></td>
-        <td>204 No Content</td>
-      </tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/booking-notes</td><td><span class="auth-badge auth-login">Login</span></td><td><code>bookingIds</code> (optional comma-separated)</td><td><code>[BookingNote]</code></td></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/booking-notes/:bookingId</td><td><span class="auth-badge auth-login">Login</span></td><td>Path: <code>bookingId</code></td><td><code>{ booking_id, note, updated_at }</code></td></tr>
+      <tr><td><span class="method put">PUT</span></td><td class="route-path">/api/wb/booking-notes/:bookingId</td><td><span class="auth-badge auth-editor">Editor</span></td><td>Body: <code>{ note: string }</code></td><td>Upserted <code>BookingNote</code></td></tr>
+      <tr><td><span class="method delete">DELETE</span></td><td class="route-path">/api/wb/booking-notes/:bookingId</td><td><span class="auth-badge auth-editor">Editor</span></td><td>Path: <code>bookingId</code></td><td>204 No Content</td></tr>
     </table>
   </div>
 
-  <!-- ── Reports ──────────────────────────────────────────────── -->
+  <!-- Calendar Report -->
+  <div class="api-group">
+    <div class="api-group-header"><span class="group-icon">📄</span> Calendar Report</div>
+    <table class="api-table">
+      <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
+      <tr><td><span class="method post">POST</span></td><td class="route-path">/api/wb/calendar-report</td><td><span class="auth-badge auth-editor">Editor</span></td><td>Body: <code>{ technicianIds: string[], startDate: string, endDate: string }</code></td><td>JSON report data used by the frontend to render the dialog preview and generate PDF/Word.</td></tr>
+      <tr><td><span class="method post">POST</span></td><td class="route-path">/api/wb/calendar-report/email</td><td><span class="auth-badge auth-editor">Editor</span></td><td>Body: <code>{ technicianIds: string[], startDate: string, endDate: string }</code></td><td><code>{ sent: true }</code> — sends HTML email per technician via Microsoft Graph. Recipient email resolved server-side from CRM; never trusted from client.</td></tr>
+    </table>
+  </div>
+
+  <!-- Reports -->
   <div class="api-group">
     <div class="api-group-header"><span class="group-icon">📊</span> Reports</div>
     <table class="api-table">
       <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/reports/filters</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td>—</td>
-        <td><code>{ regions: string[], years: number[], approvers: string[] }</code></td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/reports/completed-not-approved</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>region</code>, <code>year</code>, <code>month</code> (all optional)</td>
-        <td><code>ServiceOrderReport</code> — total, by_region counts, rows with FSA#, AX#, customer, tech, dates</td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/reports/approved-not-invoiced</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>region</code> (optional)</td>
-        <td><code>ServiceOrderReport</code></td>
-      </tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/reports/weekly-approved</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td><code>region</code>, <code>approved_by</code>, <code>year</code>, <code>month</code> (all optional)</td>
-        <td><code>WeeklyApprovedReport</code> — total, week_numbers, rows by approver with week-keyed counts</td>
-      </tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/reports/filters</td><td><span class="auth-badge auth-login">Login</span></td><td>—</td><td><code>{ regions: string[], years: number[], approvers: string[] }</code></td></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/reports/completed-not-approved</td><td><span class="auth-badge auth-login">Login</span></td><td><code>region</code>, <code>year</code>, <code>month</code> (all optional)</td><td><code>ServiceOrderReport</code> — total, by_region counts, rows with FSA#, AX#, customer, tech, dates</td></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/reports/approved-not-invoiced</td><td><span class="auth-badge auth-login">Login</span></td><td><code>region</code> (optional)</td><td><code>ServiceOrderReport</code></td></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/reports/weekly-approved</td><td><span class="auth-badge auth-login">Login</span></td><td><code>region</code>, <code>approved_by</code>, <code>year</code>, <code>month</code> (all optional)</td><td><code>WeeklyApprovedReport</code></td></tr>
     </table>
   </div>
 
-  <!-- ── Admin ────────────────────────────────────────────────── -->
+  <!-- Admin -->
   <div class="api-group">
     <div class="api-group-header"><span class="group-icon">🔧</span> Admin / CRM Mirror Sync</div>
     <table class="api-table">
       <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/wb/admin/sync-mirror</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td>—</td>
-        <td>Status of last CRM mirror sync.</td>
-      </tr>
-      <tr>
-        <td><span class="method post">POST</span></td>
-        <td class="route-path">/api/wb/admin/sync-mirror</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>—</td>
-        <td>Triggers a full re-sync of the CRM mirror database from Dynamics.</td>
-      </tr>
-      <tr>
-        <td><span class="method post">POST</span></td>
-        <td class="route-path">/api/wb/admin/backfill-from-dynamics</td>
-        <td><span class="auth-badge auth-editor">Editor</span></td>
-        <td>—</td>
-        <td>Backfills historical booking and work order data from Dynamics Dataverse into the mirror.</td>
-      </tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/wb/admin/sync-mirror</td><td><span class="auth-badge auth-login">Login</span></td><td>—</td><td>Status of last CRM mirror sync.</td></tr>
+      <tr><td><span class="method post">POST</span></td><td class="route-path">/api/wb/admin/sync-mirror</td><td><span class="auth-badge auth-editor">Editor</span></td><td>—</td><td>Triggers a full re-sync of the CRM mirror database from Dynamics.</td></tr>
+      <tr><td><span class="method post">POST</span></td><td class="route-path">/api/wb/admin/backfill-from-dynamics</td><td><span class="auth-badge auth-editor">Editor</span></td><td>—</td><td>Backfills historical booking and work order data from Dynamics Dataverse into the mirror.</td></tr>
     </table>
   </div>
 
-  <!-- ── Dashboard ────────────────────────────────────────────── -->
+  <!-- Technicians -->
+  <div class="api-group">
+    <div class="api-group-header"><span class="group-icon">👷</span> Technicians</div>
+    <table class="api-table">
+      <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/technicians</td><td><span class="auth-badge auth-login">Login</span></td><td>—</td><td><code>[{ technician_id, resource_name, user_email, phone, resource_type, is_active }]</code></td></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/technicians/by-email</td><td><span class="auth-badge auth-login">Login</span></td><td><code>email</code> (required)</td><td><code>{ jobs, technicianEmail, technicianName }</code>. 404 if not found.</td></tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/technicians/:technicianId/work-orders</td><td><span class="auth-badge auth-login">Login</span></td><td>Path: <code>technicianId</code></td><td><code>{ jobs, technicianEmail, technicianName }</code></td></tr>
+    </table>
+  </div>
+
+  <!-- Dashboard -->
   <div class="api-group">
     <div class="api-group-header"><span class="group-icon">📈</span> Dashboard</div>
     <table class="api-table">
       <tr><th>Method</th><th>Path</th><th>Auth</th><th>Params / Body</th><th>Response</th></tr>
-      <tr>
-        <td><span class="method get">GET</span></td>
-        <td class="route-path">/api/dashboard/summary</td>
-        <td><span class="auth-badge auth-login">Login</span></td>
-        <td>—</td>
-        <td>Summary statistics object. Returns <code>{ error }</code> on upstream failure.</td>
-      </tr>
+      <tr><td><span class="method get">GET</span></td><td class="route-path">/api/dashboard/summary</td><td><span class="auth-badge auth-login">Login</span></td><td>—</td><td>Summary statistics object. Returns <code>{ error }</code> on upstream failure.</td></tr>
     </table>
   </div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════════════════ -->
-<!--  6. DATABASE SCHEMA                                                  -->
+<!--  7. DATABASE SCHEMA                                                  -->
 <!-- ════════════════════════════════════════════════════════════════════ -->
 <section id="schema">
   <h2 class="section-title"><span class="icon">🗄</span> Database Schema</h2>
@@ -1059,8 +1166,8 @@
   <p>The application uses two PostgreSQL databases. <strong>FS DB</strong> is managed by this app (Drizzle ORM). <strong>CRM Mirror DB</strong> is a read-mostly mirror of Dynamics data managed separately.</p>
 
   <div class="callout callout-warn">
-    <span class="icon">⚠️</span>
-    <div>Most CRM mirror tables are created <em>out-of-band</em> (not via Drizzle). Running <code>drizzle-kit push</code> without care will drop undeclared tables. Only the four tables below are managed by Drizzle — everything else in the CRM mirror must be managed via SQL scripts.</div>
+    <span>⚠️</span>
+    <div>Most CRM mirror tables are created <em>out-of-band</em> (not via Drizzle). Running <code>drizzle-kit push</code> without care will drop undeclared tables. Only the four tables below are managed by Drizzle.</div>
   </div>
 
   <h3>FS Database (Drizzle-managed)</h3>
@@ -1069,14 +1176,13 @@
       <h4>schedule_blocks</h4>
       <table style="width:100%;font-size:0.82rem;border-collapse:collapse">
         <tr><th style="text-align:left;padding:4px 8px;background:#f1f5f9;font-size:0.75rem">Column</th><th style="text-align:left;padding:4px 8px;background:#f1f5f9;font-size:0.75rem">Type</th><th style="text-align:left;padding:4px 8px;background:#f1f5f9;font-size:0.75rem">Notes</th></tr>
-        <tr><td style="padding:4px 8px"><code>id</code></td><td style="padding:4px 8px">serial PK</td><td style="padding:4px 8px"></td></tr>
+        <tr><td style="padding:4px 8px"><code>id</code></td><td style="padding:4px 8px">serial PK</td><td></td></tr>
         <tr><td style="padding:4px 8px"><code>technician_id</code></td><td style="padding:4px 8px">text NOT NULL</td><td style="padding:4px 8px">CRM resource GUID</td></tr>
-        <tr><td style="padding:4px 8px"><code>block_type</code></td><td style="padding:4px 8px">text NOT NULL</td><td style="padding:4px 8px">drive_time | pto | custom</td></tr>
-        <tr><td style="padding:4px 8px"><code>title</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px">nullable</td></tr>
-        <tr><td style="padding:4px 8px"><code>start_time</code></td><td style="padding:4px 8px">timestamptz NOT NULL</td><td style="padding:4px 8px"></td></tr>
-        <tr><td style="padding:4px 8px"><code>end_time</code></td><td style="padding:4px 8px">timestamptz NOT NULL</td><td style="padding:4px 8px"></td></tr>
-        <tr><td style="padding:4px 8px"><code>notes</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px">nullable</td></tr>
-        <tr><td style="padding:4px 8px"><code>color_index</code></td><td style="padding:4px 8px">integer 0–15</td><td style="padding:4px 8px">nullable</td></tr>
+        <tr><td style="padding:4px 8px"><code>block_type</code></td><td style="padding:4px 8px">text NOT NULL</td><td style="padding:4px 8px">drive_time | pto | custom (internal; UI shows "Travel Time")</td></tr>
+        <tr><td style="padding:4px 8px"><code>title</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px">nullable; used for Custom blocks</td></tr>
+        <tr><td style="padding:4px 8px"><code>start_time / end_time</code></td><td style="padding:4px 8px">timestamptz NOT NULL</td><td></td></tr>
+        <tr><td style="padding:4px 8px"><code>notes</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px">nullable; multi-line supported</td></tr>
+        <tr><td style="padding:4px 8px"><code>color_index</code></td><td style="padding:4px 8px">integer 0–15</td><td style="padding:4px 8px">nullable; overrides region default</td></tr>
         <tr><td style="padding:4px 8px"><code>created_at</code></td><td style="padding:4px 8px">timestamptz</td><td style="padding:4px 8px">default now()</td></tr>
       </table>
     </div>
@@ -1084,16 +1190,16 @@
       <h4>placeholder_jobs</h4>
       <table style="width:100%;font-size:0.82rem;border-collapse:collapse">
         <tr><th style="text-align:left;padding:4px 8px;background:#f1f5f9;font-size:0.75rem">Column</th><th style="text-align:left;padding:4px 8px;background:#f1f5f9;font-size:0.75rem">Type</th><th style="text-align:left;padding:4px 8px;background:#f1f5f9;font-size:0.75rem">Notes</th></tr>
-        <tr><td style="padding:4px 8px"><code>id</code></td><td style="padding:4px 8px">serial PK</td><td style="padding:4px 8px"></td></tr>
-        <tr><td style="padding:4px 8px"><code>technician_id</code></td><td style="padding:4px 8px">text NOT NULL</td><td style="padding:4px 8px"></td></tr>
-        <tr><td style="padding:4px 8px"><code>title</code></td><td style="padding:4px 8px">text NOT NULL</td><td style="padding:4px 8px"></td></tr>
+        <tr><td style="padding:4px 8px"><code>id</code></td><td style="padding:4px 8px">serial PK</td><td></td></tr>
+        <tr><td style="padding:4px 8px"><code>technician_id</code></td><td style="padding:4px 8px">text NOT NULL</td><td></td></tr>
+        <tr><td style="padding:4px 8px"><code>title</code></td><td style="padding:4px 8px">text NOT NULL</td><td></td></tr>
         <tr><td style="padding:4px 8px"><code>customer_name</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px">nullable</td></tr>
         <tr><td style="padding:4px 8px"><code>city / state</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px">nullable</td></tr>
-        <tr><td style="padding:4px 8px"><code>service_location_id</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px">CRM location GUID</td></tr>
+        <tr><td style="padding:4px 8px"><code>service_location_id</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px">CRM location GUID; nullable</td></tr>
         <tr><td style="padding:4px 8px"><code>color_index</code></td><td style="padding:4px 8px">integer 0–15</td><td style="padding:4px 8px">nullable</td></tr>
-        <tr><td style="padding:4px 8px"><code>start_time / end_time</code></td><td style="padding:4px 8px">timestamptz NOT NULL</td><td style="padding:4px 8px"></td></tr>
+        <tr><td style="padding:4px 8px"><code>start_time / end_time</code></td><td style="padding:4px 8px">timestamptz NOT NULL</td><td></td></tr>
         <tr><td style="padding:4px 8px"><code>notes</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px">nullable</td></tr>
-        <tr><td style="padding:4px 8px"><code>status</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px">PlaceholderJobStatus enum</td></tr>
+        <tr><td style="padding:4px 8px"><code>status</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px">PO Received | Credit Hold | Quote Sent | Waiting on Parts | Site Survey Needed | On Hold | Cancelled</td></tr>
         <tr><td style="padding:4px 8px"><code>created_at</code></td><td style="padding:4px 8px">timestamptz</td><td style="padding:4px 8px">default now()</td></tr>
       </table>
     </div>
@@ -1101,9 +1207,9 @@
       <h4>booking_notes</h4>
       <table style="width:100%;font-size:0.82rem;border-collapse:collapse">
         <tr><th style="text-align:left;padding:4px 8px;background:#f1f5f9;font-size:0.75rem">Column</th><th style="text-align:left;padding:4px 8px;background:#f1f5f9;font-size:0.75rem">Type</th><th style="text-align:left;padding:4px 8px;background:#f1f5f9;font-size:0.75rem">Notes</th></tr>
-        <tr><td style="padding:4px 8px"><code>id</code></td><td style="padding:4px 8px">serial PK</td><td style="padding:4px 8px"></td></tr>
+        <tr><td style="padding:4px 8px"><code>id</code></td><td style="padding:4px 8px">serial PK</td><td></td></tr>
         <tr><td style="padding:4px 8px"><code>booking_id</code></td><td style="padding:4px 8px">text UNIQUE NOT NULL</td><td style="padding:4px 8px">CRM booking GUID</td></tr>
-        <tr><td style="padding:4px 8px"><code>note</code></td><td style="padding:4px 8px">text NOT NULL</td><td style="padding:4px 8px"></td></tr>
+        <tr><td style="padding:4px 8px"><code>note</code></td><td style="padding:4px 8px">text NOT NULL</td><td></td></tr>
         <tr><td style="padding:4px 8px"><code>updated_at</code></td><td style="padding:4px 8px">timestamptz</td><td style="padding:4px 8px">auto-updated</td></tr>
       </table>
     </div>
@@ -1112,21 +1218,21 @@
       <table style="width:100%;font-size:0.82rem;border-collapse:collapse">
         <tr><th style="text-align:left;padding:4px 8px;background:#f1f5f9;font-size:0.75rem">Column</th><th style="text-align:left;padding:4px 8px;background:#f1f5f9;font-size:0.75rem">Type</th><th style="text-align:left;padding:4px 8px;background:#f1f5f9;font-size:0.75rem">Notes</th></tr>
         <tr><td style="padding:4px 8px"><code>entra_oid</code></td><td style="padding:4px 8px">text PK</td><td style="padding:4px 8px">Entra Object ID</td></tr>
-        <tr><td style="padding:4px 8px"><code>email</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px"></td></tr>
-        <tr><td style="padding:4px 8px"><code>display_name</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px"></td></tr>
+        <tr><td style="padding:4px 8px"><code>email</code></td><td style="padding:4px 8px">text</td><td></td></tr>
+        <tr><td style="padding:4px 8px"><code>display_name</code></td><td style="padding:4px 8px">text</td><td></td></tr>
         <tr><td style="padding:4px 8px"><code>role</code></td><td style="padding:4px 8px">text</td><td style="padding:4px 8px">default: technician</td></tr>
         <tr><td style="padding:4px 8px"><code>is_active</code></td><td style="padding:4px 8px">boolean</td><td style="padding:4px 8px">default: true</td></tr>
-        <tr><td style="padding:4px 8px"><code>created_at / updated_at</code></td><td style="padding:4px 8px">timestamptz</td><td style="padding:4px 8px"></td></tr>
+        <tr><td style="padding:4px 8px"><code>created_at / updated_at</code></td><td style="padding:4px 8px">timestamptz</td><td></td></tr>
       </table>
     </div>
   </div>
 
   <h3>Session Table (out-of-band)</h3>
-  <p>The <code>sessions</code> table is provisioned by <code>connect-pg-simple</code> at startup if it does not exist. Columns: <code>sid</code> (PK), <code>sess</code> (JSON), <code>expire</code> (timestamptz). Sessions are rolling 30-day, httpOnly, Secure in production.</p>
+  <p>The <code>sessions</code> table is provisioned by <code>connect-pg-simple</code> at startup. Columns: <code>sid</code> (PK), <code>sess</code> (JSON), <code>expire</code> (timestamptz). Sessions are rolling 30-day, httpOnly, Secure in production.</p>
 </section>
 
 <!-- ════════════════════════════════════════════════════════════════════ -->
-<!--  7. SECURITY & PERMISSIONS                                           -->
+<!--  8. SECURITY & PERMISSIONS                                           -->
 <!-- ════════════════════════════════════════════════════════════════════ -->
 <section id="security">
   <h2 class="section-title"><span class="icon">🔒</span> Security &amp; Permissions</h2>
@@ -1144,33 +1250,32 @@
         <li>Secure flag set automatically in production</li>
         <li>SameSite: Lax in production; None in development (required for Replit iframe preview)</li>
         <li>Rolling 30-day expiry</li>
-        <li><code>SESSION_SECRET</code> required in production (app refuses to start without it)</li>
+        <li><code>SESSION_SECRET</code> required in production</li>
       </ul>
     </div>
     <div class="card">
       <h4>🔀 Open Redirect Prevention</h4>
-      <p>The <code>returnTo</code> parameter on the login route is sanitised by <code>sanitizeReturnTo()</code>:</p>
+      <p>The <code>returnTo</code> parameter on the login route is sanitised:</p>
       <ul>
         <li>Must be a same-origin absolute path (starts with <code>/</code>)</li>
-        <li>Rejected if it starts with <code>//</code> (protocol-relative) or <code>/\</code> (Windows path abuse)</li>
+        <li>Rejected if it starts with <code>//</code> or <code>/\</code></li>
         <li>External URLs are silently discarded; fallback is <code>/</code></li>
       </ul>
     </div>
   </div>
 
   <h3>Role Model</h3>
-  <p>The application has exactly two session roles. These are assigned at login and cannot change mid-session.</p>
-
   <div class="two-col" style="margin-bottom:20px">
     <div class="card" style="border-color:var(--editor-border);background:var(--editor-bg)">
       <h4 style="color:var(--editor-border)">✏️ Editor (Read/Write)</h4>
-      <p>Assigned when Admin Console returns a role string containing <code>read/write</code> or <code>read / write</code> (case-insensitive). Can perform all read operations <em>plus</em>:</p>
+      <p>Assigned when Admin Console returns a role string containing <code>read/write</code> (case-insensitive). Can perform all read operations <em>plus</em>:</p>
       <ul>
         <li>Create / update / delete schedule blocks</li>
         <li>Create / update / delete placeholder jobs</li>
         <li>Queue or directly save CRM booking changes</li>
         <li>Trigger write-back sync</li>
         <li>Write and delete booking notes</li>
+        <li>Generate and email Calendar Reports</li>
         <li>Trigger CRM mirror sync and backfill (admin routes)</li>
       </ul>
     </div>
@@ -1186,20 +1291,15 @@
         <li>View booking notes</li>
         <li>Search across all jobs</li>
       </ul>
-      <p>All write UI controls (Add Block buttons, drag handles, edit/delete on chips, schedule unscheduled panel) are <em>hidden entirely</em> in the frontend. Any attempt to call a write API endpoint is rejected with <strong>HTTP 403</strong> by the server regardless.</p>
+      <p>All write UI controls are <em>hidden entirely</em> in the frontend. Any write API call is rejected with <strong>HTTP 403</strong> server-side regardless.</p>
     </div>
   </div>
 
   <h3>Permission Matrix</h3>
   <div class="perm-matrix">
     <table>
-      <tr>
-        <th>Operation</th>
-        <th>Viewer</th>
-        <th>Editor</th>
-        <th>Enforcement Layer</th>
-      </tr>
-      <tr><td>View schedule board</td><td class="perm-yes">✓</td><td class="perm-yes">✓</td><td>requireLogin</td></tr>
+      <tr><th>Operation</th><th>Viewer</th><th>Editor</th><th>Enforcement Layer</th></tr>
+      <tr><td>View schedule board (all views)</td><td class="perm-yes">✓</td><td class="perm-yes">✓</td><td>requireLogin</td></tr>
       <tr><td>View resource utilization</td><td class="perm-yes">✓</td><td class="perm-yes">✓</td><td>requireLogin</td></tr>
       <tr><td>View work order detail</td><td class="perm-yes">✓</td><td class="perm-yes">✓</td><td>requireLogin</td></tr>
       <tr><td>View service location detail</td><td class="perm-yes">✓</td><td class="perm-yes">✓</td><td>requireLogin</td></tr>
@@ -1216,22 +1316,23 @@
       <tr><td>Sync write-back queue</td><td class="perm-no">—</td><td class="perm-yes">✓</td><td>requireRole("editor")</td></tr>
       <tr><td>Write / delete booking note</td><td class="perm-no">—</td><td class="perm-yes">✓</td><td>requireRole("editor") + UI hidden</td></tr>
       <tr><td>Schedule unscheduled job</td><td class="perm-no">—</td><td class="perm-yes">✓</td><td>requireRole("editor") + UI hidden</td></tr>
+      <tr><td>Generate Calendar Report (PDF/Word/email)</td><td class="perm-no">—</td><td class="perm-yes">✓</td><td>requireRole("editor") + UI hidden</td></tr>
       <tr><td>Trigger CRM mirror sync</td><td class="perm-no">—</td><td class="perm-yes">✓</td><td>requireRole("editor")</td></tr>
       <tr><td>Backfill from Dynamics</td><td class="perm-no">—</td><td class="perm-yes">✓</td><td>requireRole("editor")</td></tr>
     </table>
   </div>
 
   <h3>Admin Console Fallback</h3>
-  <p>If the Admin Console is unreachable or returns a malformed response at login time, the server falls back to the <code>app.app_user</code> table in the FS database. A user with <code>role = 'editor'</code> or <code>role = 'admin'</code> in that table gets editor access; all other active users get viewer access; inactive users are denied (<strong>401</strong>).</p>
+  <p>If the Admin Console is unreachable or returns a malformed response at login time, the server falls back to the <code>app.app_user</code> table in the FS database. A user with <code>role = 'editor'</code> or <code>role = 'admin'</code> gets editor access; all other active users get viewer access; inactive users are denied (<strong>401</strong>).</p>
 
   <div class="callout callout-ok">
-    <span class="icon">✅</span>
+    <span>✅</span>
     <div><strong>Defence in depth:</strong> Write operations are blocked at <em>both</em> layers. The API middleware rejects 403 for any viewer attempting a write, regardless of what the frontend shows. There is no path for a viewer to perform a write operation by manipulating the UI.</div>
   </div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════════════════ -->
-<!--  8. EXTERNAL INTEGRATIONS                                            -->
+<!--  9. EXTERNAL INTEGRATIONS                                            -->
 <!-- ════════════════════════════════════════════════════════════════════ -->
 <section id="integrations">
   <h2 class="section-title"><span class="icon">🔗</span> External Integrations</h2>
@@ -1241,10 +1342,8 @@
       <h4>🔵 Microsoft Entra ID</h4>
       <p><strong>Purpose:</strong> User authentication (OAuth 2.0 / OIDC)</p>
       <p><strong>Flow:</strong> Authorization Code with PKCE (server-side MSAL Confidential Client)</p>
-      <p><strong>Endpoints:</strong></p>
       <ul>
         <li>Authority: <code>https://login.microsoftonline.com/{TENANT_ID}</code></li>
-        <li>Logout: <code>/oauth2/v2.0/logout</code></li>
         <li>Redirect URI: <code>{APP_URL}/api/auth/callback</code></li>
       </ul>
       <p><strong>Env vars:</strong> <code>ENTRA_TENANT_ID</code>, <code>ENTRA_CLIENT_ID</code>, <code>ENTRA_CLIENT_SECRET</code>, <code>ENTRA_REDIRECT_URI</code></p>
@@ -1252,7 +1351,7 @@
     <div class="card">
       <h4>🛡 Admin Console</h4>
       <p><strong>Purpose:</strong> Per-user app entitlement (allowed + role)</p>
-      <p><strong>Called on:</strong> Every login. Not called on API requests.</p>
+      <p><strong>Called on:</strong> Every login. Not on API requests.</p>
       <p><strong>Endpoint:</strong> <code>GET {ADMIN_CONSOLE_URL}/api/access-check</code></p>
       <p><strong>Params:</strong> <code>entraObjectId</code>, <code>app=Field Service Calendar</code></p>
       <p><strong>Headers:</strong> <code>X-API-Key: {ADMIN_CONSOLE_API_KEY}</code></p>
@@ -1262,28 +1361,34 @@
     <div class="card">
       <h4>🟠 Microsoft Dynamics 365 / Dataverse</h4>
       <p><strong>Purpose:</strong> Source of truth for work orders and bookings. Write target for reschedules.</p>
-      <p><strong>Access:</strong> Two paths:</p>
       <ul>
-        <li><strong>CRM Mirror DB</strong> — PostgreSQL replica of Dynamics data, synced periodically. Used for all read queries (fast, no Dataverse throttling).</li>
+        <li><strong>CRM Mirror DB</strong> — PostgreSQL replica of Dynamics, synced periodically. Used for all read queries.</li>
         <li><strong>Dataverse REST API</strong> — used for write-backs only (PATCH/POST to <code>msdyn_resourcebookings</code>)</li>
       </ul>
       <p><strong>Env vars:</strong> <code>D365CRM_DATABASE_URL</code>, <code>DATAVERSE_ENV_URL</code>, <code>DATAVERSE_TENANT_ID</code>, <code>DATAVERSE_CLIENT_ID</code>, <code>DATAVERSE_CLIENT_SECRET</code></p>
     </div>
   </div>
 
+  <div class="card" style="margin-top:16px">
+    <h4>📧 Microsoft Graph (Calendar Report Email)</h4>
+    <p><strong>Purpose:</strong> Send Calendar Report HTML emails on behalf of the app to technicians.</p>
+    <p><strong>Permission required:</strong> <code>Mail.Send</code> on the app registration used for Graph (separate from the Entra login app registration — the login app registration does not have <code>Mail.Send</code>).</p>
+    <p><strong>Behaviour:</strong> Recipient email is resolved server-side from the CRM <code>systemuser</code> record linked to the technician. Client-provided emails are never trusted. Greeting uses the technician's first name; sign-off uses the sending dispatcher's first name. Both <code>First Last</code> and <code>Last, First</code> name formats are supported.</p>
+    <p><strong>Env vars:</strong> <code>CLIENT_ID</code>, <code>CLIENT_SECRET</code>, <code>TENANT_ID</code> (Graph app registration credentials)</p>
+  </div>
+
   <h3>Shared API Client Library</h3>
   <p><code>@workspace/api-client-react</code> is a generated TypeScript library created from the OpenAPI specification via <strong>Orval</strong>. It provides:</p>
   <ul>
-    <li>All TypeScript request/response interfaces (e.g. <code>ScheduleBlock</code>, <code>PlaceholderJob</code>, <code>WbWorkOrder</code>)</li>
-    <li>React Query hooks for every endpoint (e.g. <code>useGetWbScheduleBoard()</code>, <code>useCreateWbScheduleBlock()</code>)</li>
-    <li>A configurable <code>customFetch</code> layer supporting base URL, bearer token injection, and a global 401 callback</li>
+    <li>All TypeScript request/response interfaces (e.g. <code>ScheduleBlock</code>, <code>PlaceholderJob</code>, <code>WbWorkOrder</code>, <code>WbServiceLocation</code>)</li>
+    <li>React Query hooks for every endpoint (e.g. <code>useGetWbScheduleBoard()</code>, <code>useCreateWbScheduleBlock()</code>, <code>useListWbServiceLocations()</code>)</li>
+    <li>A configurable <code>customFetch</code> layer supporting base URL and global 401 callback</li>
     <li>Typed error classes: <code>ApiError</code> and <code>ResponseParseError</code></li>
   </ul>
-  <p>The library is distributed as a pre-built dist (TypeScript declaration files + JS). To regenerate after API schema changes, run the Orval codegen workflow in <code>lib/api-client-react/</code>.</p>
 
   <div class="callout callout-warn">
-    <span class="icon">⚠️</span>
-    <div>The generated dist files (<code>lib/api-client-react/dist/</code>) must be rebuilt and committed whenever the OpenAPI spec changes. The frontend's TypeScript build reads the dist declarations, not the source. Out-of-date dist files will cause missing-export type errors at build time.</div>
+    <span>⚠️</span>
+    <div>The generated dist files (<code>lib/api-client-react/dist/</code>) must be rebuilt and committed whenever the OpenAPI spec changes. Out-of-date dist files cause missing-export type errors at build time.</div>
   </div>
 </section>
 

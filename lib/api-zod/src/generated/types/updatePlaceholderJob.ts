@@ -22,7 +22,7 @@ export interface UpdatePlaceholderJob {
      */
   service_location_id?: string | null;
   /**
-     * 0–15 palette index; null to reset to region default colour
+     * 0–18 palette index; null to reset to region default colour
      * @nullable
      */
   color_index?: number | null;
