@@ -233,7 +233,7 @@ const REGION_COLOR_MAP: Record<string, number> = {
   R2: 13,  // yellow
   R3: 4,   // violet / purple
   R4: 12,  // sky blue
-  R5: 18,  // Colour 19 — lighter salmon/rose
+  R5: 10,  // Colour 11 — pink
   R8: 14,  // red
   R99: 15, // gray
 };

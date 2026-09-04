@@ -387,7 +387,7 @@ const children = [
   para('Every entry on the board is a colour-coded chip. All text wraps within the chip — no content is hidden by truncation.', { size: 11, after: 120 }),
   chipColourTable(),
   spacer(100),
-  callout('Region colour defaults:', 'R1 = Blue · R2 = Yellow · R3 = Violet · R4 = Sky Blue (jobs), Yellow (potential), Orange (custom) · R5 = Lighter Salmon · R99 = Gray. Any chip colour can be overridden per-entry from the add/edit dialog.', C.blueLight, C.blue),
+  callout('Region colour defaults:', 'R1 = Blue · R2 = Yellow · R3 = Violet · R4 = Sky Blue (jobs), Yellow (potential), Orange (custom) · R5 = Colour 11 (pink) · R99 = Gray. Any chip colour can be overridden per-entry from the add/edit dialog.', C.blueLight, C.blue),
 
   // ── 5. Rescheduling ─────────────────────────────────────────────────────
   sectionHeading('5.  Rescheduling a Job  [Editor only]'),
