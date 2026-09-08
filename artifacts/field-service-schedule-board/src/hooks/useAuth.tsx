@@ -110,14 +110,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setPopupBlocked(true);
   }
 
-  function logout() {
+  async function logout() {
     // POST to /logout, then send the browser to Entra's logout endpoint (the
     // server responds with a redirect that a full navigation will follow).
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = LOGOUT_URL;
-    document.body.appendChild(form);
-    form.submit();
+    //updte for seesion hold
+
+    // const form = document.createElement("form");
+    // form.method = "POST";
+    // form.action = LOGOUT_URL;
+    // document.body.appendChild(form);
+    // form.submit();
+
+  await fetch(LOGOUT_URL, {
+    method: "POST",
+    credentials: "same-origin",
+  });
+
+  setUser(null);
+  setStatus("unauthenticated");
+
+  // Stay inside Field Service
+  window.location.replace("/");
   }
 
   return (

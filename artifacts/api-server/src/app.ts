@@ -73,6 +73,7 @@ app.use(
     // not let connect-pg-simple create it — its bundled table.sql is not available
     // after esbuild bundling. The table needs columns sid (PK), sess (jsonb),
     // expire, plus an index on expire, in every environment (dev and production).
+    name: "fieldservice.sid",  // add for new session name 
     store: new PgSession({
       pool: localPool,
       schemaName: "crm",

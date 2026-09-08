@@ -7,7 +7,7 @@ import {
   requireLogin,
   REDIRECT_URI,
   LOGIN_SCOPES,
-  LOGOUT_URL,
+  //LOGOUT_URL,
 } from "../lib/auth.js";
 
 // Runtime schema for the Admin Console access-check response.
@@ -237,10 +237,18 @@ router.get("/me", requireLogin, (req, res) => {
   res.json(req.session.user);
 });
 
+// router.post("/logout", (req, res) => {
+//   req.session.destroy(() => {
+//     res.redirect(LOGOUT_URL);
+//   });
+// });   // update for login Session same from worksapce 
+
 router.post("/logout", (req, res) => {
   req.session.destroy(() => {
-    res.redirect(LOGOUT_URL);
+    res.clearCookie("fieldservice.sid", { path: "/" });
+    res.json({ ok: true });
   });
 });
+
 
 export default router;
