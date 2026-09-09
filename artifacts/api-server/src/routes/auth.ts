@@ -44,26 +44,30 @@ declare module "express-session" {
     };
   }
 }
+
 router.get("/login", async (req, res) => {
   if (!isAuthConfigured()) {
     res.status(503).send("Azure auth is not configured");
     return;
   }
 
-  // Remember where to send the user back to after a successful login so that
-  // path-based frontends (e.g. /dynamics-write-back/) land back in their app
-  // instead of the root.
-  // req.session.returnTo = sanitizeReturnTo(req.query.returnTo);  //update for emebeded login
-   const embeddedLogin = req.query.embedded === "1";
+  const embeddedLogin = req.query.embedded === "1";
 
-   req.session.embeddedLogin = embeddedLogin;
+  // If Field Service already has a valid local session,
+  // do not start another Microsoft login.
+  // For embedded Workspace login, go directly to the
+  // completion page so the popup can notify Workspace and close.
+  if (embeddedLogin && req.session.user) {
+    res.redirect("/api/auth/embedded-complete");
+    return;
+  }
+
+  req.session.embeddedLogin = embeddedLogin;
 
   req.session.returnTo = embeddedLogin
     ? "/api/auth/embedded-complete"
     : sanitizeReturnTo(req.query.returnTo);
 
-  // Bind the request to the session with a random state value to defend against
-  // login CSRF / authorization-response injection.
   const state = crypto.randomBytes(16).toString("hex");
   req.session.authState = state;
 
@@ -75,6 +79,8 @@ router.get("/login", async (req, res) => {
 
   res.redirect(authUrl);
 });
+
+
 
 router.get("/auth/callback", async (req, res) => {
   if (!isAuthConfigured()) {
