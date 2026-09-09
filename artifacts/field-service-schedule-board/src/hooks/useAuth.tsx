@@ -58,7 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           headers: { accept: "application/json" },
         });
         if (cancelled) return;
-        
         if (res.ok) {
           const data = (await res.json()) as AuthUser;
           setUser(data);
@@ -67,13 +66,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
           setStatus("unauthenticated");
         }
-        const embedded =
-        new URLSearchParams(window.location.search).get("embedded") === "1";
-
-        if (embedded) {
-              login();
-          }
-
       } catch {
         if (cancelled) return;
         setUser(null);
