@@ -54,10 +54,13 @@ router.get("/login", async (req, res) => {
   // path-based frontends (e.g. /dynamics-write-back/) land back in their app
   // instead of the root.
   // req.session.returnTo = sanitizeReturnTo(req.query.returnTo);  //update for emebeded login
-   const returnTo = sanitizeReturnTo(req.query.returnTo);
+   const embeddedLogin = req.query.embedded === "1";
 
-   req.session.returnTo = returnTo;
-   req.session.embeddedLogin = req.query.embedded === "1";
+   req.session.embeddedLogin = embeddedLogin;
+
+  req.session.returnTo = embeddedLogin
+    ? "/api/auth/embedded-complete"
+    : sanitizeReturnTo(req.query.returnTo);
 
   // Bind the request to the session with a random state value to defend against
   // login CSRF / authorization-response injection.
@@ -245,10 +248,25 @@ router.get("/auth/callback", async (req, res) => {
       displayName,
       role: isReadWrite ? "editor" : "viewer",
     };
-    req.session.embeddedLogin = embeddedLogin;
+    // req.session.embeddedLogin = embeddedLogin;
 
-    // res.redirect(returnTo);  // embeded logi 
-    if (embeddedLogin) {
+    await new Promise<void>((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) reject(err);
+      else resolve();
+    });
+  });
+   req.log.info(
+    {
+      email,
+      displayName,
+      role: isReadWrite ? "editor" : "viewer",
+      embeddedLogin,
+    },
+  "User session created via OAuth callback",
+  );
+   
+  if (embeddedLogin) {
         res.redirect("/api/auth/embedded-complete");
     } else {
         res.redirect(returnTo);
@@ -272,14 +290,18 @@ router.get("/auth/embedded-complete", requireLogin, (req, res) => {
 </head>
 <body>
   <script>
+    const workspaceOrigin = ${JSON.stringify(workspaceOrigin)};
+
     if (window.opener) {
       window.opener.postMessage(
         { type: "FIELD_SERVICE_AUTH_COMPLETE" },
-        ${JSON.stringify(workspaceOrigin)}
+        workspaceOrigin
       );
+
       window.close();
     }
   </script>
+
   <p>Authentication complete. You can close this window.</p>
 </body>
 </html>
