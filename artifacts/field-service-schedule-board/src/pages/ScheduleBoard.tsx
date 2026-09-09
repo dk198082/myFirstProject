@@ -69,6 +69,7 @@ import { AddBlockDialog } from "@/components/AddBlockDialog";
 import { EditBlockDialog } from "@/components/EditBlockDialog";
 import { EditPlaceholderJobDialog } from "@/components/EditPlaceholderJobDialog";
 import { CalendarReportDialog, type CalendarReportTech } from "@/components/CalendarReportDialog";
+import { postalCodeForDisplay } from "@/lib/calendarReportApi";
 import { DateJumpPicker } from "@/components/DateJumpPicker";
 import {
   timeToMins,
@@ -256,7 +257,7 @@ const REGION_TECHNICIAN_ORDER: Record<string, readonly string[]> = {
     "Steve Lockhart",
     "Brian Uniejewski",
     "Eric Vennemeyer",
-    "Josh Whitta",
+    "Joshua Whitta",
   ],
   R5: [
     "Matthew Piechoski",
@@ -312,6 +313,7 @@ type ScheduleJob = {
   city?: string | null;
   state?: string | null;
   postal_code?: string | null;
+  country?: string | null;
   day_index: number;
   span_start_day?: number | null;
   span_end_day?: number | null;
@@ -340,7 +342,10 @@ function CrossLocationBookingIndicator({
       region: locationName || "another region",
       workOrderNumber: job.work_order_number || "Work Order",
       customer: job.customer_name || "Customer unavailable",
-      location: [job.city, job.state, job.postal_code].filter(Boolean).join(", ") || locationName,
+      location:
+        [job.city, job.state, postalCodeForDisplay(job.country, job.postal_code)]
+          .filter(Boolean)
+          .join(", ") || locationName,
       time: time || "—",
     };
   });
@@ -703,7 +708,11 @@ function PlaceholderJobChip({
      ? TECH_PALETTE[job.color_index]?.chip ?? regionPaletteEntry(regionName, "potential").chip
      : regionPaletteEntry(regionName, "potential").chip;
   const duration = fmtBlockDuration(job.start_time, job.end_time);
-  const location = [job.city, job.state, job.postal_code].filter(Boolean).join(", ");
+  const location = [
+    job.city,
+    job.state,
+    postalCodeForDisplay(job.country, job.postal_code),
+  ].filter(Boolean).join(", ");
 
   const startDay = job.start_time.slice(0, 10);
   const endDay = effectiveEndDay(job.end_time);
@@ -821,10 +830,24 @@ function PlaceholderJobChip({
                 {locDetail?.name ?? job.customer_name}
               </div>
             )}
-            {[locDetail?.city ?? job.city, locDetail?.state ?? job.state, locDetail?.postal_code ?? job.postal_code].filter(Boolean).join(", ") && (
+            {[
+              locDetail?.city ?? job.city,
+              locDetail?.state ?? job.state,
+              postalCodeForDisplay(
+                locDetail?.country ?? job.country,
+                locDetail?.postal_code ?? job.postal_code,
+              ),
+            ].filter(Boolean).join(", ") && (
               <div>
                 <span className="font-medium opacity-70">Location:</span>{" "}
-                {[locDetail?.city ?? job.city, locDetail?.state ?? job.state, locDetail?.postal_code ?? job.postal_code].filter(Boolean).join(", ")}
+                {[
+                  locDetail?.city ?? job.city,
+                  locDetail?.state ?? job.state,
+                  postalCodeForDisplay(
+                    locDetail?.country ?? job.country,
+                    locDetail?.postal_code ?? job.postal_code,
+                  ),
+                ].filter(Boolean).join(", ")}
               </div>
             )}
             {isMultiDay ? (
@@ -949,6 +972,11 @@ function JobChip({
   const isStartChip = !isMultiDay || job.day_index <= spanStart;
   const dayPos = job.day_index - spanStart + 1;
   const dayTotal = spanEnd - spanStart + 1;
+  const location = [
+    job.city,
+    job.state,
+    postalCodeForDisplay(job.country, job.postal_code),
+  ].filter(Boolean).join(", ");
   const chip = (
     <button
       type="button"
@@ -987,9 +1015,9 @@ function JobChip({
         )}
       </div>
       {!compact && <div className="opacity-90 whitespace-normal break-words">{job.customer_name ?? "—"}</div>}
-      {!compact && (job.city || job.state || job.postal_code) && (
+      {!compact && location && (
         <div className="opacity-75 whitespace-normal break-words">
-          {[job.city, job.state, job.postal_code].filter(Boolean).join(", ")}
+          {location}
         </div>
       )}
       {!compact && (job.crmstarttime || job.crmendtime) && showDuration && (
@@ -1042,10 +1070,10 @@ function JobChip({
               ? ` (${fmtDuration(job.crmstarttime ?? undefined, job.crmendtime ?? undefined)})`
               : ""}
           </div>
-          {(job.city || job.state || job.postal_code) && (
+          {location && (
             <div>
               <span className="font-medium opacity-70">Location:</span>{" "}
-              {[job.city, job.state, job.postal_code].filter(Boolean).join(", ") || "—"}
+              {location}
             </div>
           )}
           {job.system_status && (
@@ -2631,7 +2659,24 @@ export default function ScheduleBoard() {
         }
       }
     }
-    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+    return [...m.values()].sort((a, b) => {
+      // Keep the existing alphabetical order across regions, but honour any
+      // explicit technician order within a region when that region is filtered.
+      if (a.region === b.region) {
+        const regionOrder = REGION_TECHNICIAN_ORDER[a.region.toLocaleUpperCase()];
+        if (regionOrder) {
+          const technicianOrder = new Map(
+            regionOrder.map((name, index) => [name.toLocaleLowerCase(), index]),
+          );
+          const aOrder = technicianOrder.get(a.name.toLocaleLowerCase());
+          const bOrder = technicianOrder.get(b.name.toLocaleLowerCase());
+          if (aOrder !== undefined && bOrder !== undefined) return aOrder - bOrder;
+          if (aOrder !== undefined) return -1;
+          if (bOrder !== undefined) return 1;
+        }
+      }
+      return a.name.localeCompare(b.name);
+    });
   }, [regions]);
 
   const techsToPrint = useMemo(

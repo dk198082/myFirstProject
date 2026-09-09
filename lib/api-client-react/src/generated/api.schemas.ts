@@ -175,6 +175,11 @@ export interface PlaceholderJob {
      */
   postal_code?: string | null;
   /**
+     * Country resolved from the linked CRM service location when available
+     * @nullable
+     */
+  country?: string | null;
+  /**
      * CRM account ID of the linked service location (null when freeform)
      * @nullable
      */
@@ -269,6 +274,8 @@ export interface WbServiceLocation {
   state?: string | null;
   /** @nullable */
   postal_code?: string | null;
+  /** @nullable */
+  country?: string | null;
   /** @nullable */
   address?: string | null;
 }
@@ -633,6 +640,8 @@ export interface ScheduleJob {
   state?: string | null;
   /** @nullable */
   postal_code?: string | null;
+  /** @nullable */
+  country?: string | null;
   /** 0-based offset from `range_start` (0 = first day in range) */
   day_index: number;
   /**

@@ -17,23 +17,12 @@ import {
   eventsForExport,
 } from "./calendarReportApi";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function truncate(value: string, max: number): string {
-  const s = (value ?? "").replace(/\s+/g, " ").trim();
-  return s.length <= max ? s : s.slice(0, Math.max(1, max - 1)).trimEnd() + "…";
-}
-
-function isNoteLine(line: string): boolean {
-  return line.startsWith("Dispatcher Notes:") || line.startsWith("Notes:");
-}
-
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const COL_BLUE   = "#1e3a5f";
 const COL_LIGHT  = "#e8f0f7";
 const COL_BORDER = "#cbd5e1";
-const COL_MUTED  = "#64748b";
+const COL_TEXT   = "#000000";
 
 const styles = StyleSheet.create({
   page: {
@@ -42,9 +31,9 @@ const styles = StyleSheet.create({
     paddingLeft: 26,
     paddingRight: 26,
     // Keep the exported report readable when printed or viewed as an email attachment.
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: "Helvetica",
-    color: "#1a202c",
+    color: COL_TEXT,
   },
   // ── Page header ──────────────────────────────────────────────────────────
   pageHeader: {
@@ -55,17 +44,17 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     borderBottom: `2pt solid ${COL_BLUE}`,
   },
-  techName:    { fontSize: 17, fontFamily: "Helvetica-Bold", color: COL_BLUE },
-  dateRange:   { fontSize: 10, color: COL_MUTED, marginTop: 2 },
-  generatedAt: { fontSize: 10, color: COL_MUTED, textAlign: "right" },
+  techName:    { fontSize: 11, fontFamily: "Helvetica-Bold", color: COL_TEXT },
+  dateRange:   { fontSize: 11, color: COL_TEXT, marginTop: 2 },
+  generatedAt: { fontSize: 11, color: COL_TEXT, textAlign: "right" },
   // ── Legend ───────────────────────────────────────────────────────────────
   legendRow:   { flexDirection: "row", gap: 12, marginBottom: 10, flexWrap: "wrap" },
   legendItem:  { flexDirection: "row", alignItems: "center", gap: 3 },
   legendSwatch: { width: 9, height: 9, borderRadius: 1 },
-  legendLabel:  { fontSize: 9.5, color: COL_MUTED },
+  legendLabel:  { fontSize: 11, color: COL_TEXT },
   // ── Month heading ─────────────────────────────────────────────────────────
-  monthHeader:     { backgroundColor: COL_BLUE, paddingVertical: 5, paddingHorizontal: 8, marginTop: 12 },
-  monthHeaderText: { color: "white", fontSize: 12, fontFamily: "Helvetica-Bold" },
+  monthHeader:     { backgroundColor: COL_LIGHT, paddingVertical: 5, paddingHorizontal: 8, marginTop: 12 },
+  monthHeaderText: { color: COL_TEXT, fontSize: 11, fontFamily: "Helvetica-Bold" },
   // ── Day-name header row ───────────────────────────────────────────────────
   headRow: {
     flexDirection: "row",
@@ -86,8 +75,8 @@ const styles = StyleSheet.create({
     borderRight: `1pt solid ${COL_BORDER}`,
   },
   headDayCellLast: { borderRight: "0" },
-  headText: { fontSize: 11.5, fontFamily: "Helvetica-Bold", color: COL_BLUE, textAlign: "center" },
-  headWeekText: { fontSize: 11.5, fontFamily: "Helvetica-Bold", color: COL_BLUE },
+  headText: { fontSize: 11, fontFamily: "Helvetica-Bold", color: COL_TEXT, textAlign: "center" },
+  headWeekText: { fontSize: 11, fontFamily: "Helvetica-Bold", color: COL_TEXT },
   // ── Week row ─────────────────────────────────────────────────────────────
   weekRow: {
     flexDirection: "row",
@@ -103,7 +92,7 @@ const styles = StyleSheet.create({
     borderRight: `1pt solid ${COL_BORDER}`,
     backgroundColor: "#f8fafc",
   },
-  weekLabel: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#334155" },
+  weekLabel: { fontSize: 11, fontFamily: "Helvetica-Bold", color: COL_TEXT },
   dayCell: {
     flex: 1,
     paddingVertical: 4,
@@ -111,14 +100,12 @@ const styles = StyleSheet.create({
     borderRight: `1pt solid ${COL_BORDER}`,
   },
   dayCellLast: { borderRight: "0" },
-  dayNum: { fontSize: 9.5, color: COL_MUTED, marginBottom: 4 },
+  dayNum: { fontSize: 11, color: COL_TEXT, marginBottom: 4 },
   // ── Event chip ────────────────────────────────────────────────────────────
-  chip: { paddingVertical: 4, paddingHorizontal: 4, marginBottom: 4, borderRadius: 1 },
-  chipName:     { fontSize: 11.5 },
-  chipSubline:  { fontSize: 10.5, color: COL_MUTED },
-  chipNote:     { fontSize: 8.5, color: COL_MUTED, lineHeight: 1.2 },
+  chip: { paddingVertical: 5, paddingHorizontal: 5, marginBottom: 7, borderRadius: 2 },
+  chipText: { fontSize: 11, color: COL_TEXT, lineHeight: 1.2 },
   // ── Page number ───────────────────────────────────────────────────────────
-  pageNumber: { position: "absolute", bottom: 16, right: 26, fontSize: 9, color: COL_MUTED },
+  pageNumber: { position: "absolute", bottom: 16, right: 26, fontSize: 11, color: COL_TEXT },
 });
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;
@@ -129,20 +116,19 @@ function EventChip({ event }: { event: CalEvent }) {
   const s = EVENT_STYLE_MAP[event.kind];
   const lines = eventLines(event);
   return (
-    <View style={[styles.chip, { backgroundColor: s.pdfBg, borderLeft: `2pt solid ${s.pdfBorder}` }]}>
+    <View
+      style={[
+        styles.chip,
+        {
+          backgroundColor: s.pdfBg,
+          border: `1pt solid ${s.pdfBorder}`,
+          borderLeft: `3pt solid ${s.pdfBorder}`,
+        },
+      ]}
+    >
       {lines.map((line, index) => (
-        <Text
-          key={index}
-          style={
-            isNoteLine(line)
-              ? styles.chipNote
-              : index === 0
-                ? [styles.chipName, { color: s.pdfText }]
-                : styles.chipSubline
-          }
-          wrap
-        >
-          {isNoteLine(line) ? line : truncate(line, index === 0 ? 26 : 30)}
+        <Text key={index} style={styles.chipText} wrap>
+          {line}
         </Text>
       ))}
     </View>
@@ -263,7 +249,7 @@ function TechPdfDoc({
         })}
 
         {exportEvents.length === 0 && (
-          <Text style={{ fontSize: 10, color: COL_MUTED, fontStyle: "italic", marginTop: 16 }}>
+          <Text style={{ fontSize: 11, color: COL_TEXT, fontStyle: "italic", marginTop: 16 }}>
             No scheduled activity in this period.
           </Text>
         )}

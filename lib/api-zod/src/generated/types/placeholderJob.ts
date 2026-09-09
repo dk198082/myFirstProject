@@ -23,6 +23,11 @@ export interface PlaceholderJob {
      */
   postal_code?: string | null;
   /**
+     * Country resolved from the linked CRM service location when available
+     * @nullable
+     */
+  country?: string | null;
+  /**
      * CRM account ID of the linked service location (null when freeform)
      * @nullable
      */

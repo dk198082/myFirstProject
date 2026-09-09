@@ -160,6 +160,14 @@ export function AddBlockDialog({
       toast({ title: "Invalid times", description: "Please enter valid start and end times.", variant: "destructive" });
       return;
     }
+    if (new Date(end).getTime() <= new Date(start).getTime()) {
+      toast({
+        title: "Invalid times",
+        description: "End time must be after start time.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (entryType === "potential_job") {
       createPlaceholderMutation.mutate({

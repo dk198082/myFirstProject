@@ -199,8 +199,8 @@ function featureTable(rows) {
 
 function chipColourTable() {
   const rows = [
-    ['Scheduled Job (CRM)',        'Region colour — solid border',  'WO# · Customer · City/State/Postal Code · Duration'],
-    ['Potential Job',              'Yellow (R4); region colour (others) — dashed border + diagonal stripe', 'Customer · City/State/Postal Code · Status · Notes'],
+    ['Scheduled Job (CRM)',        'Region colour — solid border',  'WO# · Customer · City/State/UK Postal Code · Duration'],
+    ['Potential Job',              'Yellow (R4); region colour (others) — dashed border + diagonal stripe', 'Customer · City/State/UK Postal Code · Status · Notes'],
     ['Travel Time Block',          'Region colour — solid border',  '🚗 Travel Time · Duration'],
     ['PTO Block',                  'Region colour — solid border',  '☀️ PTO · Duration'],
     ['Custom Block',               'Orange (R4); region colour (others) — solid border', '✏️ Title (or "Custom") · Duration'],

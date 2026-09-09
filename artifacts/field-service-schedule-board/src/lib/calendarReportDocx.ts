@@ -31,20 +31,11 @@ import {
   eventsForExport,
 } from "./calendarReportApi";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function truncate(value: string, max: number): string {
-  const s = (value ?? "").replace(/\s+/g, " ").trim();
-  return s.length <= max ? s : s.slice(0, Math.max(1, max - 1)).trimEnd() + "…";
-}
-
-function isNoteLine(line: string): boolean {
-  return line.startsWith("Dispatcher Notes:") || line.startsWith("Notes:");
-}
-
 const BORDER_HEX = "CBD5E1";
 const BLUE = "1E3A5F";
 const LIGHT_BLUE = "E8F0F7";
+const BLACK = "000000";
+const TEXT_SIZE = 22; // docx sizes are expressed in half-points: 22 = 11 pt
 
 function cellBorders() {
   return {
@@ -65,7 +56,7 @@ function weekLabelHeaderCell(): TableCell {
     verticalAlign: VerticalAlign.CENTER,
     children: [
       new Paragraph({
-        children: [new TextRun({ text: "Week", bold: true, size: 19, color: BLUE })],
+        children: [new TextRun({ text: "Week", bold: true, size: TEXT_SIZE, color: BLACK })],
       }),
     ],
   });
@@ -80,7 +71,7 @@ function dayNameHeaderCell(name: string): TableCell {
     children: [
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: name, bold: true, size: 19, color: BLUE })],
+        children: [new TextRun({ text: name, bold: true, size: TEXT_SIZE, color: BLACK })],
       }),
     ],
   });
@@ -93,7 +84,7 @@ function weekLabelCell(text: string): TableCell {
     margins: { top: 40, bottom: 40, left: 60, right: 60 },
     children: [
       new Paragraph({
-        children: [new TextRun({ text, bold: true, size: 17, color: "334155" })],
+        children: [new TextRun({ text, bold: true, size: TEXT_SIZE, color: BLACK })],
       }),
     ],
   });
@@ -101,20 +92,30 @@ function weekLabelCell(text: string): TableCell {
 
 function eventParagraphs(ev: CalEvent): Paragraph[] {
   const s = EVENT_STYLE_MAP[ev.kind];
-  return eventLines(ev).map((line, index, lines) =>
+  const lines = eventLines(ev);
+  return lines.map((line, index) =>
     new Paragraph({
       indent: { left: 60 },
       spacing: {
-        before: index === 0 ? 40 : 0,
-        after: index === lines.length - 1 ? 40 : 0,
+        before: index === 0 ? 60 : 0,
+        after: index === lines.length - 1 ? 60 : 0,
       },
       shading: { type: ShadingType.SOLID, color: s.docxBg },
-      border: { left: { style: BorderStyle.SINGLE, size: 12, color: s.docxBorder } },
+      border: {
+        left: { style: BorderStyle.SINGLE, size: 12, color: s.docxBorder },
+        right: { style: BorderStyle.SINGLE, size: 4, color: s.docxBorder },
+        ...(index === 0
+          ? { top: { style: BorderStyle.SINGLE, size: 4, color: s.docxBorder } }
+          : {}),
+        ...(index === lines.length - 1
+          ? { bottom: { style: BorderStyle.SINGLE, size: 4, color: s.docxBorder } }
+          : {}),
+      },
       children: [
         new TextRun({
-          text: isNoteLine(line) ? line : truncate(line, index === 0 ? 32 : 38),
-          size: isNoteLine(line) ? 17 : index === 0 ? 22 : 20,
-          color: index === 0 ? "1A202C" : "64748B",
+          text: line,
+          size: TEXT_SIZE,
+          color: BLACK,
         }),
       ],
     }),
@@ -124,10 +125,15 @@ function eventParagraphs(ev: CalEvent): Paragraph[] {
 function dayCell(events: CalEvent[], dayNum: number): TableCell {
   const paras: Paragraph[] = [
     new Paragraph({
-      children: [new TextRun({ text: String(dayNum), size: 18, color: "94A3B8" })],
+      children: [new TextRun({ text: String(dayNum), size: TEXT_SIZE, color: BLACK })],
       spacing: { after: 20 },
     }),
-    ...events.flatMap((ev) => eventParagraphs(ev)),
+    ...events.flatMap((ev, index) => [
+      ...eventParagraphs(ev),
+      ...(index < events.length - 1
+        ? [new Paragraph({ spacing: { before: 50, after: 50 }, children: [] })]
+        : []),
+    ]),
   ];
   return new TableCell({
     borders: cellBorders(),
@@ -182,8 +188,8 @@ function buildLegendParagraph(includeCustomBlocks = false): Paragraph {
     children: exportKinds.flatMap((k, i) => {
       const s = EVENT_STYLE_MAP[k];
       return [
-        new TextRun({ text: "■ ", color: s.docxBorder, size: 17 }),
-        new TextRun({ text: s.label + (i < exportKinds.length - 1 ? "   " : ""), size: 20, color: "64748B" }),
+        new TextRun({ text: "■ ", color: BLACK, size: TEXT_SIZE }),
+        new TextRun({ text: s.label + (i < exportKinds.length - 1 ? "   " : ""), size: TEXT_SIZE, color: BLACK }),
       ];
     }),
   });
@@ -224,7 +230,7 @@ export async function generateTechDocx(
       heading: HeadingLevel.HEADING_1,
       alignment: AlignmentType.LEFT,
       children: [
-        new TextRun({ text: tech.resource_name ?? "Technician", color: BLUE, size: 36, bold: true }),
+        new TextRun({ text: tech.resource_name ?? "Technician", color: BLACK, size: TEXT_SIZE, bold: true }),
       ],
     }),
   );
@@ -235,8 +241,8 @@ export async function generateTechDocx(
       children: [
         new TextRun({
           text: `Field Service Schedule — ${dateRangeLabel}`,
-          size: 20,
-          color: "64748B",
+          size: TEXT_SIZE,
+          color: BLACK,
         }),
       ],
       spacing: { after: 40 },
@@ -247,7 +253,7 @@ export async function generateTechDocx(
   children.push(
     new Paragraph({
       children: [
-        new TextRun({ text: `Generated ${generatedAt}`, size: 16, color: "94A3B8", italics: true }),
+        new TextRun({ text: `Generated ${generatedAt}`, size: TEXT_SIZE, color: BLACK, italics: true }),
       ],
       spacing: { after: 160 },
     }),
@@ -263,8 +269,8 @@ export async function generateTechDocx(
           new TextRun({
             text: "No scheduled activity in this period.",
             italics: true,
-            color: "64748B",
-            size: 22,
+            color: BLACK,
+            size: TEXT_SIZE,
           }),
         ],
       }),
@@ -277,8 +283,8 @@ export async function generateTechDocx(
     children.push(
       new Paragraph({
         heading: HeadingLevel.HEADING_2,
-        children: [new TextRun({ text: label, color: "FFFFFF", size: 22, bold: true })],
-        shading: { type: ShadingType.SOLID, color: BLUE },
+        children: [new TextRun({ text: label, color: BLACK, size: TEXT_SIZE, bold: true })],
+        shading: { type: ShadingType.SOLID, color: LIGHT_BLUE },
         spacing: { before: 280, after: 0 },
       }),
     );

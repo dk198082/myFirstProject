@@ -1268,6 +1268,9 @@ components:
         postal_code:
           type: ["string", "null"]
           description: Postal code resolved from the linked CRM service location when available
+        country:
+          type: ["string", "null"]
+          description: Country resolved from the linked CRM service location when available
         service_location_id:
           type: ["string", "null"]
           description: CRM account ID of the linked service location (null when freeform)
@@ -1372,6 +1375,8 @@ components:
         state:
           type: ["string", "null"]
         postal_code:
+          type: ["string", "null"]
+        country:
           type: ["string", "null"]
         address:
           type: ["string", "null"]
@@ -1854,6 +1859,8 @@ components:
         state:
           type: ["string", "null"]
         postal_code:
+          type: ["string", "null"]
+        country:
           type: ["string", "null"]
         day_index:
           type: integer

@@ -26,5 +26,7 @@ export interface WbServiceLocation {
   /** @nullable */
   postal_code?: string | null;
   /** @nullable */
+  country?: string | null;
+  /** @nullable */
   address?: string | null;
 }

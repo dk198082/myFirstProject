@@ -326,6 +326,7 @@ export const ListWbPlaceholderJobsResponseItem = zod.object({
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
   "postal_code": zod.string().nullish().describe('Postal code resolved from the linked CRM service location when available'),
+  "country": zod.string().nullish().describe('Country resolved from the linked CRM service location when available'),
   "service_location_id": zod.string().nullish().describe('CRM account ID of the linked service location (null when freeform)'),
   "color_index": zod.number().nullish().describe('0–18 index into the board\'s colour palette; null = match technician swimlane colour'),
   "start_time": zod.string().describe('ISO 8601 timestamp'),
@@ -384,6 +385,7 @@ export const UpdateWbPlaceholderJobResponse = zod.object({
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
   "postal_code": zod.string().nullish().describe('Postal code resolved from the linked CRM service location when available'),
+  "country": zod.string().nullish().describe('Country resolved from the linked CRM service location when available'),
   "service_location_id": zod.string().nullish().describe('CRM account ID of the linked service location (null when freeform)'),
   "color_index": zod.number().nullish().describe('0–18 index into the board\'s colour palette; null = match technician swimlane colour'),
   "start_time": zod.string().describe('ISO 8601 timestamp'),
@@ -446,6 +448,7 @@ export const ListWbServiceLocationsResponseItem = zod.object({
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
   "postal_code": zod.string().nullish(),
+  "country": zod.string().nullish(),
   "address": zod.string().nullish()
 })
 export const ListWbServiceLocationsResponse = zod.array(ListWbServiceLocationsResponseItem)
@@ -987,6 +990,7 @@ export const GetScheduleBoardResponse = zod.object({
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
   "postal_code": zod.string().nullish(),
+  "country": zod.string().nullish(),
   "day_index": zod.number().describe('0-based offset from `range_start` (0 = first day in range)'),
   "span_start_day": zod.number().nullish().describe('First visible day index this booking spans. Multi-day bookings emit one chip per day from `span_start_day` to `span_end_day`.'),
   "span_end_day": zod.number().nullish().describe('Last visible day index this booking spans (equals `span_start_day` for single-day bookings).'),
@@ -1047,6 +1051,7 @@ export const GetWbScheduleBoardResponse = zod.object({
   "city": zod.string().nullish(),
   "state": zod.string().nullish(),
   "postal_code": zod.string().nullish(),
+  "country": zod.string().nullish(),
   "day_index": zod.number().describe('0-based offset from `range_start` (0 = first day in range)'),
   "span_start_day": zod.number().nullish().describe('First visible day index this booking spans. Multi-day bookings emit one chip per day from `span_start_day` to `span_end_day`.'),
   "span_end_day": zod.number().nullish().describe('Last visible day index this booking spans (equals `span_start_day` for single-day bookings).'),

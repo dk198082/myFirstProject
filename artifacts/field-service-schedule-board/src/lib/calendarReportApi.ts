@@ -21,6 +21,7 @@ export type CalEvent = {
   city?: string | null;
   state?: string | null;
   postal_code?: string | null;
+  country?: string | null;
   title?: string | null;         // WO type label
   booking_status?: string | null;
   notes?: string | null;         // Potential-job notes
@@ -227,7 +228,13 @@ export function eventsForDay(events: CalEvent[], iso: string): CalEvent[] {
       // Half-open [start, end): end_time must be strictly after midnight of iso.
       return new Date(e.end_time).getTime() > dayStartMs;
     })
-    .sort((a, b) => a.start_time.localeCompare(b.start_time));
+    .sort((a, b) => {
+      // Custom Blocks stay at the bottom of each day so Potential Jobs always
+      // render above them. Other event types retain chronological ordering.
+      const aCustom = a.kind === "custom" ? 1 : 0;
+      const bCustom = b.kind === "custom" ? 1 : 0;
+      return aCustom - bCustom || a.start_time.localeCompare(b.start_time);
+    });
 }
 
 // ── Month grouping (for dialog preview) ──────────────────────────────────────
@@ -267,23 +274,46 @@ export function groupEventsByMonth(events: CalEvent[]): MonthGroup[] {
 export function eventDisplayName(e: CalEvent): string {
   if (e.kind === "job") return e.customer_name ?? "—";
   if (e.kind === "potential") return e.customer_name ?? e.title ?? "Potential Job";
+  if (e.kind === "custom") return e.title?.trim() || "Block";
   return e.title ?? EVENT_STYLE_MAP[e.kind].label;
+}
+
+/** Only UK jobs show a postal code in board and report location labels. */
+export function postalCodeForDisplay(
+  country: string | null | undefined,
+  postalCode: string | null | undefined,
+): string | null {
+  const normalized = (country ?? "").trim().toLowerCase();
+  const isUk =
+    normalized === "uk" ||
+    normalized === "gb" ||
+    normalized === "gbr" ||
+    normalized.includes("united kingdom") ||
+    normalized.includes("great britain") ||
+    normalized === "england" ||
+    normalized === "scotland" ||
+    normalized === "wales" ||
+    normalized === "northern ireland";
+  return isUk ? postalCode?.trim() || null : null;
 }
 
 /**
  * Secondary info line for an event, or null if none.
- * Jobs → "WO-12345 · Springfield, IL, 62701"
- * Potential → "Springfield, IL, 62701"
+ * UK jobs include their postal code; non-UK jobs omit ZIP/postal codes.
  * Blocks → null
  */
 export function eventSubline(e: CalEvent): string | null {
   if (e.kind === "job") {
-    const loc = [e.city, e.state, e.postal_code].filter(Boolean).join(", ");
+    const loc = [e.city, e.state, postalCodeForDisplay(e.country, e.postal_code)]
+      .filter(Boolean)
+      .join(", ");
     const parts = [e.work_order_number, loc].filter(Boolean);
     return parts.length ? parts.join(" · ") : null;
   }
   if (e.kind === "potential") {
-    return [e.city, e.state, e.postal_code].filter(Boolean).join(", ") || null;
+    return [e.city, e.state, postalCodeForDisplay(e.country, e.postal_code)]
+      .filter(Boolean)
+      .join(", ") || null;
   }
   return null;
 }
@@ -296,11 +326,13 @@ export function eventLines(e: CalEvent): string[] {
   if (e.kind === "job") {
     const lines = [
       e.customer_name ?? "—",
-      [e.city, e.state, e.postal_code].filter(Boolean).join(", ") || "—",
+      [e.city, e.state, postalCodeForDisplay(e.country, e.postal_code)]
+        .filter(Boolean)
+        .join(", ") || "—",
       e.work_order_number ?? "—",
     ];
     if (e.dispatcher_notes?.trim()) {
-      lines.push(`Dispatcher Notes: ${e.dispatcher_notes.trim()}`);
+      lines.push(e.dispatcher_notes.trim());
     }
     return lines;
   }
@@ -310,7 +342,7 @@ export function eventLines(e: CalEvent): string[] {
   if (sub) lines.push(sub);
   if (e.kind === "potential" && e.booking_status) lines.push(e.booking_status);
   if ((e.kind === "potential" || e.kind === "custom") && e.notes?.trim()) {
-    lines.push(`Notes: ${e.notes.trim()}`);
+    lines.push(e.notes.trim());
   }
   return lines;
 }

@@ -223,6 +223,14 @@ export function EditBlockDialog({
       });
       return;
     }
+    if (new Date(end).getTime() <= new Date(start).getTime()) {
+      toast({
+        title: "Invalid times",
+        description: "End time must be after start time.",
+        variant: "destructive",
+      });
+      return;
+    }
     updateMutation.mutate({
       id: block.id,
       data: {
