@@ -236,6 +236,7 @@ router.get("/auth/callback", async (req, res) => {
 
     const returnTo = sanitizeReturnTo(req.session.returnTo);
     const embeddedLogin = req.session.embeddedLogin === true;
+    const workspaceOrigin = process.env.WORKSPACE_FRONTEND_URL;
 
     // Regenerate the session ID before writing the authenticated user to the
     // session.  This prevents session-fixation attacks: an attacker who planted
@@ -282,10 +283,10 @@ router.get("/auth/callback", async (req, res) => {
     res.status(500).send("Login failed");
   }
 });
-
+const workspaceOrigin = process.env.WORKSPACE_FRONTEND_URL;
 router.get("/auth/embedded-complete", requireLogin, (req, res) => {
-  const workspaceOrigin =
-    process.env.WORKSPACE_FRONTEND_URL ?? "http://localhost:5176";
+  //const workspaceOrigin =
+    //process.env.WORKSPACE_FRONTEND_URL ?? "http://localhost:5176";
 
   res.type("html").send(`
 <!doctype html>
