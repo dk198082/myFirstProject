@@ -41,6 +41,8 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 
 function HeaderUser() {
   const { user, logout } = useAuth();
+  const isEmbedded =
+    new URLSearchParams(window.location.search).get("embedded") === "1";
 
   const displayName = user?.displayName ?? user?.email ?? "Signed in";
   const initials = (user?.displayName ?? user?.email ?? "?")
@@ -71,14 +73,15 @@ function HeaderUser() {
           )}
         </div>
       </div>
+      {!isEmbedded && (
       <Button
-        variant="ghost"
-        size="sm"
-        className="gap-2 text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-        onClick={logout}
-      >
-        <LogOut className="h-4 w-4" /> Sign out
-      </Button>
+      variant="ghost"
+      size="sm"
+      className="gap-2 text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+      onClick={logout}>
+      <LogOut className="h-4 w-4" />Sign out
+    </Button>
+  )}
     </div>
   );
 }
