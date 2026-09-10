@@ -101,7 +101,7 @@ app.use(
       // that case, or the browser will never attach the session cookie.
       ...(process.env.NODE_ENV === "production"
         ? {
-            secure: true,
+            secure: "auto" as const,
             sameSite:
             (process.env.COOKIE_SAME_SITE as "lax" | "none" | "strict") ??
               "none",
