@@ -236,8 +236,7 @@ router.get("/auth/callback", async (req, res) => {
 
     const returnTo = sanitizeReturnTo(req.session.returnTo);
     const embeddedLogin = req.session.embeddedLogin === true;
-    const workspaceOrigin = process.env.WORKSPACE_FRONTEND_URL;
-
+    
     // Regenerate the session ID before writing the authenticated user to the
     // session.  This prevents session-fixation attacks: an attacker who planted
     // a known session cookie prior to login cannot take over the resulting
