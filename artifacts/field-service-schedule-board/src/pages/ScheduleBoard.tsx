@@ -317,6 +317,8 @@ type ScheduleJob = {
   day_index: number;
   span_start_day?: number | null;
   span_end_day?: number | null;
+  span_day_number?: number | null;
+  span_day_count?: number | null;
   equipment_names?: string[] | null;
   notes?: string | null;
 };
@@ -970,8 +972,8 @@ function JobChip({
   const spanEnd = job.span_end_day ?? job.day_index;
   const isMultiDay = spanEnd > spanStart;
   const isStartChip = !isMultiDay || job.day_index <= spanStart;
-  const dayPos = job.day_index - spanStart + 1;
-  const dayTotal = spanEnd - spanStart + 1;
+  const dayPos = job.span_day_number ?? job.day_index - spanStart + 1;
+  const dayTotal = job.span_day_count ?? spanEnd - spanStart + 1;
   const location = [
     job.city,
     job.state,

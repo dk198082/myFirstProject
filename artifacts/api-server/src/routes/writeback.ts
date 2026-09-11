@@ -11,6 +11,7 @@ import {
   mirrorScheduleBlockUpsert,
   mirrorScheduleBlockDelete,
 } from "../lib/crmMirror.js";
+import { bookingDaySpan } from "../lib/scheduleSpan.js";
 import {
   isDataverseConfigured,
   patchBooking,
@@ -215,7 +216,7 @@ router.get("/wb/work-orders", requireLogin, async (req, res) => {
         `
         SELECT DISTINCT ON (booking_id)
                id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error
-        FROM crm.booking_writebacks
+        FROM booking_writebacks
         WHERE booking_id = ANY($1::text[]) AND status = 'queued'
         ORDER BY booking_id, created_at DESC
         `,
@@ -284,7 +285,7 @@ router.patch("/wb/bookings/:bookingId", requireRole("editor"), async (req, res) 
     const workOrderId = existing.rows[0].work_order_id;
 
     const insert = await localPool.query<WritebackRow>(
-      `INSERT INTO crm.booking_writebacks
+      `INSERT INTO booking_writebacks
         (booking_id, work_order_id, start_time, end_time, technician_id, status)
        VALUES ($1, $2, $3, $4, $5, 'queued')
        RETURNING id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error`,
@@ -336,7 +337,7 @@ router.post("/wb/work-orders/:workOrderId/booking", requireRole("editor"), async
     }
 
     const insert = await localPool.query<WritebackRow>(
-      `INSERT INTO crm.booking_writebacks
+      `INSERT INTO booking_writebacks
         (booking_id, work_order_id, start_time, end_time, technician_id, status)
        VALUES ($1, $2, $3, $4, $5, 'queued')
        RETURNING id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error`,
@@ -691,7 +692,7 @@ router.get("/wb/schedule-blocks", requireLogin, async (req, res) => {
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const r = await localPool.query(
       `SELECT id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at
-       FROM crm.schedule_blocks ${where} ORDER BY start_time`,
+       FROM schedule_blocks ${where} ORDER BY start_time`,
       params,
     );
     res.json(
@@ -721,7 +722,7 @@ router.post("/wb/schedule-blocks", requireRole("editor"), async (req, res) => {
   const { technician_id, block_type, title, start_time, end_time, notes, color_index } = parsed.data;
   try {
     const r = await localPool.query(
-      `INSERT INTO crm.schedule_blocks (technician_id, block_type, title, start_time, end_time, notes, color_index)
+      `INSERT INTO schedule_blocks (technician_id, block_type, title, start_time, end_time, notes, color_index)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at`,
       [technician_id, block_type, title ?? null, start_time, end_time, notes ?? null, color_index ?? null],
@@ -772,7 +773,7 @@ router.patch("/wb/schedule-blocks/:id", requireRole("editor"), async (req, res) 
     }
     vals.push(id);
     const r = await localPool.query(
-      `UPDATE crm.schedule_blocks SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at`,
+      `UPDATE schedule_blocks SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at`,
       vals,
     );
     if (r.rows.length === 0) {
@@ -805,7 +806,7 @@ router.delete("/wb/schedule-blocks/:id", requireRole("editor"), async (req, res)
   }
   try {
     const r = await localPool.query(
-      `DELETE FROM crm.schedule_blocks WHERE id = $1 RETURNING id`,
+      `DELETE FROM schedule_blocks WHERE id = $1 RETURNING id`,
       [id],
     );
     if (r.rows.length === 0) {
@@ -1010,7 +1011,7 @@ router.get("/wb/placeholder-jobs", requireLogin, async (req, res) => {
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const r = await localPool.query(
       `SELECT id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at
-       FROM crm.placeholder_jobs ${where} ORDER BY start_time`,
+       FROM placeholder_jobs ${where} ORDER BY start_time`,
       params,
     );
     const serviceLocationIds = [
@@ -1173,7 +1174,7 @@ router.get("/wb/search", requireLogin, async (req, res) => {
       start_time: Date | string;
     }>(
       `SELECT id, technician_id, title, customer_name, city, state, status, start_time
-       FROM crm.placeholder_jobs
+       FROM placeholder_jobs
        WHERE end_time > $1::date
          AND (
            customer_name ILIKE $2 OR
@@ -1313,7 +1314,7 @@ router.post("/wb/placeholder-jobs", requireRole("editor"), async (req, res) => {
   const { technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status } = parsed.data;
   try {
     const r = await localPool.query(
-      `INSERT INTO crm.placeholder_jobs (technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status)
+      `INSERT INTO placeholder_jobs (technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at`,
       [technician_id, title, customer_name ?? null, city ?? null, state ?? null, service_location_id ?? null, color_index ?? null, start_time, end_time, notes ?? null, status ?? null],
@@ -1390,7 +1391,7 @@ router.patch("/wb/placeholder-jobs/:id", requireRole("editor"), async (req, res)
     }
     vals.push(id);
     const r = await localPool.query(
-      `UPDATE crm.placeholder_jobs SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at`,
+      `UPDATE placeholder_jobs SET ${sets.join(", ")} WHERE id = $${vals.length} RETURNING id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at`,
       vals,
     );
     if (r.rows.length === 0) {
@@ -1427,7 +1428,7 @@ router.delete("/wb/placeholder-jobs/:id", requireRole("editor"), async (req, res
   }
   try {
     const r = await localPool.query(
-      `DELETE FROM crm.placeholder_jobs WHERE id = $1 RETURNING id`,
+      `DELETE FROM placeholder_jobs WHERE id = $1 RETURNING id`,
       [id],
     );
     if (r.rows.length === 0) {
@@ -1445,7 +1446,7 @@ router.get("/wb/writebacks", requireLogin, async (req, res) => {
   try {
     const r = await localPool.query<WritebackRow>(
       `SELECT id, booking_id, work_order_id, start_time, end_time, technician_id, status, created_at, synced_at, error
-       FROM crm.booking_writebacks
+       FROM booking_writebacks
        ORDER BY created_at DESC
        LIMIT 200`,
     );
@@ -1459,7 +1460,7 @@ router.get("/wb/writebacks", requireLogin, async (req, res) => {
 router.delete("/wb/writebacks/queued", requireRole("editor"), async (req, res) => {
   try {
     const r = await localPool.query<{ count: string }>(
-      `DELETE FROM crm.booking_writebacks WHERE status = 'queued' RETURNING id`,
+      `DELETE FROM booking_writebacks WHERE status = 'queued' RETURNING id`,
     );
     res.json({ deleted: r.rowCount ?? 0 });
   } catch (err) {
@@ -1665,8 +1666,11 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
         JOIN crm.territory ter
           ON ter.territoryid = COALESCE(sl.cf_serviceterritory, wo.msdyn_serviceterritory)
          AND COALESCE(ter.is_deleted, false) = false
-        WHERE b.starttime >= $1::date
-          AND b.starttime <  $2::date
+        WHERE b.starttime < $2::date
+          AND (
+            b.endtime > $1::date
+            OR (b.endtime IS NULL AND b.starttime >= $1::date)
+          )
           AND COALESCE(b.is_deleted, false) = false
           AND b.resource IN (SELECT bookableresourceid FROM active_res)
           AND COALESCE(b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue', '') NOT ILIKE 'cancel%'
@@ -1705,7 +1709,7 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
           `
           SELECT DISTINCT ON (booking_id)
                  booking_id, start_time, end_time, technician_id
-          FROM crm.booking_writebacks
+          FROM booking_writebacks
           WHERE booking_id = ANY($1::text[]) AND status = 'queued'
           ORDER BY booking_id, created_at DESC
           `,
@@ -1725,8 +1729,6 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
       type LocRegionRow = { regionid_id: string; region: string; company: null; technicians: Map<string, LocTechRow> };
 
       const locMap = new Map<string, LocRegionRow>();
-      const rangeStartMs = start.getTime();
-      const maxDayIndex = dayCount - 1;
 
       for (const row of locResult.rows) {
         if (!row.booking_id || !row.start_time || !row.region_id) continue;
@@ -1766,23 +1768,10 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
 
         const startParts = tsParts(effStart);
         const endParts = tsParts(effEnd);
-        const startDate = effStart instanceof Date ? effStart : new Date(effStart as string);
-        const startDayIndex = Math.floor(
-          (Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()) - rangeStartMs) / 86_400_000,
-        );
-        let endDayIndex = startDayIndex;
-        if (effEnd != null) {
-          const endDate = effEnd instanceof Date ? effEnd : new Date(effEnd as string);
-          let ei = Math.floor(
-            (Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()) - rangeStartMs) / 86_400_000,
-          );
-          if (endDate.getUTCHours() === 0 && endDate.getUTCMinutes() === 0 && endDate.getUTCSeconds() === 0 && ei > startDayIndex) ei -= 1;
-          if (ei > endDayIndex) endDayIndex = ei;
-        }
-        const spanStartDay = Math.max(0, Math.min(maxDayIndex, startDayIndex));
-        const spanEndDay = Math.max(spanStartDay, Math.min(maxDayIndex, endDayIndex));
+        const span = bookingDaySpan(effStart, effEnd, start, dayCount);
+        if (!span) continue;
 
-        for (let d = spanStartDay; d <= spanEndDay; d++) {
+        for (const [position, d] of span.dayIndexes.entries()) {
           loc.technicians.get(techId)!.jobs.push({
             booking_id: row.booking_id,
             work_order_id: row.work_order_id,
@@ -1805,8 +1794,10 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
             postal_code: row.postal_code ?? null,
             country: row.country ?? null,
             day_index: d,
-            span_start_day: spanStartDay,
-            span_end_day: spanEndDay,
+            span_start_day: span.spanStartDay,
+            span_end_day: span.spanEndDay,
+            span_day_number: span.dayNumbers[position],
+            span_day_count: span.totalDayCount,
             equipment_names: (row.equipment_names as string[] | null) ?? [],
           });
         }
@@ -1984,8 +1975,11 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
         LEFT JOIN res_terr rt ON rt.resource_id = b.resource
         LEFT JOIN crm.workorder wo ON wo.msdyn_workorderid = b.msdyn_workorder
         LEFT JOIN crm.account acc ON acc.accountid = wo.msdyn_serviceaccount
-        WHERE b.starttime >= $1::date
-          AND b.starttime <  $2::date
+        WHERE b.starttime < $2::date
+          AND (
+            b.endtime > $1::date
+            OR (b.endtime IS NULL AND b.starttime >= $1::date)
+          )
           AND COALESCE(b.is_deleted, false) = false
           AND b.resource IN (SELECT bookableresourceid FROM active_res)
           AND COALESCE(b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue', '') NOT ILIKE 'cancel%'
@@ -2122,7 +2116,7 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
         `
         SELECT DISTINCT ON (booking_id)
                booking_id, start_time, end_time, technician_id
-        FROM crm.booking_writebacks
+        FROM booking_writebacks
         WHERE booking_id = ANY($1::text[]) AND status = 'queued'
         ORDER BY booking_id, created_at DESC
         `,
@@ -2138,8 +2132,6 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
     }
 
     const regionMap = new Map<string, RegionRow>();
-    const rangeStartMs = start.getTime();
-    const maxDayIndex = dayCount - 1;
 
     // Map each technician to its region/display info so a write-back that reassigns a
     // booking to another technician can re-home it under the correct row/region.
@@ -2242,39 +2234,10 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
 
       const startParts = tsParts(effStart);
       const endParts = tsParts(effEnd);
-      const startDate = effStart instanceof Date ? effStart : new Date(effStart);
-      const startDayIndex = Math.floor(
-        (Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()) -
-          rangeStartMs) /
-          86_400_000,
-      );
+      const span = bookingDaySpan(effStart, effEnd, start, dayCount);
+      if (!span) continue;
 
-      // A booking that spans multiple days must appear on EVERY day it covers,
-      // not just its start day. Derive the end day index from the (effective)
-      // end timestamp. A booking ending exactly at midnight occupies up to the
-      // previous day, so it does not leak an empty trailing chip.
-      let endDayIndex = startDayIndex;
-      if (effEnd != null) {
-        const endDate = effEnd instanceof Date ? effEnd : new Date(effEnd);
-        let ei = Math.floor(
-          (Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()) -
-            rangeStartMs) /
-            86_400_000,
-        );
-        const endsAtMidnight =
-          endDate.getUTCHours() === 0 &&
-          endDate.getUTCMinutes() === 0 &&
-          endDate.getUTCSeconds() === 0;
-        if (endsAtMidnight && ei > startDayIndex) ei -= 1;
-        if (ei > endDayIndex) endDayIndex = ei;
-      }
-
-      // The SQL filter guarantees the start lands inside the visible range; clamp
-      // the span to the visible window so out-of-range continuation days drop off.
-      const spanStartDay = Math.max(0, Math.min(maxDayIndex, startDayIndex));
-      const spanEndDay = Math.max(spanStartDay, Math.min(maxDayIndex, endDayIndex));
-
-      for (let d = spanStartDay; d <= spanEndDay; d++) {
+      for (const [position, d] of span.dayIndexes.entries()) {
         techRow.jobs.push({
           booking_id: row.booking_id,
           work_order_id: row.work_order_id,
@@ -2297,8 +2260,10 @@ router.get("/wb/schedule-board", requireLogin, async (req, res) => {
           postal_code: row.postal_code ?? null,
           country: row.country ?? null,
           day_index: d,
-          span_start_day: spanStartDay,
-          span_end_day: spanEndDay,
+          span_start_day: span.spanStartDay,
+          span_end_day: span.spanEndDay,
+          span_day_number: span.dayNumbers[position],
+          span_day_count: span.totalDayCount,
           equipment_names: (row.equipment_names as string[] | null) ?? [],
         });
       }
@@ -2602,11 +2567,12 @@ router.get("/wb/resource-utilization", requireLogin, async (req, res) => {
     //      actually worked), filtered on the booking status formatted value.
     //   2. A job's booked duration is the difference between its start and end
     //      time, but it is capped at WB_WORKING_MINUTES_PER_DAY (8h) PER JOB PER
-    //      DAY: each booking is split across every calendar day it spans, each
-    //      day's portion is clamped to the query window and capped at 8h, then
-    //      summed. This caps a single job to 8h/day (so an outlier multi-day CRM
-    //      booking can't blow past 100% from one row) while still letting two
-    //      separate jobs on the same day combine past 8h to surface overbooking.
+    //      INCLUDED DAY: each booking is split across its covered weekdays, plus
+    //      an explicitly scheduled weekend start/end day. Each included day's
+    //      portion is clamped to the query window and capped at 8h, then summed.
+    //      This matches the schedule-board chip expansion, prevents a crossed
+    //      weekend from consuming capacity, and still lets separate jobs on the
+    //      same day combine past 8h to surface overbooking.
     const result = await getCrmPool().query(
       `
       WITH res_terr AS (
@@ -2640,6 +2606,13 @@ router.get("/wb/resource-utilization", requireLogin, async (req, res) => {
               (LEAST(b.endtime, $2::timestamp) - interval '1 second')::date::timestamp,
               interval '1 day'
             ) AS gs(day)
+             WHERE EXTRACT(ISODOW FROM gs.day) BETWEEN 1 AND 5
+                OR gs.day::date = b.starttime::date
+                OR gs.day::date = CASE
+                     WHEN b.endtime::time = time '00:00:00'
+                     THEN (b.endtime - interval '1 day')::date
+                     ELSE b.endtime::date
+                   END
           ) END
         ), 0)::int AS utilized_minutes,
         COUNT(b.bookableresourcebookingid)::int AS job_count
@@ -2649,8 +2622,8 @@ router.get("/wb/resource-utilization", requireLogin, async (req, res) => {
         ON br.bookableresourceid = rterr.resource_id AND COALESCE(br.is_deleted, false) = false
       LEFT JOIN crm.booking b
         ON b.resource = br.bookableresourceid
-       AND b.starttime >= $1::date
-       AND b.starttime <  $2::date
+        AND b.starttime < $2::date
+        AND b.endtime > $1::date
        AND b.endtime IS NOT NULL
        AND COALESCE(b.is_deleted, false) = false
        AND COALESCE(b.raw_json->>'_bookingstatus_value@OData.Community.Display.V1.FormattedValue', '') NOT ILIKE 'cancel%'
@@ -2701,7 +2674,7 @@ router.get("/wb/resource-utilization", requireLogin, async (req, res) => {
     // just like real bookings, using the same per-day 8h cap. They live in the
     // local Postgres DB (not CRM), so they're merged in here after the CRM query.
     const placeholderResult = await localPool.query(
-      `SELECT technician_id, start_time, end_time FROM crm.placeholder_jobs
+      `SELECT technician_id, start_time, end_time FROM placeholder_jobs
        WHERE start_time < $2::date AND end_time > $1::date`,
       [rangeStart, rangeEnd],
     );
@@ -3286,10 +3259,10 @@ router.post("/wb/sync", requireRole("editor"), async (req, res) => {
     }
 
     const queued = await localPool.query<WritebackRow>(
-      `UPDATE crm.booking_writebacks
+      `UPDATE booking_writebacks
        SET status = 'processing'
        WHERE id IN (
-         SELECT id FROM crm.booking_writebacks
+         SELECT id FROM booking_writebacks
          WHERE ${eligibility}
          ORDER BY created_at ASC
          FOR UPDATE SKIP LOCKED
@@ -3324,7 +3297,7 @@ router.post("/wb/sync", requireRole("editor"), async (req, res) => {
           });
         }
         await localPool.query(
-          `UPDATE crm.booking_writebacks SET status = 'synced', synced_at = now(), error = NULL WHERE id = $1`,
+          `UPDATE booking_writebacks SET status = 'synced', synced_at = now(), error = NULL WHERE id = $1`,
           [row.id],
         );
         syncedCount += 1;
@@ -3332,7 +3305,7 @@ router.post("/wb/sync", requireRole("editor"), async (req, res) => {
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
         await localPool.query(
-          `UPDATE crm.booking_writebacks SET status = 'failed', error = $2 WHERE id = $1`,
+          `UPDATE booking_writebacks SET status = 'failed', error = $2 WHERE id = $1`,
           [row.id, message],
         );
         failedCount += 1;
@@ -3369,10 +3342,10 @@ router.get("/wb/admin/sync-mirror", requireLogin, async (req, res) => {
     // Fetch all rows from both source tables
     const [pjSource, sbSource, pjMirrorIds, sbMirrorIds] = await Promise.all([
       localPool.query<{ id: number; technician_id: string; title: string; customer_name: string | null; city: string | null; state: string | null; service_location_id: string | null; color_index: number | null; start_time: Date; end_time: Date; notes: string | null; status: string | null; created_at: Date }>(
-        `SELECT id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at FROM crm.placeholder_jobs ORDER BY id`
+        `SELECT id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at FROM placeholder_jobs ORDER BY id`
       ),
       localPool.query<{ id: number; technician_id: string; block_type: string; title: string | null; start_time: Date; end_time: Date; notes: string | null; color_index: number | null; created_at: Date }>(
-        `SELECT id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at FROM crm.schedule_blocks ORDER BY id`
+        `SELECT id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at FROM schedule_blocks ORDER BY id`
       ),
       crmPool.query<{ id: number }>(`SELECT id FROM crm.placeholder_jobs`),
       crmPool.query<{ id: number }>(`SELECT id FROM crm.schedule_blocks`),
@@ -3415,10 +3388,10 @@ router.post("/wb/admin/sync-mirror", requireRole("editor"), async (req, res) => 
     // Fetch all rows from Replit source-of-truth
     const [pjSource, sbSource] = await Promise.all([
       localPool.query<{ id: number; technician_id: string; title: string; customer_name: string | null; city: string | null; state: string | null; service_location_id: string | null; color_index: number | null; start_time: Date; end_time: Date; notes: string | null; status: string | null; created_at: Date }>(
-        `SELECT id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at FROM crm.placeholder_jobs ORDER BY id`
+        `SELECT id, technician_id, title, customer_name, city, state, service_location_id, color_index, start_time, end_time, notes, status, created_at FROM placeholder_jobs ORDER BY id`
       ),
       localPool.query<{ id: number; technician_id: string; block_type: string; title: string | null; start_time: Date; end_time: Date; notes: string | null; color_index: number | null; created_at: Date }>(
-        `SELECT id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at FROM crm.schedule_blocks ORDER BY id`
+        `SELECT id, technician_id, block_type, title, start_time, end_time, notes, color_index, created_at FROM schedule_blocks ORDER BY id`
       ),
     ]);
 
@@ -4152,7 +4125,7 @@ router.get("/wb/calendar-report", requireRole("editor"), async (req, res) => {
       notes: string | null;
     }>(
       `SELECT technician_id, block_type, title, start_time, end_time, notes
-       FROM crm.schedule_blocks
+       FROM schedule_blocks
        WHERE start_time < $1::date
          AND (end_time IS NULL OR end_time > $2::date)
          AND technician_id = ANY($3::text[])
@@ -4189,7 +4162,7 @@ router.get("/wb/calendar-report", requireRole("editor"), async (req, res) => {
       notes: string | null;
     }>(
       `SELECT technician_id, title, customer_name, city, state, service_location_id, start_time, end_time, status, notes
-       FROM crm.placeholder_jobs
+       FROM placeholder_jobs
        WHERE start_time < $1::timestamptz
          AND (end_time IS NULL OR end_time > $2::timestamptz)
          AND technician_id = ANY($3::text[])

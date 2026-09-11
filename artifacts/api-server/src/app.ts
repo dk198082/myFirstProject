@@ -73,10 +73,8 @@ app.use(
     // not let connect-pg-simple create it — its bundled table.sql is not available
     // after esbuild bundling. The table needs columns sid (PK), sess (jsonb),
     // expire, plus an index on expire, in every environment (dev and production).
-    name: "fieldservice.sid",
     store: new PgSession({
       pool: localPool,
-      schemaName: "crm",
       tableName: "sessions",
       createTableIfMissing: false,
     }),
@@ -88,7 +86,7 @@ app.use(
     rolling: true,
     cookie: {
       httpOnly: true,
-      maxAge: 60 * 60 * 1000,
+      maxAge: 1000 * 60 * 60 * 24 * 30,
       // Development: the app is used inside the Replit preview iframe, where
       // the browser treats it as third-party and withholds SameSite=Lax
       // cookies. SameSite=None (which requires Secure) lets the embedded
@@ -103,10 +101,10 @@ app.use(
         ? {
             secure: "auto" as const,
             sameSite:
-            (process.env.COOKIE_SAME_SITE as "lax" | "none" | "strict") ??
-              "none",
+              (process.env.COOKIE_SAME_SITE as "lax" | "none" | "strict") ??
+              ("lax" as const),
           }
-         : { secure: false, sameSite: "lax" }),
+        : { secure: true, sameSite: "none" as const }),
     },
   }),
 );
