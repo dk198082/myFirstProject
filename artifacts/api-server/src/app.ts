@@ -120,10 +120,9 @@ app.use("/api", router);
 // Unset in local dev (the Vite dev server serves the frontend on its own
 // port instead) and set by ./Dockerfile / AZURE_DEPLOYMENT.md in production.
 //
-// NOTE: this export no longer includes artifacts/fs-training-deck or
-// artifacts/dynamics-write-back (both present as recently as the last
-// export processed here) — see AZURE_DEPLOYMENT.md for why the
-// STATIC_TRAINING_DECK_DIR mount from earlier rounds isn't reapplied here.
+// NOTE: as of two rounds ago, this export no longer includes
+// artifacts/fs-training-deck or artifacts/dynamics-write-back (still absent
+// in this export too) — see AZURE_DEPLOYMENT.md for details.
 const staticDir = process.env.STATIC_DIR;
 if (staticDir) {
   const resolvedStaticDir = path.resolve(staticDir);

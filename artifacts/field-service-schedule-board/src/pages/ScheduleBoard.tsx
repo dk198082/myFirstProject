@@ -783,23 +783,6 @@ function PlaceholderJobChip({
           className="absolute inset-0 pointer-events-none"
           style={{ backgroundImage: "repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 5px)" }}
         />
-        {hasPurchaseOrder && (
-          <>
-            <div
-              className="absolute inset-y-0 left-0 w-1 rounded-l bg-emerald-600"
-              aria-hidden
-            />
-            <div
-              className="relative mb-1 flex items-center gap-1 rounded bg-emerald-700 px-1.5 py-1 text-[10px] font-bold leading-none text-white shadow-sm"
-              role="status"
-              aria-label="This Potential Job has a purchase order"
-              data-testid={`potential-job-purchase-order-${job.id}`}
-            >
-              <BadgeCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span>Purchase Order Received</span>
-            </div>
-          </>
-        )}
         {hasScheduledJobAtServiceLocation && (
           <div
             className="relative mb-1 flex items-start gap-1 rounded border border-red-600 bg-red-50 px-1 py-0.5 text-[10px] font-bold leading-tight text-red-800"
@@ -828,6 +811,17 @@ function PlaceholderJobChip({
         )}
         {job.notes && (
           <ChipNotes notes={job.notes} className="relative opacity-60 truncate" />
+        )}
+        {hasPurchaseOrder && (
+          <div
+            className="relative mt-1 flex items-center gap-1 rounded bg-emerald-700 px-1.5 py-1 text-[10px] font-bold leading-none text-white shadow-sm"
+            role="status"
+            aria-label="This Potential Job has a purchase order"
+            data-testid={`potential-job-purchase-order-${job.id}`}
+          >
+            <BadgeCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span>Purchase Order Received</span>
+          </div>
         )}
         {showResizeHandle && (
           <div
