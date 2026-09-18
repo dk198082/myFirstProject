@@ -817,9 +817,9 @@ describe("GET /api/login", () => {
 
   it("preserves a safe relative returnTo path", async () => {
     const agent = request.agent(buildApp());
-    await agent.get("/api/login?returnTo=/dynamics-write-back/").expect(302);
+    await agent.get("/api/login?returnTo=/work-orders").expect(302);
     const sess = await agent.get("/__test/session").expect(200);
-    expect(sess.body.returnTo).toBe("/dynamics-write-back/");
+    expect(sess.body.returnTo).toBe("/work-orders");
   });
 
   it("defaults returnTo to / when the parameter is absent", async () => {

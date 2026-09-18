@@ -50,6 +50,7 @@ import {
   Globe,
   Phone,
   Briefcase,
+  BadgeCheck,
   AlertTriangle,
   User,
   MapPin,
@@ -314,6 +315,7 @@ type ScheduleJob = {
   state?: string | null;
   postal_code?: string | null;
   country?: string | null;
+  service_location_id?: string | null;
   day_index: number;
   span_start_day?: number | null;
   span_end_day?: number | null;
@@ -692,6 +694,7 @@ function PlaceholderJobChip({
   isDragging,
   dimmed,
   regionName,
+  hasScheduledJobAtServiceLocation,
 }: {
   job: PlaceholderJob;
   /** The day cell this chip instance is rendered in (YYYY-MM-DD). */
@@ -705,10 +708,13 @@ function PlaceholderJobChip({
   isDragging?: boolean;
   dimmed?: boolean;
   regionName: string;
+  /** A CRM booking exists at this Potential Job's service location on this rendered date. */
+  hasScheduledJobAtServiceLocation?: boolean;
 }) {
   const colorCls = job.color_index != null
      ? TECH_PALETTE[job.color_index]?.chip ?? regionPaletteEntry(regionName, "potential").chip
      : regionPaletteEntry(regionName, "potential").chip;
+  const hasPurchaseOrder = job.status?.trim().toLowerCase() === "have purchase order";
   const duration = fmtBlockDuration(job.start_time, job.end_time);
   const location = [
     job.city,
@@ -777,6 +783,33 @@ function PlaceholderJobChip({
           className="absolute inset-0 pointer-events-none"
           style={{ backgroundImage: "repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 5px)" }}
         />
+        {hasPurchaseOrder && (
+          <>
+            <div
+              className="absolute inset-y-0 left-0 w-1 rounded-l bg-emerald-600"
+              aria-hidden
+            />
+            <div
+              className="relative mb-1 flex items-center gap-1 rounded bg-emerald-700 px-1.5 py-1 text-[10px] font-bold leading-none text-white shadow-sm"
+              role="status"
+              aria-label="This Potential Job has a purchase order"
+              data-testid={`potential-job-purchase-order-${job.id}`}
+            >
+              <BadgeCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span>Purchase Order Received</span>
+            </div>
+          </>
+        )}
+        {hasScheduledJobAtServiceLocation && (
+          <div
+            className="relative mb-1 flex items-start gap-1 rounded border border-red-600 bg-red-50 px-1 py-0.5 text-[10px] font-bold leading-tight text-red-800"
+            role="status"
+            data-testid={`potential-job-scheduled-match-${job.id}`}
+          >
+            <AlertTriangle className="mt-px h-3 w-3 shrink-0" aria-hidden />
+            <span>Scheduled in CRM - Please review</span>
+          </div>
+        )}
         {onDelete && <button
           type="button"
           className="absolute top-0.5 right-0.5 z-10 opacity-40 hover:opacity-100 transition-opacity"
@@ -790,7 +823,9 @@ function PlaceholderJobChip({
         </button>}
         <div className="relative opacity-90 whitespace-normal break-words pr-3">{job.customer_name || job.title}</div>
         {location && <div className="relative opacity-70 whitespace-normal break-words">{location}</div>}
-        {job.status && <div className="relative opacity-60 whitespace-normal break-words">{job.status}</div>}
+        {job.status && !hasPurchaseOrder && (
+          <div className="relative opacity-60 whitespace-normal break-words">{job.status}</div>
+        )}
         {job.notes && (
           <ChipNotes notes={job.notes} className="relative opacity-60 truncate" />
         )}
@@ -2177,6 +2212,28 @@ export default function ScheduleBoard() {
   const dayCount = data?.day_count ?? (view === "week" ? 7 : isSingleTechFocused ? 84 : 30);
   const rangeStart = data?.range_start ?? start;
 
+  // Match across the whole board, not just the Potential Job's technician row:
+  // a CRM job at the same service location and date makes the Potential Job stale.
+  const scheduledServiceLocationDates = useMemo(() => {
+    const matches = new Set<string>();
+    if (!data) return matches;
+    for (const region of data.regions ?? []) {
+      for (const technician of region.technicians ?? []) {
+        for (const job of technician.jobs as ScheduleJob[]) {
+          const locationId = job.service_location_id?.trim().toLowerCase();
+          if (!locationId || !Number.isInteger(job.day_index)) continue;
+          matches.add(`${locationId}|${addDaysISO(data.range_start, job.day_index)}`);
+        }
+      }
+    }
+    return matches;
+  }, [data]);
+
+  const potentialJobHasScheduledMatch = (job: PlaceholderJob, dayIso: string) => {
+    const locationId = job.service_location_id?.trim().toLowerCase();
+    return !!locationId && scheduledServiceLocationDates.has(`${locationId}|${dayIso}`);
+  };
+
   const dayHeaders = useMemo(
     () =>
       Array.from({ length: dayCount }, (_, i) => {
@@ -2190,6 +2247,50 @@ export default function ScheduleBoard() {
   // technicians with no jobs in the current range, so coordinators can see
   // capacity at a glance without an extra toggle.
   const allRegions = useMemo(() => data?.regions ?? [], [data]);
+  const allPotentialJobTechnicians = useMemo(() => {
+    const technicians = new Map<string, { id: string; name: string; region: string }>();
+    const rosterRegions =
+      utilData?.regions && utilData.regions.length > 0 ? utilData.regions : allRegions;
+    for (const region of rosterRegions) {
+      for (const technician of region.technicians ?? []) {
+        if (!technician.technician_id || technicians.has(technician.technician_id)) continue;
+        technicians.set(technician.technician_id, {
+          id: technician.technician_id,
+          name: technician.resource_name ?? "Unassigned",
+          region: region.region,
+        });
+      }
+    }
+    return [...technicians.values()].sort(
+      (a, b) => a.name.localeCompare(b.name) || a.region.localeCompare(b.region),
+    );
+  }, [allRegions, utilData]);
+  const coordinatorPotentialJobRegions = useMemo(
+    () =>
+      new Set(
+        (data?.coordinator_default?.region_names ?? []).map((region) =>
+          region.trim().toLocaleUpperCase(),
+        ),
+      ),
+    [data?.coordinator_default?.region_names],
+  );
+  const potentialJobTechniciansFor = (technicianId: string) => {
+    const selectedTechnician = allPotentialJobTechnicians.find(
+      (technician) => technician.id === technicianId,
+    );
+    const allowedRegionNames =
+      coordinatorPotentialJobRegions.size > 0
+        ? coordinatorPotentialJobRegions
+        : selectedTechnician
+          ? new Set([selectedTechnician.region.trim().toLocaleUpperCase()])
+          : null;
+
+    return allowedRegionNames
+      ? allPotentialJobTechnicians.filter((technician) =>
+          allowedRegionNames.has(technician.region.trim().toLocaleUpperCase()),
+        )
+      : allPotentialJobTechnicians;
+  };
   const regionDefaultAppliedFor = useRef<string | null>(null);
 
   // Apply CRM territory-manager defaults once after authentication and the
@@ -2835,7 +2936,6 @@ export default function ScheduleBoard() {
           Live from the d365crm database, grouped by region and technician. Click a job tile to edit, or drag it to another day or technician to reschedule.
         </p>
       </div>
-
       {/* Controls */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
@@ -3627,6 +3727,7 @@ export default function ScheduleBoard() {
                                 onDragEnd={endDrag}
                                 isDragging={draggingPlaceholderId === phj.id}
                                 regionName={focusedTechData.region}
+                                hasScheduledJobAtServiceLocation={potentialJobHasScheduledMatch(phj, dh.iso)}
                                 dimmed={
                                   !!activeSearch &&
                                   !placeholderJobMatchesSearch(
@@ -3996,6 +4097,7 @@ export default function ScheduleBoard() {
                                     onDragEnd={endDrag}
                                     isDragging={draggingPlaceholderId === phj.id}
                                     regionName={rg.region}
+                                    hasScheduledJobAtServiceLocation={potentialJobHasScheduledMatch(phj, dh.iso)}
                                     dimmed={!!activeSearch && !placeholderJobMatchesSearch(phj, activeSearch, tech.resource_name)}
                                   />
                                 ),
@@ -4363,6 +4465,7 @@ export default function ScheduleBoard() {
                                     onDragEnd={endDrag}
                                     isDragging={draggingPlaceholderId === phj.id}
                                     regionName={rg.region}
+                                    hasScheduledJobAtServiceLocation={potentialJobHasScheduledMatch(phj, iso)}
                                     dimmed={!!activeSearch && !placeholderJobMatchesSearch(phj, activeSearch, tech.resource_name)}
                                   />
                                 ),
@@ -4759,6 +4862,7 @@ export default function ScheduleBoard() {
         <AddBlockDialog
           technicianId={addingBlock.technicianId}
           technicianName={addingBlock.technicianName}
+          technicians={potentialJobTechniciansFor(addingBlock.technicianId)}
           date={addingBlock.date}
           defaultColorIndex={regionColorIndex(addingBlock.regionName, "potential")}
           customDefaultColorIndex={regionColorIndex(addingBlock.regionName, "custom")}
@@ -4780,6 +4884,7 @@ export default function ScheduleBoard() {
         <EditPlaceholderJobDialog
           job={editingPlaceholder.job}
           technicianName={editingPlaceholder.technicianName}
+          technicians={potentialJobTechniciansFor(editingPlaceholder.job.technician_id)}
           defaultColorIndex={regionColorIndex(editingPlaceholder.regionName, "potential")}
           onClose={() => setEditingPlaceholder(null)}
         />

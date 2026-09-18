@@ -58,11 +58,14 @@ function fromLocalInput(local: string): string | null {
 export function EditPlaceholderJobDialog({
   job,
   technicianName,
+  technicians,
   defaultColorIndex = null,
   onClose,
 }: {
   job: PlaceholderJob;
   technicianName: string;
+  /** Technician roster allowed by the current coordinator/region scope. */
+  technicians: Array<{ id: string; name: string; region: string }>;
   /** Palette index to pre-select when job has no saved colour override. */
   defaultColorIndex?: number | null;
   onClose: () => void;
@@ -76,6 +79,11 @@ export function EditPlaceholderJobDialog({
     job.service_location_id
       ? { id: job.service_location_id, service_loc_id: null, name: job.customer_name ?? null, city: job.city ?? null, state: job.state ?? null }
       : null,
+  );
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState(() =>
+    technicians.some((technician) => technician.id === job.technician_id)
+      ? job.technician_id
+      : "",
   );
   const [customerName, setCustomerName] = useState(job.customer_name ?? "");
   const [city, setCity] = useState(job.city ?? "");
@@ -103,7 +111,10 @@ export function EditPlaceholderJobDialog({
   const updateMutation = useUpdateWbPlaceholderJob({
     mutation: {
       onSuccess: () => {
-        toast({ title: "Placeholder job updated", description: `Updated for ${technicianName}.` });
+        const selectedTechnician =
+          technicians.find((technician) => technician.id === selectedTechnicianId)?.name ??
+          technicianName;
+        toast({ title: "Placeholder job updated", description: `Updated for ${selectedTechnician}.` });
         invalidate();
         onClose();
       },
@@ -144,7 +155,14 @@ export function EditPlaceholderJobDialog({
   };
 
   const submit = () => {
-
+    if (!selectedTechnicianId) {
+      toast({
+        title: "Technician required",
+        description: "Select a technician before saving this Potential Job.",
+        variant: "destructive",
+      });
+      return;
+    }
     const start = fromLocalInput(startTime);
     const end = fromLocalInput(endTime);
     if (!start || !end) {
@@ -154,6 +172,7 @@ export function EditPlaceholderJobDialog({
     updateMutation.mutate({
       id: job.id,
       data: {
+        technician_id: selectedTechnicianId,
         title: job.title,
         customer_name: customerName.trim() || null,
         city: city.trim() || null,
@@ -175,10 +194,32 @@ export function EditPlaceholderJobDialog({
       <DialogContent className="w-[calc(100vw-2rem)] max-w-sm flex flex-col max-h-[90vh]">
         <DialogHeader className="shrink-0">
           <DialogTitle>Edit placeholder job</DialogTitle>
-          <DialogDescription>{technicianName} · Not yet confirmed in CRM</DialogDescription>
+          <DialogDescription>
+            {technicians.find((technician) => technician.id === selectedTechnicianId)?.name ??
+              (selectedTechnicianId ? technicianName : "Technician required")}{" "}
+            · Not yet confirmed in CRM
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2 min-w-0 overflow-y-auto flex-1 pr-1">
+          <div className="space-y-1.5 min-w-0">
+            <Label htmlFor="ph-edit-technician">
+              Technician <span className="text-destructive">*</span>
+            </Label>
+            <Select value={selectedTechnicianId} onValueChange={setSelectedTechnicianId}>
+              <SelectTrigger id="ph-edit-technician" className="w-full" aria-required="true">
+                <SelectValue placeholder="Select a technician" />
+              </SelectTrigger>
+              <SelectContent>
+                {technicians.map((technician) => (
+                  <SelectItem key={technician.id} value={technician.id}>
+                    {technician.name} — {technician.region}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="relative">
             <ServiceLocationPicker
               label="Service location"

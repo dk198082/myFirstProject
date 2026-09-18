@@ -50,6 +50,7 @@ function fromLocalInput(local: string): string | null {
 export function AddBlockDialog({
   technicianId,
   technicianName,
+  technicians,
   date,
   defaultColorIndex = null,
   customDefaultColorIndex = null,
@@ -57,6 +58,8 @@ export function AddBlockDialog({
 }: {
   technicianId: string;
   technicianName: string;
+  /** Technician roster allowed by the current coordinator/region scope. */
+  technicians: Array<{ id: string; name: string; region: string }>;
   /** ISO date string "YYYY-MM-DD" */
   date: string;
   /** Pre-selected palette index — defaults to the technician's region colour. */
@@ -69,6 +72,9 @@ export function AddBlockDialog({
   const queryClient = useQueryClient();
 
   const [entryType, setEntryType] = useState<EntryType>("potential_job");
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState(() =>
+    technicians.some((technician) => technician.id === technicianId) ? technicianId : "",
+  );
   const [customTitle, setCustomTitle] = useState("");
   const [serviceLocation, setServiceLocation] = useState<ServiceLocationValue | null>(null);
   const [customerName, setCustomerName] = useState("");
@@ -125,9 +131,12 @@ export function AddBlockDialog({
   const createPlaceholderMutation = useCreateWbPlaceholderJob({
     mutation: {
       onSuccess: () => {
+        const selectedTechnician =
+          technicians.find((technician) => technician.id === selectedTechnicianId)?.name ??
+          technicianName;
         toast({
           title: "Potential job added",
-          description: `Added for ${technicianName}.`,
+          description: `Added for ${selectedTechnician}.`,
         });
         invalidatePlaceholders();
         onClose();
@@ -170,9 +179,17 @@ export function AddBlockDialog({
     }
 
     if (entryType === "potential_job") {
+      if (!selectedTechnicianId) {
+        toast({
+          title: "Technician required",
+          description: "Select a technician before saving this Potential Job.",
+          variant: "destructive",
+        });
+        return;
+      }
       createPlaceholderMutation.mutate({
         data: {
-          technician_id: technicianId,
+          technician_id: selectedTechnicianId,
           title: "Potential job",
           customer_name: customerName.trim() || null,
           city: city.trim() || null,
@@ -285,6 +302,24 @@ export function AddBlockDialog({
           {/* Potential job fields */}
           {entryType === "potential_job" && (
             <>
+              <div className="space-y-1.5 min-w-0">
+                <Label htmlFor="ph-technician">
+                  Technician <span className="text-destructive">*</span>
+                </Label>
+                <Select value={selectedTechnicianId} onValueChange={setSelectedTechnicianId}>
+                  <SelectTrigger id="ph-technician" className="w-full" aria-required="true">
+                    <SelectValue placeholder="Select a technician" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {technicians.map((technician) => (
+                      <SelectItem key={technician.id} value={technician.id}>
+                        {technician.name} — {technician.region}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="relative">
                 <ServiceLocationPicker
                   label="Service location"

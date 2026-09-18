@@ -1862,6 +1862,9 @@ components:
           type: ["string", "null"]
         country:
           type: ["string", "null"]
+        service_location_id:
+          type: ["string", "null"]
+          description: CRM service-location UUID for matching scheduled jobs to Potential Jobs.
         day_index:
           type: integer
           description: 0-based offset from `range_start` (0 = first day in range)

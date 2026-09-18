@@ -642,6 +642,11 @@ export interface ScheduleJob {
   postal_code?: string | null;
   /** @nullable */
   country?: string | null;
+  /**
+     * CRM service-location UUID for matching scheduled jobs to Potential Jobs.
+     * @nullable
+     */
+  service_location_id?: string | null;
   /** 0-based offset from `range_start` (0 = first day in range) */
   day_index: number;
   /**

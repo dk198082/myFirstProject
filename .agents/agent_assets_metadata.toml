@@ -4,6 +4,55 @@ generated = []
 [[outputs]]
 id = "wApbhnOlMt0E1f1IL5Sy2"
 uri = "file://docs/app-overview.html"
-type = "unspecified"
+type = "text"
 title = "Field Service Schedule Board — App Overview"
 description = "App overview, complete API reference, data flow diagrams, and security & permissions guide"
+logical_id = "c78fed5b-4f9e-4977-be26-23a5f40497b9"
+content_type = "text/html"
+
+[[outputs]]
+id = "F-v7PIG8tQavvItsBnIKM"
+uri = "file://attached_assets/calendar-report-samples/SAMPLE_Schedule_Alex_Carter_Aug-Sep_2026.pdf"
+type = "pdf"
+title = "Sample Calendar Report (PDF) — all event types"
+description = "Updated sample with Jobs, Potential Jobs, Drive Time, PTO, and Custom blocks — color-coded with a legend."
+logical_id = "be898c44-3a29-4ee1-b78e-54ff16e77d6c"
+
+[[outputs]]
+id = "kHIjrXvDvmNADHNxdyJmT"
+uri = "file://attached_assets/calendar-report-samples/SAMPLE_Schedule_Alex_Carter_Aug-Sep_2026.docx"
+type = "word_document"
+title = "Sample Calendar Report (Word, landscape) — all event types"
+description = "Same layout and color coding as the PDF, in editable Word format."
+logical_id = "1e0a9821-6a4e-4ca5-976e-3abd4eb8e0f3"
+
+[[outputs]]
+id = "-9ZMW_yJn28dgkrF9ua3r"
+uri = "file://docs/holiday-calendar-plan.html"
+type = "text"
+title = "Regional Holiday Calendar — Feature Plan"
+description = "Full plan for Task #116: auto-seeded US/UK holiday drafts, the Holiday Calendar admin tab, IT annual workflow, board display, and calendar report integration."
+logical_id = "03ca64a0-a891-4789-9e9b-5b0ddea981a7"
+content_type = "text/html"
+
+[[outputs]]
+id = "1LL3iipVwPYR5vrS2GG6b"
+uri = "file://docs/field-service-schedule-board-guide.docx"
+type = "word_document"
+title = "Field Service Schedule Board — Training & Reference Guide"
+description = "Word document covering all key features for new starters: sign-in, board navigation, chip types, rescheduling, schedule blocks, potential jobs, search, utilisation, Calendar Report, roles & permissions, and quick tips."
+logical_id = "5c3d2581-9cc6-4497-b1f5-fb7cb02d27c9"
+
+[[outputs]]
+id = "ziN-YNeBHS99GXedRj1nJ"
+uri = "file://exports/field-service-source.zip"
+type = "unspecified"
+title = "Field service source archive"
+description = "Validated source archive for importing the retired Training and Dynamics Write Back frontends into a separate Replit project. Includes README, validation record, and file checksums; excludes secrets, data, dependencies, caches, and build output."
+logical_id = "4e401929-9ae4-49c4-b966-549a3f22248a"
+content_hash = "sha256:0b17efb0ab07e75347ef4b8b40ef01830a8c378b4d773e6653a659efa4740652"
+size = 318011
+mtime_ms = 1789645038270
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:9b96c305-90c2-4d6f-b802-c99a1cd8fce4/4e401929-9ae4-49c4-b966-549a3f22248a/53719063-82e9-4f3b-97b1-11eb97b6877d"
+storage_version_token = "1789645046304922"
+content_type = "application/octet-stream"

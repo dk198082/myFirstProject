@@ -12,3 +12,9 @@
 - [CRM mirror dual-write](crm-mirror-dual-write.md) — placeholder_jobs/schedule_blocks writes mirror best-effort into crm.* tables in d365crm Postgres; ids shared; schema changes need both sides.
 - [wb utilization minutes semantics](wb-utilization-minutes.md) — utilized_minutes already includes placeholder-job minutes (server-side, 8h/day cap); never re-add client-side, use placeholder_minutes for breakdowns.
 - [js-yaml v5 breaks orval codegen](js-yaml-orval-esm.md) — pin the `js-yaml` pnpm override to `^4.x`, not `>=4.2.0`, or codegen fails with an ESM default-export error.
+- [Technician mailbox resolution](technician-mailbox-resolution.md) — resolve technician mailboxes via CRM-linked systemuser identity; never match Exchange recipients by display name.
+- [Persisted chip color indexes](persisted-chip-color-indexes.md) — append palette entries; existing numeric color overrides must not change meaning.
+- [UK-only postcode display](uk-only-postcode-display.md) — board chips and calendar reports show postcodes only when CRM country data explicitly identifies a UK location.
+- [Calendar Report text treatment](calendar-report-text-treatment.md) — PDF/Word reports use 11-point black text, full wrapping, unlabeled notes, and visually separated event boxes.
+- [Multi-day booking weekdays](multiday-booking-weekdays.md) — spanning CRM bookings cross week/month boundaries but omit interior weekends unless the booking explicitly starts or ends there.
+- [Potential Job technician scope](potential-job-technician-scope.md) — technician is required; coordinators use assigned regions, others use the selected/current technician’s region.

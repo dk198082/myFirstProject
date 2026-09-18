@@ -86,3 +86,11 @@ clamps silently broke that NULL-safety until guarded.
 **How to apply:** when adding any new d365crm-backed endpoint, probe column existence first (the password in
 `D365CRM_DATABASE_URL` breaks pg URL parsing, so getCrmPool regex-parses it — copy that parseUrl for ad-hoc probes
 and run node from `artifacts/api-server`). Prefer COALESCE(real column, raw_json FormattedValue) for names/labels.
+
+## Targeted backfills can encounter missing related mirror rows
+
+The CRM mirror enforces foreign keys for related work-order records such as service locations. A Dynamics work order can reference a related record that is absent from the mirror; writing the foreign-key GUID then fails and the normal backfill leaves the work order stale. Preserve the Dynamics payload in `raw_json` and only write relationship columns whose referenced mirror rows exist, or sync the related record first.
+
+**Why:** an R4 unscheduled-job repair failed because Dynamics referenced service locations that were not present in the shadow CRM database, even though the work orders and territory were valid.
+
+**How to apply:** make the admin backfill dependency-aware and report missing related records explicitly instead of silently leaving the work order unchanged.
