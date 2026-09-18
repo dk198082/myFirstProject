@@ -31,19 +31,46 @@ function sanitizeReturnTo(value: unknown): string {
   return value;
 }
 
+// add for same frame
+
+declare module "express-session" {
+  interface SessionData {
+    returnTo?: string;
+    authState?: string;
+    embeddedLogin?: boolean;
+    user?: {
+      entraOid: string;
+      email: string | undefined;
+      displayName: string | undefined;
+      role: string;
+    };
+  }
+}
+
+// updated login check for same frame
 router.get("/login", async (req, res) => {
   if (!isAuthConfigured()) {
     res.status(503).send("Azure auth is not configured");
     return;
   }
 
-  // Remember where to send the user back to after a successful login so that
-  // path-based routes land back on the page the user originally requested
-  // instead of the root.
-  req.session.returnTo = sanitizeReturnTo(req.query.returnTo);
+  const embeddedLogin = req.query.embedded === "1";
 
-  // Bind the request to the session with a random state value to defend against
-  // login CSRF / authorization-response injection.
+  // If Field Service already has a valid local session,
+  // do not start another Microsoft login.
+  // For embedded Workspace login, go directly to the
+  // completion page so the popup can notify Workspace and close.
+  if (embeddedLogin && req.session.user) {
+    res.redirect("/api/auth/embedded-complete");
+    return;
+  }
+
+  req.session.embeddedLogin = embeddedLogin;
+
+  req.session.returnTo = embeddedLogin
+    ? "/api/auth/embedded-complete"
+    : sanitizeReturnTo(req.query.returnTo);
+
   const state = crypto.randomBytes(16).toString("hex");
   req.session.authState = state;
 
@@ -55,6 +82,7 @@ router.get("/login", async (req, res) => {
 
   res.redirect(authUrl);
 });
+
 
 router.get("/auth/callback", async (req, res) => {
   if (!isAuthConfigured()) {
@@ -206,7 +234,9 @@ router.get("/auth/callback", async (req, res) => {
     }
 
     // Capture returnTo before regenerating — regenerate() clears the old session data.
-    const returnTo = sanitizeReturnTo(req.session.returnTo);
+    //const returnTo = sanitizeReturnTo(req.session.returnTo);
+      const returnTo = sanitizeReturnTo(req.session.returnTo);
+      const embeddedLogin = req.session.embeddedLogin === true;
 
     // Regenerate the session ID before writing the authenticated user to the
     // session.  This prevents session-fixation attacks: an attacker who planted
@@ -225,13 +255,66 @@ router.get("/auth/callback", async (req, res) => {
       displayName,
       role: isReadWrite ? "editor" : "viewer",
     };
+    // req.session.embeddedLogin = embeddedLogin;
 
-    res.redirect(returnTo);
+    await new Promise<void>((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) reject(err);
+      else resolve();
+    });
+  });
+   req.log.info(
+    {
+      email,
+      displayName,
+      role: isReadWrite ? "editor" : "viewer",
+      embeddedLogin,
+    },
+  "User session created via OAuth callback",
+  );
+   
+  if (embeddedLogin) {
+        res.redirect("/api/auth/embedded-complete");
+    } else {
+        res.redirect(returnTo);
+   }
   } catch (err) {
     req.log.error({ err }, "Azure login failed");
     res.status(500).send("Login failed");
   }
 });
+const workspaceOrigin = process.env.WORKSPACE_FRONTEND_URL;
+router.get("/auth/embedded-complete", requireLogin, (req, res) => {
+  //const workspaceOrigin =
+    //process.env.WORKSPACE_FRONTEND_URL ?? "http://localhost:5176";
+
+  res.type("html").send(`
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Authentication complete</title>
+</head>
+<body>
+  <script>
+    const workspaceOrigin = ${JSON.stringify(workspaceOrigin)};
+
+    if (window.opener) {
+      window.opener.postMessage(
+        { type: "FIELD_SERVICE_AUTH_COMPLETE" },
+        workspaceOrigin
+      );
+
+      window.close();
+    }
+  </script>
+
+  <p>Authentication complete. You can close this window.</p>
+</body>
+</html>
+  `);
+});
+
 
 router.get("/me", requireLogin, (req, res) => {
   res.json(req.session.user);
@@ -239,8 +322,10 @@ router.get("/me", requireLogin, (req, res) => {
 
 router.post("/logout", (req, res) => {
   req.session.destroy(() => {
-    res.redirect(LOGOUT_URL);
+    res.clearCookie("fieldservice.sid", { path: "/" });
+    res.json({ ok: true });
   });
 });
+
 
 export default router;
