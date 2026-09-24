@@ -39,11 +39,13 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
   );
 }
 
+const isEmbedded =
+  typeof window !== "undefined" &&
+  window.self !== window.top;
+  
 function HeaderUser() {
   const { user, logout } = useAuth();
-  const isEmbedded =
-    new URLSearchParams(window.location.search).get("embedded") === "1";
-
+  
   const displayName = user?.displayName ?? user?.email ?? "Signed in";
   const initials = (user?.displayName ?? user?.email ?? "?")
     .split(/[\s@.]+/)
@@ -74,7 +76,7 @@ function HeaderUser() {
         </div>
       </div>
       {!isEmbedded && (
-      <Button
+        <Button
       variant="ghost"
       size="sm"
       className="gap-2 text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
@@ -89,6 +91,7 @@ function HeaderUser() {
 function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {!isEmbedded && (
       <header className="flex items-center gap-4 px-6 py-4 border-b border-border bg-sidebar text-sidebar-foreground">
         <div className="flex items-center gap-2">
           <CalendarRange className="h-5 w-5 text-sidebar-primary" />
@@ -103,6 +106,7 @@ function Layout({ children }: { children: React.ReactNode }) {
         </nav>
         <HeaderUser />
       </header>
+      )}
       <main className="flex-1 min-w-0 px-6 py-6">{children}</main>
     </div>
   );
