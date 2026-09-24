@@ -1,6 +1,7 @@
 import { Router } from "express";
 import crypto from "node:crypto";
 import { z } from "zod";
+
 import {
   getMsalClient,
   isAuthConfigured,
@@ -8,7 +9,11 @@ import {
   REDIRECT_URI,
   LOGIN_SCOPES,
   LOGOUT_URL,
-} from "../lib/auth.js";
+} from "../lib/auth";
+
+import {
+  verifyEmbeddedSsoToken,
+} from "../lib/embedded-sso";
 
 // Runtime schema for the Admin Console access-check response.
 // Exported so it can be reused in tests.
@@ -82,6 +87,346 @@ router.get("/login", async (req, res) => {
 
   res.redirect(authUrl);
 });
+
+// ---------------------------------------------------------------------------
+// GET /api/auth/embedded-sso
+//
+// Workspace already authenticated the user.
+// Workspace sends a short-lived signed SSO token.
+//
+// Field Service:
+//   1. verifies the token
+//   2. checks Admin Console authorization
+//   3. creates its own fieldservice.sid session
+//   4. redirects to the Field Service application
+//
+// No popup.
+// No second Microsoft login.
+// ---------------------------------------------------------------------------
+
+router.get(
+  "/auth/embedded-sso",
+  async (req, res): Promise<void> => {
+    const token =
+      typeof req.query.token === "string"
+        ? req.query.token
+        : "";
+
+    const returnTo =
+      typeof req.query.returnTo === "string"
+        ? req.query.returnTo
+        : "/";
+
+    req.log.info(
+      {
+        hasToken: Boolean(token),
+        returnTo,
+      },
+      "Field Service embedded SSO started",
+    );
+
+    if (!token) {
+      res
+        .status(400)
+        .type("text")
+        .send("Missing SSO token.");
+
+      return;
+    }
+
+    const identity =
+      verifyEmbeddedSsoToken(
+        token,
+        "field-service-calendar",
+      );
+
+    if (!identity) {
+      req.log.warn(
+        "Field Service embedded SSO token invalid or expired",
+      );
+
+      res
+        .status(401)
+        .type("text")
+        .send(
+          "Invalid or expired SSO token.",
+        );
+
+      return;
+    }
+
+    try {
+      const adminConsoleUrl =
+        process.env.ADMIN_CONSOLE_URL;
+
+      const adminConsoleKey =
+        process.env.ADMIN_CONSOLE_API_KEY;
+
+      if (
+        !adminConsoleUrl ||
+        !adminConsoleKey
+      ) {
+        req.log.error(
+          {
+            entraOid: identity.sub,
+          },
+          "Admin Console configuration missing",
+        );
+
+        res
+          .status(500)
+          .type("text")
+          .send(
+            "Auth not configured: ADMIN_CONSOLE_URL and ADMIN_CONSOLE_API_KEY must be set",
+          );
+
+        return;
+      }
+
+      let isReadWrite = false;
+
+      const accessUrl =
+        new URL(
+          "/api/access-check",
+          adminConsoleUrl,
+        );
+
+      accessUrl.searchParams.set(
+        "entraObjectId",
+        identity.sub,
+      );
+
+      accessUrl.searchParams.set(
+        "app",
+        "Field Service Calendar",
+      );
+
+      const acRes =
+        await fetch(
+          accessUrl.toString(),
+          {
+            headers: {
+              "X-API-Key":
+                adminConsoleKey,
+
+              Accept:
+                "application/json",
+            },
+          },
+        );
+
+      const rawBody =
+        await acRes.text();
+
+      if (!acRes.ok) {
+        req.log.warn(
+          {
+            adminConsoleStatus:
+              acRes.status,
+
+            entraOid:
+              identity.sub,
+          },
+          "Admin Console access-check returned non-2xx",
+        );
+
+        res
+          .status(503)
+          .type("text")
+          .send(
+            "Authorisation service unavailable",
+          );
+
+        return;
+      }
+
+      let parsed: unknown;
+
+      try {
+        parsed =
+          JSON.parse(rawBody);
+      } catch {
+        req.log.warn(
+          {
+            entraOid:
+              identity.sub,
+
+            rawBodySnippet:
+              rawBody.slice(0, 300),
+          },
+          "Admin Console response was not valid JSON",
+        );
+
+        res
+          .status(503)
+          .type("text")
+          .send(
+            "Unexpected response from authorisation service",
+          );
+
+        return;
+      }
+
+      const parseResult =
+        acDataSchema.safeParse(
+          parsed,
+        );
+
+      if (!parseResult.success) {
+        req.log.warn(
+          {
+            entraOid:
+              identity.sub,
+
+            validationError:
+              parseResult.error.message,
+          },
+          "Admin Console response has unexpected shape",
+        );
+
+        res
+          .status(503)
+          .type("text")
+          .send(
+            "Unexpected response from authorisation service",
+          );
+
+        return;
+      }
+
+      const acData =
+        parseResult.data;
+
+      if (!acData.allowed) {
+        req.log.warn(
+          {
+            entraOid:
+              identity.sub,
+
+            email:
+              identity.email,
+
+            reason:
+              acData.reason,
+          },
+          "Field Service embedded SSO access denied",
+        );
+
+        res
+          .status(403)
+          .type("text")
+          .send(
+            `User is authenticated but not authorized: ${
+              acData.reason ??
+              "No access configured"
+            }`,
+          );
+
+        return;
+      }
+
+      isReadWrite =
+        acData.roles.some(
+          (role) => {
+            const lc =
+              role.toLowerCase();
+
+            return (
+              lc.includes(
+                "read / write",
+              ) ||
+              lc.includes(
+                "read/write",
+              )
+            );
+          },
+        );
+
+      /*
+       * Create Field Service's own session.
+       *
+       * This is the same structure used by
+       * the existing Microsoft callback.
+       */
+      req.session.user = {
+        entraOid:
+          identity.sub,
+
+        email:
+          identity.email,
+
+        displayName:
+          identity.name,
+
+        role:
+          isReadWrite
+            ? "editor"
+            : "viewer",
+      };
+
+      /*
+       * Persist the session BEFORE redirecting.
+       */
+      await new Promise<void>(
+        (resolve, reject) => {
+          req.session.save(
+            (error) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve();
+              }
+            },
+          );
+        },
+      );
+
+      req.log.info(
+        {
+          email:
+            identity.email,
+
+          displayName:
+            identity.name,
+
+          role:
+            isReadWrite
+              ? "editor"
+              : "viewer",
+
+          sessionId:
+            req.sessionID,
+        },
+        "Field Service embedded session created",
+      );
+
+      const safeReturnTo =
+        returnTo.startsWith("/") &&
+        !returnTo.startsWith("//") &&
+        !returnTo.includes("\\")
+          ? returnTo
+          : "/";
+
+      res.redirect(
+        safeReturnTo,
+      );
+    } catch (error) {
+      req.log.error(
+        {
+          err: error,
+        },
+        "Field Service embedded SSO failed",
+      );
+
+      res
+        .status(503)
+        .type("text")
+        .send(
+          "Embedded sign-in could not be completed.",
+        );
+    }
+  },
+);
 
 
 router.get("/auth/callback", async (req, res) => {
