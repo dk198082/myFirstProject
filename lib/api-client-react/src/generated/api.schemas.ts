@@ -359,6 +359,8 @@ export interface WbServiceLocationDetail {
 
 export interface WbSaveResult {
   message: string;
+  /** False when CRM accepted the save but the calendar's Postgres mirror could not be refreshed. */
+  mirror_synced?: boolean;
 }
 
 export interface WbBookingUpdate {
@@ -1128,6 +1130,24 @@ export const GetScheduleBoardGroupBy = {
   'tech-region': 'tech-region',
   'service-location': 'service-location',
 } as const;
+
+export type GetWbIngestionStatus200EntitiesItem = {
+  entity: string;
+  /** @nullable */
+  checkpoint: string | null;
+  /** @nullable */
+  last_success: string | null;
+  row_count: number;
+  has_error: boolean;
+};
+
+export type GetWbIngestionStatus200 = {
+  enabled: boolean;
+  healthy: boolean;
+  /** @nullable */
+  max_lag_seconds: number | null;
+  entities: GetWbIngestionStatus200EntitiesItem[];
+};
 
 export type GetWbScheduleBoardParams = {
 /**

@@ -14,6 +14,7 @@ import {
   type WbWorkOrder,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { SAVE_RECHECK_MS } from "@/lib/refreshTiming";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -291,17 +292,20 @@ export function EditBookingDialog({
 
   const invalidateAllWithFollowUp = () => {
     invalidateAll();
-    [5_000, 12_000, 20_000].forEach((ms) => setTimeout(invalidateAll, ms));
+    SAVE_RECHECK_MS.forEach((ms) => setTimeout(invalidateAll, ms));
   };
 
   const saveMutation = useSaveWbBooking({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (result) => {
         toast({
-          title: "Saved to CRM",
-          description: `${row.work_order_number ?? "Booking"} updated in Dynamics.`,
+          title: result.mirror_synced === false ? "Saved to CRM; calendar update pending" : "Saved to CRM",
+          description: result.mirror_synced === false
+            ? "Dynamics accepted the change, but the calendar could not refresh from CRM. Do not save it again; check the calendar later."
+            : `${row.work_order_number ?? "Booking"} updated in Dynamics.`,
+          variant: result.mirror_synced === false ? "destructive" : undefined,
         });
-        onSaveSuccess?.(row.booking_id ?? null);
+        if (result.mirror_synced !== false) onSaveSuccess?.(row.booking_id ?? null);
         invalidateAllWithFollowUp();
         onClose();
       },

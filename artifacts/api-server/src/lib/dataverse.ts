@@ -269,6 +269,100 @@ export async function fetchBookingsForWorkOrders(woIds: string[]): Promise<Datav
   }));
 }
 
+type DataverseEntity = Record<string, unknown>;
+
+export class DataverseThrottleError extends Error {
+  constructor(public readonly retryAfterMs: number) {
+    super(`Dataverse ingestion throttled; retry after ${Math.ceil(retryAfterMs / 1000)}s`);
+  }
+}
+
+/**
+ * Fetch every page of recently changed records. A failed or incomplete page
+ * throws so the ingestion checkpoint is never advanced past missing data.
+ */
+export async function fetchModifiedEntities(
+  entitySet: "msdyn_workorders" | "bookableresourcebookings",
+  from: string,
+  through: string,
+): Promise<DataverseEntity[]> {
+  const { baseUrl } = requireConfig();
+  const origin = new URL(baseUrl).origin;
+  const root = `${baseUrl}/api/data/${API_VERSION}/${entitySet}`;
+  const filter = `modifiedon ge ${from} and modifiedon le ${through}`;
+  let next: string | null = `${root}?${new URLSearchParams({
+    "$filter": filter,
+    "$orderby": "modifiedon asc",
+  })}`;
+  const rows: DataverseEntity[] = [];
+  const visited = new Set<string>();
+  while (next) {
+    const url = new URL(next, baseUrl);
+    if (url.origin !== origin || !url.pathname.startsWith(`${new URL(baseUrl).pathname.replace(/\/$/, "")}/api/data/${API_VERSION}/${entitySet}`)) {
+      throw new Error("Unexpected Dataverse paging URL");
+    }
+    if (visited.has(url.href)) throw new Error("Repeated Dataverse paging URL");
+    visited.add(url.href);
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${await getAccessToken()}`,
+        Accept: "application/json",
+        "OData-MaxVersion": "4.0",
+        "OData-Version": "4.0",
+        Prefer: 'odata.include-annotations="OData.Community.Display.V1.FormattedValue",odata.maxpagesize=500',
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) {
+      const retryAfter = res.headers.get("retry-after");
+      if (res.status === 429 || res.status === 503) {
+        const seconds = retryAfter ? Number(retryAfter) : NaN;
+        const delay = Number.isFinite(seconds) ? seconds * 1000
+          : retryAfter ? Date.parse(retryAfter) - Date.now() : 30_000;
+        throw new DataverseThrottleError(Math.max(8_000, Number.isFinite(delay) ? delay : 30_000));
+      }
+      throw new Error(`Dataverse ${entitySet} ingestion failed (${res.status})`);
+    }
+    const data = await res.json() as { value?: DataverseEntity[]; "@odata.nextLink"?: string };
+    if (!Array.isArray(data.value)) throw new Error(`Invalid Dataverse ${entitySet} response`);
+    rows.push(...data.value);
+    next = data["@odata.nextLink"] ?? null;
+  }
+  return rows;
+}
+
+export async function fetchWorkOrderById(id: string): Promise<Record<string, unknown>> {
+  if (!/^[a-f0-9-]{36}$/i.test(id)) throw new Error("Invalid work order ID");
+  const { baseUrl } = requireConfig();
+  const res = await fetch(`${baseUrl}/api/data/${API_VERSION}/msdyn_workorders(${id})`, {
+    headers: {
+      Authorization: `Bearer ${await getAccessToken()}`,
+      Accept: "application/json",
+      Prefer: 'odata.include-annotations="OData.Community.Display.V1.FormattedValue"',
+    },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`Dataverse parent work order fetch failed (${res.status})`);
+  return res.json() as Promise<Record<string, unknown>>;
+}
+
+export async function fetchBookingById(id: string): Promise<Record<string, unknown>> {
+  if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(id)) {
+    throw new Error("Invalid booking ID");
+  }
+  const { baseUrl } = requireConfig();
+  const res = await fetch(`${baseUrl}/api/data/${API_VERSION}/bookableresourcebookings(${id})`, {
+    headers: {
+      Authorization: `Bearer ${await getAccessToken()}`,
+      Accept: "application/json",
+      Prefer: 'odata.include-annotations="OData.Community.Display.V1.FormattedValue"',
+    },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`Dataverse booking read-back failed (${res.status})`);
+  return res.json() as Promise<Record<string, unknown>>;
+}
+
 export interface BookingCreate {
   workOrderId: string;
   startTime?: string | null;

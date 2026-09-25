@@ -8,4 +8,6 @@
 
 export interface WbSaveResult {
   message: string;
+  /** False when CRM accepted the save but the calendar's Postgres mirror could not be refreshed. */
+  mirror_synced?: boolean;
 }

@@ -32,6 +32,11 @@ const mocks = vi.hoisted(() => ({
   localQuery: vi.fn(),
   isCrmConfigured: vi.fn(() => false),
   isCrmUnavailableError: vi.fn(() => false),
+  isDataverseConfigured: vi.fn(() => false),
+  crmQuery: vi.fn(),
+  patchBooking: vi.fn(),
+  createBooking: vi.fn(),
+  mirrorSavedBooking: vi.fn(),
 }));
 
 /**
@@ -56,7 +61,7 @@ vi.mock("../lib/localDb.js", () => ({
 }));
 
 vi.mock("../lib/crmDb.js", () => ({
-  getCrmPool: vi.fn(),
+  getCrmPool: () => ({ query: mocks.crmQuery }),
   isCrmConfigured: mocks.isCrmConfigured,
   isCrmUnavailableError: mocks.isCrmUnavailableError,
 }));
@@ -69,11 +74,16 @@ vi.mock("../lib/crmMirror.js", () => ({
 }));
 
 vi.mock("../lib/dataverse.js", () => ({
-  isDataverseConfigured: vi.fn(() => false),
-  patchBooking: vi.fn(),
-  createBooking: vi.fn(),
+  isDataverseConfigured: mocks.isDataverseConfigured,
+  patchBooking: mocks.patchBooking,
+  createBooking: mocks.createBooking,
   fetchWorkOrdersByName: vi.fn(),
   fetchBookingsForWorkOrders: vi.fn(),
+}));
+
+vi.mock("../lib/crmIngestion.js", () => ({
+  mirrorSavedBooking: mocks.mirrorSavedBooking,
+  refreshCrmIngestion: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Import the real writebackRouter AFTER mocks are registered.
@@ -203,6 +213,67 @@ describe("POST /wb/schedule-blocks — role enforcement", () => {
 
     // The route should return the created block (not a 403 or 401).
     expect(res.body).toMatchObject({ id: 42, technician_id: "tech-abc", block_type: "pto" });
+  });
+});
+
+describe("direct CRM booking saves", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.isCrmConfigured.mockReturnValue(true);
+    mocks.isDataverseConfigured.mockReturnValue(true);
+    mocks.crmQuery.mockResolvedValue({ rows: [{ booking_id: "booking-123", work_order_id: "wo-123" }] });
+    mocks.patchBooking.mockResolvedValue(undefined);
+    mocks.createBooking.mockResolvedValue(undefined);
+    mocks.mirrorSavedBooking.mockResolvedValue(undefined);
+  });
+
+  it("confirms an edited booking only after Dataverse accepts it", async () => {
+    const agent = request.agent(buildApp());
+    await agent.get("/__test/seed-editor").expect(200);
+    const response = await agent.post("/wb/bookings/booking-123/save")
+      .send(validBookingUpdateBody).expect(200);
+    expect(response.body).toMatchObject({ message: "Booking saved to CRM", mirror_synced: true });
+    expect(mocks.patchBooking).toHaveBeenCalledWith("booking-123", {
+      startTime: validBookingUpdateBody.start_time,
+      endTime: validBookingUpdateBody.end_time,
+      resourceId: undefined,
+    });
+  });
+
+  it("confirms a new booking only after Dataverse accepts it", async () => {
+    const agent = request.agent(buildApp());
+    await agent.get("/__test/seed-editor").expect(200);
+    await agent.post("/wb/work-orders/wo-123/booking/save")
+      .send(validBookingUpdateBody).expect(200);
+    expect(mocks.createBooking).toHaveBeenCalledWith({
+      workOrderId: "wo-123",
+      startTime: validBookingUpdateBody.start_time,
+      endTime: validBookingUpdateBody.end_time,
+      resourceId: undefined,
+    });
+  });
+});
+
+describe("calendar ingestion freshness status", () => {
+  it("reports lag and failure without exposing the error details", async () => {
+    vi.stubEnv("CRM_INGESTION_ENABLED", "true");
+    try {
+      mocks.crmQuery.mockResolvedValueOnce({
+        rows: [
+          { entity: "bookableresourcebookings", checkpoint: new Date(Date.now() - 5_000), last_success: new Date(), row_count: 1, last_error: null },
+          { entity: "msdyn_workorders", checkpoint: new Date(Date.now() - 35_000), last_success: new Date(), row_count: 0, last_error: "internal database details" },
+        ],
+      });
+      const agent = request.agent(buildApp());
+      await agent.get("/__test/seed-viewer").expect(200);
+      const response = await agent.get("/wb/ingestion-status").expect(200);
+      expect(response.body).toMatchObject({ enabled: true, healthy: false });
+      expect(response.body.max_lag_seconds).toBeGreaterThanOrEqual(35);
+      expect(response.body.entities[1]).toMatchObject({ entity: "msdyn_workorders", has_error: true });
+      expect(JSON.stringify(response.body)).not.toContain("internal database details");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 

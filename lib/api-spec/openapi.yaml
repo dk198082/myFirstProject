@@ -912,6 +912,49 @@ paths:
               schema:
                 $ref: "#/components/schemas/ScheduleBoard"
 
+  /wb/ingestion-status:
+    get:
+      operationId: getWbIngestionStatus
+      tags: [writeback]
+      summary: Check calendar CRM ingestion freshness
+      responses:
+        "200":
+          description: Status of both CRM ingestion checkpoints
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enabled, healthy, max_lag_seconds, entities]
+                properties:
+                  enabled:
+                    type: boolean
+                  healthy:
+                    type: boolean
+                  max_lag_seconds:
+                    type: [integer, "null"]
+                  entities:
+                    type: array
+                    items:
+                      type: object
+                      required: [entity, checkpoint, last_success, row_count, has_error]
+                      properties:
+                        entity:
+                          type: string
+                        checkpoint:
+                          type: [string, "null"]
+                        last_success:
+                          type: [string, "null"]
+                        row_count:
+                          type: integer
+                        has_error:
+                          type: boolean
+        "503":
+          description: Status storage is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /wb/schedule-board:
     get:
       operationId: getWbScheduleBoard
@@ -1425,6 +1468,9 @@ components:
       properties:
         message:
           type: string
+        mirror_synced:
+          type: boolean
+          description: False when CRM accepted the save but the calendar's Postgres mirror could not be refreshed.
 
     WbBookingUpdate:
       type: object

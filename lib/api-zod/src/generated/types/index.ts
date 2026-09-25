@@ -27,6 +27,8 @@ export * from './getScheduleBoardGroupBy';
 export * from './getScheduleBoardParams';
 export * from './getScheduleBoardView';
 export * from './getTechnicianByEmailParams';
+export * from './getWbIngestionStatus200';
+export * from './getWbIngestionStatus200EntitiesItem';
 export * from './getWbJobsByRegionParams';
 export * from './getWbReportApprovedNotInvoicedParams';
 export * from './getWbReportCompletedNotApprovedParams';

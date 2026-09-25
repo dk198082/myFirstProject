@@ -30,6 +30,7 @@ import type {
   GetResourceUtilizationParams,
   GetScheduleBoardParams,
   GetTechnicianByEmailParams,
+  GetWbIngestionStatus200,
   GetWbJobsByRegionParams,
   GetWbReportApprovedNotInvoicedParams,
   GetWbReportCompletedNotApprovedParams,
@@ -2833,6 +2834,83 @@ export function useGetScheduleBoard<TData = Awaited<ReturnType<typeof getSchedul
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetScheduleBoardQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetWbIngestionStatusUrl = () => {
+
+
+
+
+  return `/api/wb/ingestion-status`
+}
+
+/**
+ * @summary Check calendar CRM ingestion freshness
+ */
+export const getWbIngestionStatus = async ( options?: RequestInit): Promise<GetWbIngestionStatus200> => {
+
+  return customFetch<GetWbIngestionStatus200>(getGetWbIngestionStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWbIngestionStatusQueryKey = () => {
+    return [
+    `/api/wb/ingestion-status`
+    ] as const;
+    }
+
+
+export const getGetWbIngestionStatusQueryOptions = <TData = Awaited<ReturnType<typeof getWbIngestionStatus>>, TError = ErrorType<ErrorResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbIngestionStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWbIngestionStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWbIngestionStatus>>> = ({ signal }) => getWbIngestionStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWbIngestionStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWbIngestionStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getWbIngestionStatus>>>
+export type GetWbIngestionStatusQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Check calendar CRM ingestion freshness
+ */
+
+export function useGetWbIngestionStatus<TData = Awaited<ReturnType<typeof getWbIngestionStatus>>, TError = ErrorType<ErrorResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWbIngestionStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWbIngestionStatusQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

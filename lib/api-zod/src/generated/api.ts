@@ -119,7 +119,8 @@ export const SaveWbBookingBody = zod.object({
 })
 
 export const SaveWbBookingResponse = zod.object({
-  "message": zod.string()
+  "message": zod.string(),
+  "mirror_synced": zod.boolean().optional().describe('False when CRM accepted the save but the calendar\'s Postgres mirror could not be refreshed.')
 })
 
 
@@ -137,7 +138,8 @@ export const SaveNewWbBookingBody = zod.object({
 })
 
 export const SaveNewWbBookingResponse = zod.object({
-  "message": zod.string()
+  "message": zod.string(),
+  "mirror_synced": zod.boolean().optional().describe('False when CRM accepted the save but the calendar\'s Postgres mirror could not be refreshed.')
 })
 
 
@@ -998,6 +1000,23 @@ export const GetScheduleBoardResponse = zod.object({
   "equipment_names": zod.array(zod.string()).optional().describe('Up to 5 equipment names associated with the work order, sorted alphabetically.')
 }))
 }))
+}))
+})
+
+
+/**
+ * @summary Check calendar CRM ingestion freshness
+ */
+export const GetWbIngestionStatusResponse = zod.object({
+  "enabled": zod.boolean(),
+  "healthy": zod.boolean(),
+  "max_lag_seconds": zod.number().nullable(),
+  "entities": zod.array(zod.object({
+  "entity": zod.string(),
+  "checkpoint": zod.string().nullable(),
+  "last_success": zod.string().nullable(),
+  "row_count": zod.number(),
+  "has_error": zod.boolean()
 }))
 })
 

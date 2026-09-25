@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { SAVE_RECHECK_MS } from "@/lib/refreshTiming";
 import {
   useGetWbScheduleBoard,
+  useGetWbIngestionStatus,
   useGetWbUnscheduledJobs,
   useGetWbResourceUtilization,
   useSaveWbBooking,
@@ -1912,13 +1914,16 @@ export default function ScheduleBoard() {
         data: decision.update,
       },
       {
-        onSuccess: () => {
-          handleSaveSuccess(decision.bookingId);
+        onSuccess: (result) => {
+          if (result.mirror_synced !== false) handleSaveSuccess(decision.bookingId);
           invalidateAll();
-          [5_000, 12_000, 20_000].forEach((ms) => setTimeout(invalidateAll, ms));
+          SAVE_RECHECK_MS.forEach((ms) => setTimeout(invalidateAll, ms));
           toast({
-            title: "Saved to CRM",
-            description: `${job.work_order_number ?? "Booking"} rescheduled in Dynamics.`,
+            title: result.mirror_synced === false ? "Saved to CRM; calendar update pending" : "Saved to CRM",
+            description: result.mirror_synced === false
+              ? "Dynamics accepted the move, but the calendar could not refresh from CRM. Do not move it again; check the calendar later."
+              : `${job.work_order_number ?? "Booking"} rescheduled in Dynamics.`,
+            variant: result.mirror_synced === false ? "destructive" : undefined,
           });
         },
       },
@@ -1940,6 +1945,7 @@ export default function ScheduleBoard() {
     view: apiView,
     ...(groupBy === "service-location" ? { groupBy: "service-location" } : {}),
   });
+  const { data: ingestionStatus, error: ingestionStatusError } = useGetWbIngestionStatus();
 
   const { data: unscheduledData } = useGetWbUnscheduledJobs();
   const unscheduledJobs = unscheduledData?.jobs ?? [];
@@ -3338,6 +3344,13 @@ export default function ScheduleBoard() {
         </div>
       )}
 
+      {(ingestionStatusError || (ingestionStatus && !ingestionStatus.healthy)) && (
+        <div className="mb-3 rounded border border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+          {ingestionStatus?.enabled
+            ? "CRM updates are delayed. The calendar may not yet show the latest booking changes."
+            : "CRM live sync is unavailable. The calendar may not show the latest booking changes."}
+        </div>
+      )}
       {isLoading && (
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
