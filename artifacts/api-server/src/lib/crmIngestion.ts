@@ -227,6 +227,27 @@ let activeTick: Promise<void> | null = null;
 
 /** Called by board reads too: an autoscaled API may have slept between visits. */
 export function refreshCrmIngestion(): Promise<void> {
+
+  const enabled = process.env.CRM_INGESTION_ENABLED === "true";
+  const crmConfigured = isCrmConfigured();
+  const dataverseConfigured = isDataverseConfigured();
+
+  logger.info({
+    enabled,
+    crmConfigured,
+    dataverseConfigured,
+  }, "CRM ingestion configuration");
+
+  if (!enabled || !crmConfigured || !dataverseConfigured) {
+    logger.warn({
+      enabled,
+      crmConfigured,
+      dataverseConfigured,
+    }, "CRM ingestion skipped");
+    
+    return Promise.resolve();
+  }
+  
   if (process.env.CRM_INGESTION_ENABLED !== "true" || !isCrmConfigured() || !isDataverseConfigured()) {
     return Promise.resolve();
   }
