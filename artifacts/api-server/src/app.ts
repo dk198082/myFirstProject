@@ -11,10 +11,9 @@ import { localPool } from "./lib/localDb";
 
 const app: Express = express();
 
-// Trust the first reverse proxy hop (Replit's proxy in dev/Replit prod, Azure
-// App Service's / Azure Container Apps' front end in Azure) so `req.secure`,
-// `req.protocol` and the session cookie's `secure: "auto"` are derived from
-// the `X-Forwarded-*` headers instead of the (plain HTTP) hop to this process.
+// Trust the reverse proxy (Replit preview, or Azure App Service/Container
+// Apps in production) so secure cookies and the forwarded protocol are
+// handled correctly.
 app.set("trust proxy", 1);
 
 app.use(
@@ -36,11 +35,9 @@ app.use(
     },
   }),
 );
-// CORS_ORIGIN is only needed if the frontend is deployed separately from this
-// API (e.g. a second Azure Static Web App instead of STATIC_DIR mode below).
-// Comma-separated list of allowed origins, e.g. "https://myapp.z1.web.core.windows.net".
-// Left unset, cors() reflects no restriction (fine for same-origin STATIC_DIR
-// mode, where the browser never makes a cross-origin request in the first place).
+// CORS_ORIGIN lets Azure deployments restrict cross-origin requests to the
+// deployed frontend origin(s) (comma-separated). Unset in single-container
+// deployments where the frontend is served from this same Express app.
 const corsOrigins = process.env.CORS_ORIGIN?.split(",")
   .map((o) => o.trim())
   .filter(Boolean);
@@ -73,10 +70,8 @@ app.use(
     // not let connect-pg-simple create it — its bundled table.sql is not available
     // after esbuild bundling. The table needs columns sid (PK), sess (jsonb),
     // expire, plus an index on expire, in every environment (dev and production).
-    name: "fieldservice.sid",
     store: new PgSession({
       pool: localPool,
-      schemaName: "crm",
       tableName: "sessions",
       createTableIfMissing: false,
     }),
@@ -88,59 +83,43 @@ app.use(
     rolling: true,
     cookie: {
       httpOnly: true,
-      maxAge: 60 * 60 * 1000,
+      maxAge: 1000 * 60 * 60 * 24 * 30,
       // Development: the app is used inside the Replit preview iframe, where
       // the browser treats it as third-party and withholds SameSite=Lax
       // cookies. SameSite=None (which requires Secure) lets the embedded
       // preview send the session cookie. The dev domain is always HTTPS via
       // the Replit proxy (trust proxy is enabled above).
-      // Production: keep the stricter Lax + auto-secure behavior by default.
-      // Only set COOKIE_SAME_SITE=none (and CORS_ORIGIN above) in production
-      // if the frontend is deployed to a different Azure host than this API —
-      // the frontend must also send fetch(..., { credentials: "include" }) in
-      // that case, or the browser will never attach the session cookie.
+      // Production: keep the stricter Lax + auto-secure behavior.
       ...(process.env.NODE_ENV === "production"
-        ? {
-            secure: "auto" as const,
-            sameSite:
-            (process.env.COOKIE_SAME_SITE as "lax" | "none" | "strict") ??
-              "none",
-          }
-         : { secure: false, sameSite: "lax" }),
+        ? { secure: "auto" as const, sameSite: "lax" as const }
+        : { secure: true, sameSite: "none" as const }),
     },
   }),
 );
 
 app.use("/api", router);
 
-// --- AZURE DEPLOYMENT ---------------------------------------------------
-// Optional single-service mode: if STATIC_DIR points at the built frontend
-// (artifacts/field-service-schedule-board/dist/public), this API server also
-// serves it, so the whole app runs as ONE Azure App Service / Container Apps
-// instance on ONE origin. That keeps the session cookie same-site/same-origin
-// and avoids needing CORS credentials + a second Azure resource.
-// Unset in local dev (the Vite dev server serves the frontend on its own
-// port instead) and set by ./Dockerfile / AZURE_DEPLOYMENT.md in production.
-//
-// NOTE: as of a few rounds ago, this export no longer includes
-// artifacts/fs-training-deck or artifacts/dynamics-write-back (still absent
-// in this export too) — see AZURE_DEPLOYMENT.md for details.
+// Serve the built frontend when STATIC_DIR points at a compiled SPA (the
+// single-container Azure deployment pattern: this API server serves both the
+// API and the static frontend from one origin). Not used in local dev, where
+// Vite serves the frontend on its own port.
 const staticDir = process.env.STATIC_DIR;
 if (staticDir) {
   const resolvedStaticDir = path.resolve(staticDir);
-  if (!fs.existsSync(path.join(resolvedStaticDir, "index.html"))) {
-    throw new Error(
-      `STATIC_DIR is set to "${resolvedStaticDir}" but no index.html was found there. ` +
-        "Build the frontend first (see AZURE_DEPLOYMENT.md).",
+  if (fs.existsSync(resolvedStaticDir)) {
+    app.use(express.static(resolvedStaticDir));
+    // Express 5's router (path-to-regexp v8) rejects a bare "*" pattern, so
+    // the SPA fallback is a path-less middleware instead of app.get("*", ...).
+    app.use((req, res, next) => {
+      if (req.method !== "GET" || req.path.startsWith("/api")) return next();
+      res.sendFile(path.join(resolvedStaticDir, "index.html"));
+    });
+  } else {
+    logger.warn(
+      { staticDir: resolvedStaticDir },
+      "STATIC_DIR is set but does not exist; the frontend will not be served from this process.",
     );
   }
-  app.use(express.static(resolvedStaticDir));
-  // SPA fallback: any non-API, non-file GET request returns index.html so
-  // client-side routing (wouter) can handle the path. Must be registered
-  // after "/api" so API routes/404s above are never shadowed by this.
-  app.get(/^(?!\/api\/).*/, (_req, res) => {
-    res.sendFile(path.join(resolvedStaticDir, "index.html"));
-  });
 }
 
 export default app;

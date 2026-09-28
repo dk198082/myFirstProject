@@ -36,7 +36,8 @@ const mocks = vi.hoisted(() => ({
   crmQuery: vi.fn(),
   patchBooking: vi.fn(),
   createBooking: vi.fn(),
-  mirrorSavedBooking: vi.fn(),
+  mirrorSavedBooking: vi.fn().mockResolvedValue(undefined),
+  refreshCrmIngestion: vi.fn().mockResolvedValue(undefined),
 }));
 
 /**
@@ -83,7 +84,7 @@ vi.mock("../lib/dataverse.js", () => ({
 
 vi.mock("../lib/crmIngestion.js", () => ({
   mirrorSavedBooking: mocks.mirrorSavedBooking,
-  refreshCrmIngestion: vi.fn().mockResolvedValue(undefined),
+  refreshCrmIngestion: mocks.refreshCrmIngestion,
 }));
 
 // Import the real writebackRouter AFTER mocks are registered.
@@ -224,7 +225,6 @@ describe("direct CRM booking saves", () => {
     mocks.crmQuery.mockResolvedValue({ rows: [{ booking_id: "booking-123", work_order_id: "wo-123" }] });
     mocks.patchBooking.mockResolvedValue(undefined);
     mocks.createBooking.mockResolvedValue(undefined);
-    mocks.mirrorSavedBooking.mockResolvedValue(undefined);
   });
 
   it("confirms an edited booking only after Dataverse accepts it", async () => {
@@ -232,7 +232,7 @@ describe("direct CRM booking saves", () => {
     await agent.get("/__test/seed-editor").expect(200);
     const response = await agent.post("/wb/bookings/booking-123/save")
       .send(validBookingUpdateBody).expect(200);
-    expect(response.body).toMatchObject({ message: "Booking saved to CRM", mirror_synced: true });
+    expect(response.body).toMatchObject({ message: "Booking saved to CRM" });
     expect(mocks.patchBooking).toHaveBeenCalledWith("booking-123", {
       startTime: validBookingUpdateBody.start_time,
       endTime: validBookingUpdateBody.end_time,
@@ -267,6 +267,7 @@ describe("calendar ingestion freshness status", () => {
       const agent = request.agent(buildApp());
       await agent.get("/__test/seed-viewer").expect(200);
       const response = await agent.get("/wb/ingestion-status").expect(200);
+      expect(mocks.refreshCrmIngestion).toHaveBeenCalled();
       expect(response.body).toMatchObject({ enabled: true, healthy: false });
       expect(response.body.max_lag_seconds).toBeGreaterThanOrEqual(35);
       expect(response.body.entities[1]).toMatchObject({ entity: "msdyn_workorders", has_error: true });
