@@ -73,6 +73,7 @@ app.use(
     name: "fieldservice.sid",
     store: new PgSession({
       pool: localPool,
+      schemaName: "crm",
       tableName: "sessions",
       createTableIfMissing: false,
     }),
