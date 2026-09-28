@@ -143,8 +143,6 @@ export async function mirrorSavedBooking(bookingId: string, expected: BookingPat
   }
 }
 
-logger.info("CRM ingestion cycle started");
-
 /** One serialized cycle across API instances. Checkpoints only advance on a full successful fetch and commit. */
 export async function ingestCrmChanges(): Promise<void> {
   let client: pg.PoolClient | null = null;
@@ -168,15 +166,9 @@ export async function ingestCrmChanges(): Promise<void> {
       );
       
       const from = windowStart(state.rows[0]?.checkpoint ?? null, new Date(through));
-      logger.info(
-  { entity, from, through },
-  "CRM ingestion fetching changes",
-);
+      
       const rows = await fetchModifiedEntities(entity, from, through);
-      logger.info(
-  { entity, rows: rows.length, through },
-  "CRM ingestion fetch completed",
-);
+      
       // A booking created for a pre-existing (but absent from the mirror) work
       // order needs its parent; fail visibly rather than silently losing it.
       await client.query("BEGIN");
@@ -193,10 +185,7 @@ export async function ingestCrmChanges(): Promise<void> {
           [entity, through, rows.length],
         );
         await client.query("COMMIT");
-        logger.info(
-  { entity, rows: rows.length, through },
-  "CRM ingestion committed",
-);
+        
         if (rows.length) logger.info({ entity, rows: rows.length, through }, "CRM ingestion succeeded");
       } catch (error) {
         await client.query("ROLLBACK");
@@ -247,7 +236,7 @@ export function refreshCrmIngestion(): Promise<void> {
     
     return Promise.resolve();
   }
-  
+
   if (process.env.CRM_INGESTION_ENABLED !== "true" || !isCrmConfigured() || !isDataverseConfigured()) {
     return Promise.resolve();
   }
