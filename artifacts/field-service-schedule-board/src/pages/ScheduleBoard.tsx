@@ -19,6 +19,7 @@ import {
   getSearchWbJobsQueryKey,
   getListWbWorkOrdersQueryKey,
   getGetWbScheduleBoardQueryKey,
+  getGetWbIngestionStatusQueryKey,
   getGetWbResourceUtilizationQueryKey,
   getGetWbUnscheduledJobsQueryKey,
   getListWbScheduleBlocksQueryKey,
@@ -1945,7 +1946,13 @@ export default function ScheduleBoard() {
     view: apiView,
     ...(groupBy === "service-location" ? { groupBy: "service-location" } : {}),
   });
-  const { data: ingestionStatus, error: ingestionStatusError } = useGetWbIngestionStatus();
+  const { data: ingestionStatus, error: ingestionStatusError } = useGetWbIngestionStatus({
+    query: {
+      queryKey: getGetWbIngestionStatusQueryKey(),
+      refetchInterval: 20_000,
+      refetchOnWindowFocus: true,
+    },
+  });
 
   const { data: unscheduledData } = useGetWbUnscheduledJobs();
   const unscheduledJobs = unscheduledData?.jobs ?? [];
