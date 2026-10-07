@@ -14,6 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
+  SelectGroup,
+  SelectLabel,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -64,7 +66,7 @@ export function EditPlaceholderJobDialog({
 }: {
   job: PlaceholderJob;
   technicianName: string;
-  /** Technician roster allowed by the current coordinator/region scope. */
+  /** Full active roster, ordered with the coordinator/assigned region first. */
   technicians: Array<{ id: string; name: string; region: string }>;
   /** Palette index to pre-select when job has no saved colour override. */
   defaultColorIndex?: number | null;
@@ -211,10 +213,15 @@ export function EditPlaceholderJobDialog({
                 <SelectValue placeholder="Select a technician" />
               </SelectTrigger>
               <SelectContent>
-                {technicians.map((technician) => (
-                  <SelectItem key={technician.id} value={technician.id}>
-                    {technician.name} — {technician.region}
-                  </SelectItem>
+                {Array.from(new Set(technicians.map((technician) => technician.region))).map((region) => (
+                  <SelectGroup key={region}>
+                    <SelectLabel>{region}</SelectLabel>
+                    {technicians.filter((technician) => technician.region === region).map((technician) => (
+                      <SelectItem key={technician.id} value={technician.id}>
+                        {technician.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>

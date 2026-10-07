@@ -70,10 +70,8 @@ app.use(
     // not let connect-pg-simple create it — its bundled table.sql is not available
     // after esbuild bundling. The table needs columns sid (PK), sess (jsonb),
     // expire, plus an index on expire, in every environment (dev and production).
-    name: "fieldservice.sid",
     store: new PgSession({
       pool: localPool,
-      schemaName: "crm",
       tableName: "sessions",
       createTableIfMissing: false,
     }),
@@ -85,7 +83,7 @@ app.use(
     rolling: true,
     cookie: {
       httpOnly: true,
-      maxAge: 60 * 60 * 1000,
+      maxAge: 1000 * 60 * 60 * 24 * 30,
       // Development: the app is used inside the Replit preview iframe, where
       // the browser treats it as third-party and withholds SameSite=Lax
       // cookies. SameSite=None (which requires Secure) lets the embedded
@@ -93,24 +91,46 @@ app.use(
       // the Replit proxy (trust proxy is enabled above).
       // Production: keep the stricter Lax + auto-secure behavior.
       ...(process.env.NODE_ENV === "production"
-        ? {
-            secure: "auto" as const,
-            sameSite:
-            (process.env.COOKIE_SAME_SITE as "lax" | "none" | "strict") ??
-              "none",
-          }
-         : { secure: false, sameSite: "lax" }),
-
+        ? { secure: "auto" as const, sameSite: "lax" as const }
+        : { secure: true, sameSite: "none" as const }),
     },
   }),
 );
 
 app.use("/api", router);
 
-// Serve the built frontend when STATIC_DIR points at a compiled SPA (the
-// single-container Azure deployment pattern: this API server serves both the
-// API and the static frontend from one origin). Not used in local dev, where
-// Vite serves the frontend on its own port.
+// Serve the built frontends when the corresponding STATIC_* env vars point
+// at compiled SPAs (the single-container Azure deployment pattern: this API
+// server also serves the static frontends from one origin, so the session
+// cookie stays same-site and only one Azure resource is needed). Unset in
+// local dev, where each Vite dev server serves its own frontend on its own
+// port instead.
+//
+// Pro Forma Service Invoice is mounted under /pro-forma-service-invoice/,
+// matching its own BASE_PATH (see artifacts/pro-forma-service-invoice's
+// .replit-artifact/artifact.toml and vite.config.ts) — mounted BEFORE the
+// Field Service Calendar's root catch-all below, since Express matches
+// middleware in registration order and the calendar's SPA fallback would
+// otherwise shadow this sub-path.
+const staticProFormaDir = process.env.STATIC_PRO_FORMA_DIR;
+if (staticProFormaDir) {
+  const resolvedProFormaDir = path.resolve(staticProFormaDir);
+  const proFormaIndex = path.join(resolvedProFormaDir, "index.html");
+  if (fs.existsSync(proFormaIndex)) {
+    app.use("/pro-forma-service-invoice", express.static(resolvedProFormaDir));
+    app.get(/^\/pro-forma-service-invoice(\/.*)?$/, (_req, res) => {
+      res.sendFile(proFormaIndex);
+    });
+  } else {
+    logger.warn(
+      { staticProFormaDir: resolvedProFormaDir },
+      "STATIC_PRO_FORMA_DIR is set but no index.html was found there; the Pro Forma Service Invoice app will not be served from this process.",
+    );
+  }
+}
+
+// Field Service Calendar owns the site root and is the catch-all SPA
+// fallback for anything not matched above and not under /api.
 const staticDir = process.env.STATIC_DIR;
 if (staticDir) {
   const resolvedStaticDir = path.resolve(staticDir);

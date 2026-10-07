@@ -717,7 +717,21 @@ function PlaceholderJobChip({
   const colorCls = job.color_index != null
      ? TECH_PALETTE[job.color_index]?.chip ?? regionPaletteEntry(regionName, "potential").chip
      : regionPaletteEntry(regionName, "potential").chip;
-  const hasPurchaseOrder = job.status?.trim().toLowerCase() === "have purchase order";
+  const paymentStatus = job.status?.trim().toLowerCase();
+  const paymentNotification =
+    paymentStatus === "have purchase order"
+      ? {
+          label: "Purchase Order Received",
+          testId: `potential-job-purchase-order-${job.id}`,
+          ariaLabel: "This Potential Job has a purchase order",
+        }
+      : paymentStatus === "have credit card"
+        ? {
+            label: "Have Credit Card",
+            testId: `potential-job-credit-card-${job.id}`,
+            ariaLabel: "This Potential Job has a credit card",
+          }
+        : null;
   const duration = fmtBlockDuration(job.start_time, job.end_time);
   const location = [
     job.city,
@@ -809,21 +823,21 @@ function PlaceholderJobChip({
         </button>}
         <div className="relative opacity-90 whitespace-normal break-words pr-3">{job.customer_name || job.title}</div>
         {location && <div className="relative opacity-70 whitespace-normal break-words">{location}</div>}
-        {job.status && !hasPurchaseOrder && (
+        {job.status && !paymentNotification && (
           <div className="relative opacity-60 whitespace-normal break-words">{job.status}</div>
         )}
         {job.notes && (
           <ChipNotes notes={job.notes} className="relative opacity-60 truncate" />
         )}
-        {hasPurchaseOrder && (
+        {paymentNotification && (
           <div
             className="relative mt-1 flex items-center gap-1 rounded bg-emerald-700 px-1.5 py-1 text-[10px] font-bold leading-none text-white shadow-sm"
             role="status"
-            aria-label="This Potential Job has a purchase order"
-            data-testid={`potential-job-purchase-order-${job.id}`}
+            aria-label={paymentNotification.ariaLabel}
+            data-testid={paymentNotification.testId}
           >
             <BadgeCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span>Purchase Order Received</span>
+            <span>{paymentNotification.label}</span>
           </div>
         )}
         {showResizeHandle && (
@@ -1953,7 +1967,6 @@ export default function ScheduleBoard() {
       refetchOnWindowFocus: true,
     },
   });
-
   const { data: unscheduledData } = useGetWbUnscheduledJobs();
   const unscheduledJobs = unscheduledData?.jobs ?? [];
 
@@ -2285,18 +2298,26 @@ export default function ScheduleBoard() {
     const selectedTechnician = allPotentialJobTechnicians.find(
       (technician) => technician.id === technicianId,
     );
-    const allowedRegionNames =
+    const preferredRegions =
       coordinatorPotentialJobRegions.size > 0
         ? coordinatorPotentialJobRegions
-        : selectedTechnician
-          ? new Set([selectedTechnician.region.trim().toLocaleUpperCase()])
-          : null;
-
-    return allowedRegionNames
-      ? allPotentialJobTechnicians.filter((technician) =>
-          allowedRegionNames.has(technician.region.trim().toLocaleUpperCase()),
-        )
-      : allPotentialJobTechnicians;
+        : new Set(
+            selectedTechnician
+              ? [selectedTechnician.region.trim().toLocaleUpperCase()]
+              : [],
+          );
+    return [...allPotentialJobTechnicians].sort((a, b) => {
+      const aRegion = a.region.trim().toLocaleUpperCase();
+      const bRegion = b.region.trim().toLocaleUpperCase();
+      const aPreferredRegion = preferredRegions.has(aRegion);
+      const bPreferredRegion = preferredRegions.has(bRegion);
+      if (aPreferredRegion !== bPreferredRegion) return aPreferredRegion ? -1 : 1;
+      const byRegion = a.region.localeCompare(b.region, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+      return byRegion || a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+    });
   };
   const regionDefaultAppliedFor = useRef<string | null>(null);
 

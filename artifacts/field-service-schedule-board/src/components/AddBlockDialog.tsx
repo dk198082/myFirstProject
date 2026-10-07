@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
+  SelectGroup,
+  SelectLabel,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -58,7 +60,7 @@ export function AddBlockDialog({
 }: {
   technicianId: string;
   technicianName: string;
-  /** Technician roster allowed by the current coordinator/region scope. */
+  /** Full active roster, ordered with the coordinator/selected region first. */
   technicians: Array<{ id: string; name: string; region: string }>;
   /** ISO date string "YYYY-MM-DD" */
   date: string;
@@ -311,11 +313,16 @@ export function AddBlockDialog({
                     <SelectValue placeholder="Select a technician" />
                   </SelectTrigger>
                   <SelectContent>
-                    {technicians.map((technician) => (
-                      <SelectItem key={technician.id} value={technician.id}>
-                        {technician.name} — {technician.region}
-                      </SelectItem>
-                    ))}
+                  {Array.from(new Set(technicians.map((technician) => technician.region))).map((region) => (
+                    <SelectGroup key={region}>
+                      <SelectLabel>{region}</SelectLabel>
+                      {technicians.filter((technician) => technician.region === region).map((technician) => (
+                        <SelectItem key={technician.id} value={technician.id}>
+                          {technician.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
                   </SelectContent>
                 </Select>
               </div>

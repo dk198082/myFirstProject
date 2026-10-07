@@ -10,6 +10,7 @@ import scheduleBoardRouter from "./scheduleBoard.js";
 import unscheduledJobsRouter from "./unscheduledJobs.js";
 import resourceUtilizationRouter from "./resourceUtilization.js";
 import writebackRouter from "./writeback.js";
+import proFormaRouter from "./proForma.js";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(scheduleBoardRouter);
 router.use(unscheduledJobsRouter);
 router.use(resourceUtilizationRouter);
 router.use(writebackRouter);
+router.use(proFormaRouter);
 
 export default router;
