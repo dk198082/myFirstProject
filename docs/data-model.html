@@ -424,6 +424,22 @@
           ],
         },
         {
+          id: "calendar_ingest_state",
+          label: "calendar_ingest_state",
+          schema: "crm",
+          desc: "Calendar ingestion checkpoint and freshness for Dataverse work orders and bookings. App-managed; not a Dataverse entity.",
+          x: 1200,
+          y: 740,
+          attrs: [
+            { n: "entity", t: "text", r: "pk" },
+            { n: "checkpoint", t: "timestamptz", r: "sys" },
+            { n: "last_attempt", t: "timestamptz", r: "sys" },
+            { n: "last_success", t: "timestamptz", r: "sys" },
+            { n: "row_count", t: "integer", r: "sys" },
+            { n: "last_error", t: "text", r: "sys" },
+          ],
+        },
+        {
           id: "bookingstatus2",
           label: "bookingstatus (ref)",
           schema: "crm-ref",

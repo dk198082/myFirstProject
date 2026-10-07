@@ -389,6 +389,23 @@ const catalog = [
     ]
   },
 
+  {
+    id: 'calendar_ingest_state',
+    name: 'crm.calendar_ingest_state',
+    schema: 'crm',
+    desc: 'App-managed per-entity Dataverse ingestion checkpoint. A failed cycle leaves the checkpoint unchanged; the board reads mirror data only after successful ingestion.',
+    refs: [],
+    refdBy: [],
+    attrs: [
+      { n: 'entity', t: 'text', r: 'pk', null: 'NO', biz: 'Dataverse entity set (work orders or bookings).' },
+      { n: 'checkpoint', t: 'timestamptz', r: 'sys', null: 'YES', biz: 'Latest successfully processed source time; the next scan overlaps it.' },
+      { n: 'last_attempt', t: 'timestamptz', r: 'sys', null: 'YES', biz: 'Latest ingestion attempt.' },
+      { n: 'last_success', t: 'timestamptz', r: 'sys', null: 'YES', biz: 'Latest successful ingestion cycle.' },
+      { n: 'row_count', t: 'integer', r: 'sys', null: 'NO', biz: 'Records returned in the last successful cycle.' },
+      { n: 'last_error', t: 'text', r: 'sys', null: 'YES', biz: 'Most recent failure, cleared after a successful cycle.' },
+    ]
+  },
+
   // ── CRM Schema — App DB Write-Through Mirrors ────────────────────────────────
   {
     id: 'crm_placeholder_jobs',

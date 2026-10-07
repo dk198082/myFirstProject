@@ -1,0 +1,22 @@
+- [Schedule board parity (FS vs d365crm)](schedule-board-parity.md) — CRM board must fall back resource→territory to the work order's service territory, and resolve names from raw_json FormattedValue keys.
+- [d365crm write-back endpoint schema quirks](d365crm-writeback-endpoints.md) — WO due date comes from cf_workordercustomerequipment; no msdyn_displayaddress; booking duration computed from end-start.
+- [Installing deps for a workspace-root file](pnpm-root-deps.md) — package tool can't add to pnpm workspace root; edit root package.json then `pnpm install`.
+- [api-server esbuild bundling gotchas](api-server-esbuild-bundling.md) — externalized deps must be runtime deps; packages that read their own files at runtime (e.g. connect-pg-simple table.sql) break when bundled.
+- [Azure auth in api-server](api-server-azure-auth.md) — MSAL login mounted under /api; session in Postgres; existing /api routes intentionally NOT yet gated (frontends have no login).
+- [Entra login inside iframes](entra-login-iframe.md) — MS login can't be iframed; embedded Replit preview → "refused to connect". login() opens new tab when embedded, never in-frame; dev fix = open app in own tab.
+- [Archiving/removing an artifact](archiving-artifacts.md) — no archive callback; move dir out of artifacts/* glob, pnpm install, typecheck. Managed workflow can't be removeWorkflow'd; canvas frame auto-clears.
+- [/wb/* CRM-DB-unavailable handling](wb-crm-db-unavailable.md) — disabled/suspended Neon CRM endpoint → 503 {code:"CRM_DB_UNAVAILABLE"} via handleWbError; mixed handlers pass source:"mixed".
+- [Schedule block visibility on the board](schedule-board-block-visibility.md) — blocks are globally shared; board hides idle techs (no jobs) by default, so keep techs with blocks visible too.
+- [Drizzle schema NOT source of truth](drizzle-schema-out-of-band.md) — most tables created out-of-band via psql; `push`/`push-force` DROPS undeclared tables. Declare a table in Drizzle so Publish manages it in prod.
+- [Data model/catalog docs](data-docs.md) — docs/data-model.html + data-catalog.html are hand-authored JS-array HTML (not generated, not served); update BOTH by hand on schema changes.
+- [CRM mirror dual-write](crm-mirror-dual-write.md) — placeholder_jobs/schedule_blocks writes mirror best-effort into crm.* tables in d365crm Postgres; ids shared; schema changes need both sides.
+- [wb utilization minutes semantics](wb-utilization-minutes.md) — utilized_minutes already includes placeholder-job minutes (server-side, 8h/day cap); never re-add client-side, use placeholder_minutes for breakdowns.
+- [js-yaml v5 breaks orval codegen](js-yaml-orval-esm.md) — pin the `js-yaml` pnpm override to `^4.x`, not `>=4.2.0`, or codegen fails with an ESM default-export error.
+- [Technician mailbox resolution](technician-mailbox-resolution.md) — resolve technician mailboxes via CRM-linked systemuser identity; never match Exchange recipients by display name.
+- [Persisted chip color indexes](persisted-chip-color-indexes.md) — append palette entries; existing numeric color overrides must not change meaning.
+- [UK-only postcode display](uk-only-postcode-display.md) — board chips and calendar reports show postcodes only when CRM country data explicitly identifies a UK location.
+- [Calendar Report text treatment](calendar-report-text-treatment.md) — PDF/Word reports use 11-point black text, full wrapping, unlabeled notes, and visually separated event boxes.
+- [Multi-day booking weekdays](multiday-booking-weekdays.md) — spanning CRM bookings cross week/month boundaries but omit interior weekends unless the booking explicitly starts or ends there.
+- [Potential Job technician scope](potential-job-technician-scope.md) — technician is required; coordinators use assigned regions, others use the selected/current technician’s region.
+- [Autoscaled CRM ingestion](autoscaled-crm-ingestion.md) — active board reads must wake ingestion; an in-process timer alone cannot promise freshness after scale-to-zero.
+- [Publishing a Node workspace with Python remnants](node-publish-python-remnants.md) — an unused Python manifest can trigger uv before artifact builds; verify web builds with artifact service env.

@@ -18,3 +18,7 @@
 - [Calendar Report text treatment](calendar-report-text-treatment.md) — PDF/Word reports use 11-point black text, full wrapping, unlabeled notes, and visually separated event boxes.
 - [Multi-day booking weekdays](multiday-booking-weekdays.md) — spanning CRM bookings cross week/month boundaries but omit interior weekends unless the booking explicitly starts or ends there.
 - [Potential Job technician scope](potential-job-technician-scope.md) — technician is required; coordinators use assigned regions, others use the selected/current technician’s region.
+- [Autoscaled CRM ingestion](autoscaled-crm-ingestion.md) — active board reads must wake ingestion; an in-process timer alone cannot promise freshness after scale-to-zero.
+- [Publishing a Node workspace with Python remnants](node-publish-python-remnants.md) — an unused Python manifest can trigger uv before artifact builds; verify web builds with artifact service env.
+
+- [Pro Forma app scope](pro-forma-app-scope.md) — standalone template-based app; leave calendar unchanged; use proposal views and entered tax for preview/PDF download.
