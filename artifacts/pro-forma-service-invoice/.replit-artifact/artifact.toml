@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/pro-forma-service-invoice/"
+title = "Pro Forma Service Invoice"
+description = "Standalone CRM proposal review and regional pro forma invoice PDF download."
+version = "1.0.0"
+id = "artifacts/pro-forma-service-invoice"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/pro-forma-service-invoice/" ]
+localPort = 19475
+
+[services.development]
+run = "pnpm --filter @workspace/pro-forma-service-invoice run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/pro-forma-service-invoice", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/pro-forma-service-invoice/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19475"
+BASE_PATH = "/pro-forma-service-invoice/"
