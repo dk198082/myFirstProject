@@ -9,6 +9,49 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Read CRM proposal and calculate a pro forma without saving or modifying data
+ */
+export const previewProFormaBodyServiceOrderNumberMax = 100;
+
+export const previewProFormaBodyTaxRegExp = new RegExp('^(0|[1-9][0-9]{0,9})(\\.[0-9]{1,2})?$');
+export const previewProFormaBodyFreightRegExp = new RegExp('^(0|[1-9][0-9]{0,9})(\\.[0-9]{1,2})?$');
+
+
+export const PreviewProFormaBody = zod.object({
+  "serviceOrderNumber": zod.string().min(1).max(previewProFormaBodyServiceOrderNumberMax).describe('Exact CRM serviceordernumber or workordernumber; the response contains the matched service order number.'),
+  "tax": zod.string().regex(previewProFormaBodyTaxRegExp),
+  "freight": zod.string().regex(previewProFormaBodyFreightRegExp)
+})
+
+export const PreviewProFormaResponse = zod.object({
+  "serviceOrderNumber": zod.string(),
+  "reference": zod.string(),
+  "generatedAt": zod.string(),
+  "region": zod.enum(['US', 'UK']),
+  "currency": zod.enum(['USD', 'GBP']),
+  "header": zod.record(zod.string(), zod.string().nullable()),
+  "lines": zod.array(zod.object({
+  "lineNumber": zod.number(),
+  "type": zod.string(),
+  "description": zod.string(),
+  "uom": zod.string(),
+  "quantity": zod.string(),
+  "unitAmount": zod.string(),
+  "netAmount": zod.string()
+})),
+  "totals": zod.object({
+  "gross": zod.string(),
+  "discount": zod.string(),
+  "net": zod.string(),
+  "freight": zod.string(),
+  "tax": zod.string(),
+  "total": zod.string()
+}),
+  "warnings": zod.array(zod.string())
+})
+
+
+/**
  * @summary List work orders with their primary booking for write-back UI
  */
 export const listWbWorkOrdersQueryLimitMax = 500;

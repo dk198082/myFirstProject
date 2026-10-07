@@ -19,6 +19,36 @@ tags:
   - name: writeback
     description: Dynamics write-back staging operations
 paths:
+  /pro-forma/preview:
+    post:
+      operationId: previewProForma
+      tags: [proForma]
+      summary: Read CRM proposal and calculate a pro forma without saving or modifying data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProFormaInput"
+      responses:
+        "200":
+          description: Reviewable proposal and exact decimal totals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProFormaPreview"
+        "400":
+          description: Invalid input
+        "401":
+          description: Login required
+        "404":
+          description: Service order not found
+        "409":
+          description: Multiple matching work orders
+        "422":
+          description: Invalid or incomplete proposal
+        "503":
+          description: CRM unavailable
   /wb/work-orders:
     get:
       operationId: listWbWorkOrders
@@ -1168,6 +1198,64 @@ paths:
 
 components:
   schemas:
+    ProFormaInput:
+      type: object
+      required: [serviceOrderNumber, tax, freight]
+      properties:
+        serviceOrderNumber:
+          type: string
+          description: Exact CRM serviceordernumber or workordernumber; the response contains the matched service order number.
+          minLength: 1
+          maxLength: 100
+        tax:
+          type: string
+          pattern: '^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$'
+        freight:
+          type: string
+          pattern: '^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$'
+    ProFormaLine:
+      type: object
+      required: [lineNumber, type, description, uom, quantity, unitAmount, netAmount]
+      properties:
+        lineNumber: { type: integer }
+        type: { type: string }
+        description: { type: string }
+        uom: { type: string }
+        quantity: { type: string }
+        unitAmount: { type: string }
+        netAmount: { type: string }
+    ProFormaTotals:
+      type: object
+      required: [gross, discount, net, freight, tax, total]
+      properties:
+        gross: { type: string }
+        discount: { type: string }
+        net: { type: string }
+        freight: { type: string }
+        tax: { type: string }
+        total: { type: string }
+    ProFormaPreview:
+      type: object
+      required: [serviceOrderNumber, reference, generatedAt, region, currency, header, lines, totals, warnings]
+      properties:
+        serviceOrderNumber: { type: string }
+        reference: { type: string }
+        generatedAt: { type: string }
+        region: { type: string, enum: [US, UK] }
+        currency: { type: string, enum: [USD, GBP] }
+        header:
+          type: object
+          additionalProperties:
+            type: ["string", "null"]
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProFormaLine"
+        totals:
+          $ref: "#/components/schemas/ProFormaTotals"
+        warnings:
+          type: array
+          items: { type: string }
     HealthStatus:
       type: object
       properties:

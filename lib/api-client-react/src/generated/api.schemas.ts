@@ -5,6 +5,68 @@
  * Technician Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+export interface ProFormaInput {
+  /**
+     * Exact CRM serviceordernumber or workordernumber; the response contains the matched service order number.
+     * @minLength 1
+     * @maxLength 100
+     */
+  serviceOrderNumber: string;
+  /** @pattern ^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$ */
+  tax: string;
+  /** @pattern ^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$ */
+  freight: string;
+}
+
+export interface ProFormaLine {
+  lineNumber: number;
+  type: string;
+  description: string;
+  uom: string;
+  quantity: string;
+  unitAmount: string;
+  netAmount: string;
+}
+
+export interface ProFormaTotals {
+  gross: string;
+  discount: string;
+  net: string;
+  freight: string;
+  tax: string;
+  total: string;
+}
+
+export type ProFormaPreviewRegion = typeof ProFormaPreviewRegion[keyof typeof ProFormaPreviewRegion];
+
+
+export const ProFormaPreviewRegion = {
+  US: 'US',
+  UK: 'UK',
+} as const;
+
+export type ProFormaPreviewCurrency = typeof ProFormaPreviewCurrency[keyof typeof ProFormaPreviewCurrency];
+
+
+export const ProFormaPreviewCurrency = {
+  USD: 'USD',
+  GBP: 'GBP',
+} as const;
+
+export type ProFormaPreviewHeader = {[key: string]: string | null};
+
+export interface ProFormaPreview {
+  serviceOrderNumber: string;
+  reference: string;
+  generatedAt: string;
+  region: ProFormaPreviewRegion;
+  currency: ProFormaPreviewCurrency;
+  header: ProFormaPreviewHeader;
+  lines: ProFormaLine[];
+  totals: ProFormaTotals;
+  warnings: string[];
+}
+
 export interface HealthStatus {
   status: string;
 }

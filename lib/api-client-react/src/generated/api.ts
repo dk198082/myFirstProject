@@ -44,6 +44,8 @@ import type {
   ListWbServiceLocationsParams,
   ListWbWorkOrdersParams,
   PlaceholderJob,
+  ProFormaInput,
+  ProFormaPreview,
   RegionGroup,
   RegionJobGroup,
   ReportFilters,
@@ -84,6 +86,77 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
+
+export const getPreviewProFormaUrl = () => {
+
+
+
+
+  return `/api/pro-forma/preview`
+}
+
+/**
+ * @summary Read CRM proposal and calculate a pro forma without saving or modifying data
+ */
+export const previewProForma = async (proFormaInput: ProFormaInput, options?: RequestInit): Promise<ProFormaPreview> => {
+
+  return customFetch<ProFormaPreview>(getPreviewProFormaUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      proFormaInput,)
+  }
+);}
+
+
+
+
+export const getPreviewProFormaMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewProForma>>, TError,{data: BodyType<ProFormaInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewProForma>>, TError,{data: BodyType<ProFormaInput>}, TContext> => {
+
+const mutationKey = ['previewProForma'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewProForma>>, {data: BodyType<ProFormaInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewProForma(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewProFormaMutationResult = NonNullable<Awaited<ReturnType<typeof previewProForma>>>
+    export type PreviewProFormaMutationBody = BodyType<ProFormaInput>
+    export type PreviewProFormaMutationError = ErrorType<void>
+
+    /**
+ * @summary Read CRM proposal and calculate a pro forma without saving or modifying data
+ */
+export const usePreviewProForma = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewProForma>>, TError,{data: BodyType<ProFormaInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof previewProForma>>,
+        TError,
+        {data: BodyType<ProFormaInput>},
+        TContext
+      > => {
+      return useMutation(getPreviewProFormaMutationOptions(options));
+    }
 
 export const getListWbWorkOrdersUrl = (params?: ListWbWorkOrdersParams,) => {
   const normalizedParams = new URLSearchParams();
