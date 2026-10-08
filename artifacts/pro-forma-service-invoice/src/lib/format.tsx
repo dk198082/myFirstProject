@@ -1,22 +1,23 @@
+import { formatDecimal } from "./decimal-format";
+
 export const AMOUNT_RE = /^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$/;
 
-export function validateAmount(v: string, label: string): string | null {
+export function validateAmount(v: string, label: string, kind: "amount" | "percentage" = "amount"): string | null {
   const t = v.trim();
   if (!t) return `${label} is required. Enter 0 if none applies.`;
   if (t.startsWith("-")) return `${label} cannot be negative.`;
-  if (!AMOUNT_RE.test(t)) return `${label} must be a plain amount with up to 2 decimals, e.g. 125.50.`;
+  if (!AMOUNT_RE.test(t)) return `${label} must be a plain ${kind} with up to 2 decimals, e.g. ${kind === "percentage" ? "7.50" : "125.50"}.`;
   return null;
 }
 
-/** Group digits of an exact decimal string without converting to float. */
+/** Currency display shares the same two-decimal formatting as the PDF. */
 export function money(value: string | null | undefined, currency: "USD" | "GBP"): string {
-  if (value == null || value === "") return "—";
-  const neg = value.startsWith("-");
-  const raw = neg ? value.slice(1) : value;
-  const [int, frac = ""] = raw.split(".");
-  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const formatted = formatDecimal(value);
+  if (formatted === "—") return formatted;
+  const neg = formatted.startsWith("-");
+  const raw = neg ? formatted.slice(1) : formatted;
   const sym = currency === "GBP" ? "£" : "$";
-  return `${neg ? "-" : ""}${sym}${grouped}${frac ? "." + frac : ""}`;
+  return `${neg ? "-" : ""}${sym}${raw}`;
 }
 
 export function humanize(key: string): string {

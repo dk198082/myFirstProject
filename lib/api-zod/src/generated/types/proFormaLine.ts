@@ -14,4 +14,6 @@ export interface ProFormaLine {
   quantity: string;
   unitAmount: string;
   netAmount: string;
+  /** Tax on this line's displayed net amount, rounded half-up to two decimal places. */
+  taxAmount: string;
 }

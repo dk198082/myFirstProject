@@ -9,23 +9,30 @@ import * as zod from 'zod';
 
 
 /**
- * @summary Read CRM proposal and calculate a pro forma without saving or modifying data
+ * @summary Read CRM proposal with invoice-specific Admin Console access; only editors can submit invoice adjustments
  */
 export const previewProFormaBodyServiceOrderNumberMax = 100;
 
 export const previewProFormaBodyTaxRegExp = new RegExp('^(0|[1-9][0-9]{0,9})(\\.[0-9]{1,2})?$');
 export const previewProFormaBodyFreightRegExp = new RegExp('^(0|[1-9][0-9]{0,9})(\\.[0-9]{1,2})?$');
+export const previewProFormaBodyCustomerTaxNumberMax = 100;
+
+
+export const previewProFormaBodyCustomerTaxNumberRegExp = new RegExp('^[^\\x00-\\x1f\\x7f]\*$');
 
 
 export const PreviewProFormaBody = zod.object({
   "serviceOrderNumber": zod.string().min(1).max(previewProFormaBodyServiceOrderNumberMax).describe('Exact CRM serviceordernumber or workordernumber; the response contains the matched service order number.'),
-  "tax": zod.string().regex(previewProFormaBodyTaxRegExp),
-  "freight": zod.string().regex(previewProFormaBodyFreightRegExp)
+  "tax": zod.string().regex(previewProFormaBodyTaxRegExp).describe('Sales tax percentage applied to each line\'s net amount and to freight. Round each line\'s tax and freight tax separately to two decimal places, then sum for invoice tax.'),
+  "freight": zod.string().regex(previewProFormaBodyFreightRegExp),
+  "customerTaxNumber": zod.string().max(previewProFormaBodyCustomerTaxNumberMax).regex(previewProFormaBodyCustomerTaxNumberRegExp).optional().describe('Optional customer tax identifier entered by the user, printed below the Invoice to address. Not written to CRM.')
 })
 
 export const PreviewProFormaResponse = zod.object({
   "serviceOrderNumber": zod.string(),
   "reference": zod.string(),
+  "customerTaxNumber": zod.string().optional(),
+  "taxRate": zod.string().describe('Entered sales tax percentage used for every line and freight.'),
   "generatedAt": zod.string(),
   "region": zod.enum(['US', 'UK']),
   "currency": zod.enum(['USD', 'GBP']),
@@ -37,13 +44,15 @@ export const PreviewProFormaResponse = zod.object({
   "uom": zod.string(),
   "quantity": zod.string(),
   "unitAmount": zod.string(),
-  "netAmount": zod.string()
+  "netAmount": zod.string(),
+  "taxAmount": zod.string().describe('Tax on this line\'s displayed net amount, rounded half-up to two decimal places.')
 })),
   "totals": zod.object({
   "gross": zod.string(),
   "discount": zod.string(),
   "net": zod.string(),
   "freight": zod.string(),
+  "freightTax": zod.string().describe('Tax on entered freight, rounded half-up to two decimal places. Included in the summed tax amount.'),
   "tax": zod.string(),
   "total": zod.string()
 }),

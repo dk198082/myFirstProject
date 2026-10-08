@@ -33,6 +33,10 @@ export function buildProposal(header: Row, rows: Row[], input: ProFormaInput, no
   if (!rows.length) throw new ProposalError(422, `Order ${text(header.workordernumber)} / ${text(header.serviceordernumber)} was found, but the CRM proposal source has no charge lines. Check the charges and CRM data sync before generating a PDF.`);
   let gross = new Decimal(0);
   let net = new Decimal(0);
+  let tax = new Decimal(0);
+  const taxRate = new Decimal(input.tax);
+  const freight = money(new Decimal(input.freight));
+  const freightTax = money(new Decimal(freight).mul(taxRate).div(100));
   const lines = rows.map((row) => {
     const quantity = decimal(row.qty_orderd, "quantity");
     const unit = decimal(row.unitamount, "unit amount");
@@ -43,12 +47,16 @@ export function buildProposal(header: Row, rows: Row[], input: ProFormaInput, no
     }
     gross = gross.plus(money(quantity.mul(unit)));
     net = net.plus(money(amount));
+    // Sum rounded, per-line tax on the same net amounts shown on the invoice.
+    const taxAmount = money(new Decimal(money(amount)).mul(taxRate).div(100));
+    tax = tax.plus(taxAmount);
     return {
       lineNumber, type: text(row.linetype), description: text(row.description),
       uom: text(row.uom), quantity: quantity.toFixed(), unitAmount: unit.toFixed(),
-      netAmount: money(amount),
+      netAmount: money(amount), taxAmount,
     };
   });
+  tax = tax.plus(freightTax);
   const warnings: string[] = [];
   for (const [key, label] of [
     ["ponumber", "Purchase order number"], ["contact_fullname", "Billing contact"],
@@ -61,11 +69,13 @@ export function buildProposal(header: Row, rows: Row[], input: ProFormaInput, no
   return {
     serviceOrderNumber: text(header.serviceordernumber),
     reference: `${text(header.workordernumber)} / ${text(header.serviceordernumber)}`,
+    customerTaxNumber: input.customerTaxNumber?.trim() || "",
+    taxRate: taxRate.toFixed(),
     generatedAt: now.toISOString(), region, currency, header: normalizedHeader, lines,
     totals: {
       gross: money(gross), discount: "0.00", net: money(net),
-      freight: money(new Decimal(input.freight)), tax: money(new Decimal(input.tax)),
-      total: money(net.plus(input.freight).plus(input.tax)),
+      freight, freightTax, tax: money(tax),
+      total: money(net.plus(freight).plus(tax)),
     },
     warnings,
   };

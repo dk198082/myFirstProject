@@ -15,12 +15,16 @@ import {
 } from "@workspace/production-priority-design-system/components/ui/table";
 import { cn } from "@workspace/production-priority-design-system/lib/utils";
 import { toast } from "@workspace/production-priority-design-system/hooks/use-toast";
-import { AlertTriangle, Download, FileSearch, FileText, Printer, RefreshCw, Search, X } from "lucide-react";
+import { AlertTriangle, Download, FileSearch, FileText, LogOut, Printer, RefreshCw, Search, X } from "lucide-react";
 import { buildInvoicePdf } from "@/lib/invoice-pdf";
+import { invoiceFilename } from "@/lib/invoice-filename";
+import { TaxBreakdownDialog } from "@/components/TaxBreakdownDialog";
 import type { SessionUser } from "@/lib/auth";
 import { formatDateTime, groupHeader, humanize, money, validateAmount } from "@/lib/format";
+import { formatDecimal } from "@/lib/decimal-format";
 
-type Fields = { serviceOrderNumber: string; tax: string; freight: string };
+type Fields = { serviceOrderNumber: string; tax: string; freight: string; customerTaxNumber: string };
+const DEFAULT_FIELDS: Fields = { serviceOrderNumber: "", tax: "0", freight: "0", customerTaxNumber: "" };
 type FieldErrors = Partial<Record<keyof Fields, string>>;
 type Failure = { kind: "notFound" | "conflict" | "invalid" | "unavailable" | "network" | "other"; title: string; detail: string };
 
@@ -52,8 +56,13 @@ const SectionLabel = ({ children }: { children: ReactNode }) => (
   <h3 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{children}</h3>
 );
 
-export default function Workspace({ user, onUnauthorized, brand }: { user: SessionUser; onUnauthorized: () => void; brand: ReactNode }) {
-  const [fields, setFields] = useState<Fields>({ serviceOrderNumber: "", tax: "", freight: "" });
+export default function Workspace({ user, onUnauthorized, onAccessCheck, onSignOut, brand }: {
+  user: SessionUser; onUnauthorized: () => void; onAccessCheck: () => Promise<SessionUser | null>;
+  onSignOut: () => Promise<void>; brand: ReactNode;
+}) {
+  const canPrepare = user.role === "editor";
+  const [signingOut, setSigningOut] = useState(false);
+  const [fields, setFields] = useState<Fields>({ ...DEFAULT_FIELDS });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [preview, setPreview] = useState<ProFormaPreview | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
@@ -78,6 +87,8 @@ export default function Workspace({ user, onUnauthorized, brand }: { user: Sessi
   }, []);
 
   useEffect(() => () => {
+    reqSeq.current++;
+    pdfSeq.current++;
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
   }, []);
 
@@ -111,6 +122,12 @@ export default function Workspace({ user, onUnauthorized, brand }: { user: Sessi
     } catch (err) {
       if (id !== reqSeq.current) return;
       const f = describeError(err);
+      if ((err as { status?: number })?.status === 403) {
+        clearResult();
+        await onAccessCheck();
+        toast({ title: "Access denied", description: "Your invoice permissions may have changed. Only editors can change invoice adjustments." });
+        return;
+      }
       if (f === "unauthorized") {
         clearResult();
         toast({ title: "Session expired", description: "Sign in again to continue." });
@@ -119,7 +136,7 @@ export default function Workspace({ user, onUnauthorized, brand }: { user: Sessi
       }
       setFailure(f);
     }
-  }, [clearResult, setBlobUrl]);
+  }, [clearResult, setBlobUrl, onAccessCheck]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -127,21 +144,27 @@ export default function Workspace({ user, onUnauthorized, brand }: { user: Sessi
     const next: FieldErrors = {};
     if (!so) next.serviceOrderNumber = "Service order number is required.";
     else if (so.length > 100) next.serviceOrderNumber = "Service order number is too long.";
-    const t = validateAmount(fields.tax, "Sales tax");
+    const t = validateAmount(fields.tax, "Sales tax percentage", "percentage");
     if (t) next.tax = t;
     const fr = validateAmount(fields.freight, "Freight");
     if (fr) next.freight = fr;
+    if (fields.customerTaxNumber.length > 100 || /[\x00-\x1f\x7f]/.test(fields.customerTaxNumber)) {
+      next.customerTaxNumber = "Use at most 100 characters without control characters.";
+    }
     setErrors(next);
     if (Object.keys(next).length) return;
-    void run({ serviceOrderNumber: so, tax: fields.tax.trim(), freight: fields.freight.trim() });
+    void run({ serviceOrderNumber: so, tax: fields.tax.trim(), freight: fields.freight.trim(), customerTaxNumber: fields.customerTaxNumber.trim() });
   };
 
   const generatePdf = async () => {
-    if (!preview) return;
+    if (!preview || !canPrepare) return;
     const id = ++pdfSeq.current;
     setPdfState("building");
     setBlobUrl(null);
     try {
+      const current = await onAccessCheck();
+      if (id !== pdfSeq.current) return;
+      if (current?.role !== "editor") { clearResult(); return; }
       const blob = await buildInvoicePdf(preview);
       if (id !== pdfSeq.current) return;
       setBlobUrl(URL.createObjectURL(blob));
@@ -152,7 +175,31 @@ export default function Workspace({ user, onUnauthorized, brand }: { user: Sessi
     }
   };
 
-  const fileName = preview ? `ProForma-${preview.serviceOrderNumber.replace(/[^\w.-]+/g, "_")}.pdf` : "ProForma.pdf";
+  const exportPdf = async (print: boolean) => {
+    if (!pdfUrl || !canPrepare) return;
+    const tab = print ? window.open("about:blank", "_blank") : null;
+    if (tab) tab.opener = null;
+    const current = await onAccessCheck();
+    if (current?.role !== "editor") { tab?.close(); clearResult(); return; }
+    if (print) {
+      if (tab) tab.location.href = pdfUrl;
+      else toast({ title: "Pop-up blocked", description: "Allow pop-ups for this app, then open the PDF to print again." });
+    }
+    else {
+      const link = document.createElement("a");
+      link.href = pdfUrl; link.download = fileName;
+      document.body.appendChild(link); link.click(); link.remove();
+    }
+  };
+
+  const signOut = async () => {
+    setSigningOut(true);
+    try { await onSignOut(); }
+    catch { toast({ title: "Sign out failed", description: "Could not end your session. Please retry.", variant: "destructive" }); }
+    finally { setSigningOut(false); }
+  };
+
+  const fileName = preview ? invoiceFilename(preview) : "ProformaInvoice.pdf";
   const loading = mutation.isPending;
 
   return (
@@ -161,11 +208,14 @@ export default function Workspace({ user, onUnauthorized, brand }: { user: Sessi
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
           {brand}
           <div className="flex items-center gap-3 text-right">
-            <Badge variant="outline" className="hidden sm:inline-flex">Read-only</Badge>
+            <Badge variant="outline" data-testid="badge-invoice-role">{canPrepare ? "Read / Write" : "Read Only"}</Badge>
             <div className="leading-tight">
               <div className="text-xs font-semibold" data-testid="text-user-name">{user.displayName ?? user.email ?? "Signed in"}</div>
               {user.email && user.displayName && <div className="text-[11px] text-muted-foreground">{user.email}</div>}
             </div>
+            <Button variant="ghost" size="sm" onClick={() => void signOut()} disabled={signingOut} data-testid="button-sign-out">
+              <LogOut className="mr-2 h-4 w-4" />{signingOut ? "Signing out…" : "Sign out"}
+            </Button>
           </div>
         </div>
       </header>
@@ -178,6 +228,7 @@ export default function Workspace({ user, onUnauthorized, brand }: { user: Sessi
             </div>
             <h1 id="lookup-title" className="mt-2 text-lg font-bold">Prepare a pro forma</h1>
             <p className="mt-1 text-xs text-muted-foreground">The service order number is the pro forma reference — no invoice number is allocated.</p>
+            {!canPrepare && <p className="mt-3 text-xs text-muted-foreground" data-testid="notice-read-only">Read-only access: look up and review proposals with zero tax and freight. Editing adjustments and generating PDFs require Read / Write access.</p>}
 
             <div className="mt-5 space-y-4">
               <FieldRow id="so" label="Service / work order number" error={errors.serviceOrderNumber}>
@@ -188,16 +239,24 @@ export default function Workspace({ user, onUnauthorized, brand }: { user: Sessi
                 <p className="text-[11px] text-muted-foreground">Either CRM number is accepted. The matched service order is shown in the review.</p>
               </FieldRow>
               <div className="grid grid-cols-2 gap-3">
-                <FieldRow id="tax" label="Sales tax" error={errors.tax}>
-                  <Input id="tax" inputMode="decimal" value={fields.tax} onChange={(e) => update("tax", e.target.value)} placeholder="0.00"
+                <FieldRow id="tax" label="Sales tax (%)" error={errors.tax}>
+                  <Input id="tax" disabled={!canPrepare} inputMode="decimal" value={fields.tax} onChange={(e) => update("tax", e.target.value)} placeholder="0.00"
                     aria-invalid={!!errors.tax} aria-describedby={errors.tax ? "tax-err" : "amount-hint"} className="tabular-nums" data-testid="input-tax" />
                 </FieldRow>
                 <FieldRow id="freight" label="Freight" error={errors.freight}>
-                  <Input id="freight" inputMode="decimal" value={fields.freight} onChange={(e) => update("freight", e.target.value)} placeholder="0.00"
+                  <Input id="freight" disabled={!canPrepare} inputMode="decimal" value={fields.freight} onChange={(e) => update("freight", e.target.value)} placeholder="0.00"
                     aria-invalid={!!errors.freight} aria-describedby={errors.freight ? "freight-err" : "amount-hint"} className="tabular-nums" data-testid="input-freight" />
                 </FieldRow>
               </div>
-              <p id="amount-hint" className="text-[11px] text-muted-foreground">Amounts, not percentages. Both required — enter 0 if none.</p>
+               <p id="amount-hint" className="text-[11px] text-muted-foreground">Tax applies to each line’s net amount and freight (e.g. 7.5 for 7.5%). Line taxes and freight tax are rounded separately and summed. Freight is an amount. Both default to 0; edit if needed.</p>
+              <FieldRow id="customer-tax-number" label="Customer's Tax Number (optional)" error={errors.customerTaxNumber}>
+                <Input id="customer-tax-number" disabled={!canPrepare} value={fields.customerTaxNumber}
+                  onChange={(e) => update("customerTaxNumber", e.target.value)} maxLength={100}
+                  placeholder="Enter customer's tax number" aria-invalid={!!errors.customerTaxNumber}
+                  aria-describedby={errors.customerTaxNumber ? "customer-tax-number-err" : "customer-tax-number-hint"}
+                  data-testid="input-customer-tax-number" />
+                <p id="customer-tax-number-hint" className="text-[11px] text-muted-foreground">Printed as Tax #: below the Invoice to address. Not saved to CRM.</p>
+              </FieldRow>
             </div>
 
             <div className="mt-5 flex gap-2">
@@ -205,9 +264,9 @@ export default function Workspace({ user, onUnauthorized, brand }: { user: Sessi
                 {loading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                 {loading ? "Reading CRM…" : "Review proposal"}
               </Button>
-              {(preview || failure || fields.serviceOrderNumber || fields.tax || fields.freight) && (
+              {(preview || failure || fields.serviceOrderNumber || fields.tax !== DEFAULT_FIELDS.tax || fields.freight !== DEFAULT_FIELDS.freight || fields.customerTaxNumber) && (
                 <Button type="button" variant="ghost" size="icon" aria-label="Clear form" data-testid="button-clear"
-                  onClick={() => { setFields({ serviceOrderNumber: "", tax: "", freight: "" }); setErrors({}); clearResult(); }}>
+                  onClick={() => { setFields({ ...DEFAULT_FIELDS }); setErrors({}); clearResult(); }}>
                   <X className="h-4 w-4" />
                 </Button>
               )}
@@ -225,7 +284,7 @@ export default function Workspace({ user, onUnauthorized, brand }: { user: Sessi
                   <h2 className="font-bold text-red-300">{failure.title}</h2>
                   <p className="mt-1 text-sm text-foreground/90">{failure.detail}</p>
                   <Button variant="outline" size="sm" className="mt-4" data-testid="button-retry"
-                    onClick={() => void run({ serviceOrderNumber: fields.serviceOrderNumber.trim(), tax: fields.tax.trim(), freight: fields.freight.trim() })}>
+                    onClick={() => void run({ serviceOrderNumber: fields.serviceOrderNumber.trim(), tax: fields.tax.trim(), freight: fields.freight.trim(), customerTaxNumber: fields.customerTaxNumber.trim() })}>
                     <RefreshCw className="mr-2 h-3.5 w-3.5" /> Retry
                   </Button>
                 </div>
@@ -234,7 +293,8 @@ export default function Workspace({ user, onUnauthorized, brand }: { user: Sessi
           )}
           {!loading && !failure && !preview && <EmptyState />}
           {!loading && preview && (
-            <Review preview={preview} pdfUrl={pdfUrl} pdfState={pdfState} onGenerate={() => void generatePdf()} fileName={fileName} />
+            <Review preview={preview} pdfUrl={pdfUrl} pdfState={pdfState} onGenerate={() => void generatePdf()}
+              canPrepare={canPrepare} onExport={(print) => void exportPdf(print)} />
           )}
         </section>
       </main>
@@ -279,8 +339,9 @@ function ReviewSkeleton() {
   );
 }
 
-function Review({ preview, pdfUrl, pdfState, onGenerate, fileName }: {
-  preview: ProFormaPreview; pdfUrl: string | null; pdfState: "idle" | "building" | "error"; onGenerate: () => void; fileName: string;
+function Review({ preview, pdfUrl, pdfState, onGenerate, canPrepare, onExport }: {
+  preview: ProFormaPreview; pdfUrl: string | null; pdfState: "idle" | "building" | "error"; onGenerate: () => void;
+  canPrepare: boolean; onExport: (print: boolean) => void;
 }) {
   const { groups, empty } = useMemo(() => groupHeader(preview.header), [preview.header]);
   const cur = preview.currency;
@@ -297,11 +358,33 @@ function Review({ preview, pdfUrl, pdfState, onGenerate, fileName }: {
             <h2 className="mt-2 text-2xl font-bold tracking-tight" data-testid="text-reference">{preview.reference}</h2>
             <p className="mt-1 text-xs text-muted-foreground">Pro forma for service order <span className="font-semibold text-foreground" data-testid="text-service-order">{preview.serviceOrderNumber}</span> · prepared {formatDateTime(preview.generatedAt)}</p>
           </div>
-          <div className="flex gap-2">
-            <Badge variant="outline" data-testid="badge-region">Region {preview.region}</Badge>
-            <Badge data-testid="badge-currency">{cur}</Badge>
+          <div className="flex flex-col items-end gap-3">
+            <div className="flex gap-2">
+              <Badge variant="outline" data-testid="badge-region">Region {preview.region}</Badge>
+              <Badge data-testid="badge-currency">{cur}</Badge>
+            </div>
+            {canPrepare && <div className="flex flex-wrap gap-2">
+              {!pdfUrl ? (
+                <Button onClick={onGenerate} disabled={pdfState === "building"} data-testid="button-generate-pdf">
+                  {pdfState === "building" ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                  {pdfState === "building" ? "Generating…" : "Generate PDF"}
+                </Button>
+              ) : (
+                <>
+                  <Button onClick={() => onExport(false)} data-testid="button-download-pdf">
+                    <Download className="mr-2 h-4 w-4" /> Download PDF
+                  </Button>
+                  <Button variant="outline" onClick={() => onExport(true)} data-testid="button-print-pdf">
+                    <Printer className="mr-2 h-4 w-4" /> Open to print
+                  </Button>
+                </>
+              )}
+            </div>}
           </div>
         </div>
+        {pdfState === "error" && (
+          <p role="alert" className="mt-3 text-sm text-red-400" data-testid="status-pdf-error">The PDF could not be generated. <button className="underline" onClick={onGenerate}>Try again</button></p>
+        )}
         {preview.warnings.length > 0 && (
           <ul className="mt-4 space-y-1.5 rounded-sm border border-amber-500/40 bg-amber-500/10 p-3 text-xs" data-testid="list-warnings">
             {preview.warnings.map((w, i) => (
@@ -311,31 +394,12 @@ function Review({ preview, pdfUrl, pdfState, onGenerate, fileName }: {
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {groups.map((g) => (
-          <div key={g.id} className={cn("rounded-sm border border-border bg-card p-4", g.entries.length > 8 && "md:col-span-2")}>
-            <SectionLabel>{g.title}</SectionLabel>
-            <dl className={cn("mt-3 grid gap-x-6 gap-y-2.5", g.entries.length > 8 && "sm:grid-cols-2")}>
-              {g.entries.map(([k, v]) => (
-                <div key={k} className="min-w-0">
-                  <dt className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground" title={k}>{humanize(k)}</dt>
-                  <dd className="whitespace-pre-line break-words text-sm text-foreground" data-testid={`field-${k}`}>{v}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        ))}
-      </div>
-      {empty.length > 0 && (
-        <details className="rounded-sm border border-border bg-card/50 px-4 py-3 text-xs text-muted-foreground">
-          <summary className="cursor-pointer select-none">{empty.length} header field{empty.length === 1 ? "" : "s"} empty in CRM</summary>
-          <p className="mt-2 break-words">{empty.map(humanize).join(", ")}</p>
-        </details>
-      )}
-
       <div className="rounded-sm border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <SectionLabel>Proposal lines</SectionLabel>
+          <div className="flex flex-wrap items-center gap-4">
+            <SectionLabel>Proposal lines</SectionLabel>
+            <TaxBreakdownDialog preview={preview} />
+          </div>
           <span className="text-[11px] text-muted-foreground">{preview.lines.length} line{preview.lines.length === 1 ? "" : "s"}</span>
         </div>
         {preview.lines.length === 0 ? (
@@ -361,7 +425,7 @@ function Review({ preview, pdfUrl, pdfState, onGenerate, fileName }: {
                     <TableCell className="text-xs">{l.type}</TableCell>
                     <TableCell className="whitespace-pre-line break-words text-sm">{l.description}</TableCell>
                     <TableCell className="text-xs">{l.uom}</TableCell>
-                    <TableCell className="text-right tabular-nums">{l.quantity}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatDecimal(l.quantity)}</TableCell>
                     <TableCell className="text-right tabular-nums">{money(l.unitAmount, cur)}</TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">{money(l.netAmount, cur)}</TableCell>
                   </TableRow>
@@ -381,7 +445,35 @@ function Review({ preview, pdfUrl, pdfState, onGenerate, fileName }: {
         </dl>
       </div>
 
-      <div className="rounded-sm border border-primary/40 bg-card p-5">
+      <div className="grid gap-4 md:grid-cols-2">
+        {groups.map((g) => (
+          <div key={g.id} className={cn("rounded-sm border border-border bg-card p-4", g.entries.length > 8 && "md:col-span-2")}>
+            <SectionLabel>{g.title}</SectionLabel>
+            <dl className={cn("mt-3 grid gap-x-6 gap-y-2.5", g.entries.length > 8 && "sm:grid-cols-2")}>
+              {g.entries.map(([k, v]) => (
+                <div key={k} className="min-w-0">
+                  <dt className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground" title={k}>{humanize(k)}</dt>
+                  <dd className="whitespace-pre-line break-words text-sm text-foreground" data-testid={`field-${k}`}>{v}</dd>
+                </div>
+              ))}
+              {g.id === "bill" && preview.customerTaxNumber && (
+                <div className="min-w-0">
+                  <dt className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground">Tax #:</dt>
+                  <dd className="break-words text-sm text-foreground" data-testid="text-customer-tax-number">{preview.customerTaxNumber}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        ))}
+      </div>
+      {empty.length > 0 && (
+        <details className="rounded-sm border border-border bg-card/50 px-4 py-3 text-xs text-muted-foreground">
+          <summary className="cursor-pointer select-none">{empty.length} header field{empty.length === 1 ? "" : "s"} empty in CRM</summary>
+          <p className="mt-2 break-words">{empty.map(humanize).join(", ")}</p>
+        </details>
+      )}
+
+      {(pdfState === "building" || pdfUrl) && <div className="rounded-sm border border-primary/40 bg-card p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
@@ -389,32 +481,12 @@ function Review({ preview, pdfUrl, pdfState, onGenerate, fileName }: {
             </div>
             <p className="mt-1 text-xs text-muted-foreground">Generated locally in your browser from the reviewed values. Nothing is saved or sent.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {!pdfUrl ? (
-              <Button onClick={onGenerate} disabled={pdfState === "building"} data-testid="button-generate-pdf">
-                {pdfState === "building" ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-                {pdfState === "building" ? "Generating…" : "Generate PDF"}
-              </Button>
-            ) : (
-              <>
-                <Button asChild data-testid="button-download-pdf">
-                  <a href={pdfUrl} download={fileName}><Download className="mr-2 h-4 w-4" /> Download PDF</a>
-                </Button>
-                <Button variant="outline" asChild data-testid="button-print-pdf">
-                  <a href={pdfUrl} target="_blank" rel="noopener"><Printer className="mr-2 h-4 w-4" /> Open to print</a>
-                </Button>
-              </>
-            )}
-          </div>
         </div>
-        {pdfState === "error" && (
-          <p role="alert" className="mt-3 text-sm text-red-400" data-testid="status-pdf-error">The PDF could not be generated. <button className="underline" onClick={onGenerate}>Try again</button></p>
-        )}
         {pdfState === "building" && <Skeleton className="mt-4 h-[480px] w-full" />}
         {pdfUrl && (
           <iframe title={`PDF preview ${preview.reference}`} src={pdfUrl} className="mt-4 h-[75dvh] min-h-[480px] w-full rounded-sm border border-border bg-muted" data-testid="frame-pdf" />
         )}
-      </div>
+      </div>}
     </div>
   );
 }

@@ -13,8 +13,17 @@ export interface ProFormaInput {
      * @maxLength 100
      */
   serviceOrderNumber: string;
-  /** @pattern ^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$ */
+  /**
+     * Sales tax percentage applied to each line's net amount and to freight. Round each line's tax and freight tax separately to two decimal places, then sum for invoice tax.
+     * @pattern ^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$
+     */
   tax: string;
   /** @pattern ^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$ */
   freight: string;
+  /**
+     * Optional customer tax identifier entered by the user, printed below the Invoice to address. Not written to CRM.
+     * @maxLength 100
+     * @pattern ^[^\x00-\x1f\x7f]*$
+     */
+  customerTaxNumber?: string;
 }

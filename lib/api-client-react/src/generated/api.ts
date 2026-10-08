@@ -96,7 +96,7 @@ export const getPreviewProFormaUrl = () => {
 }
 
 /**
- * @summary Read CRM proposal and calculate a pro forma without saving or modifying data
+ * @summary Read CRM proposal with invoice-specific Admin Console access; only editors can submit invoice adjustments
  */
 export const previewProForma = async (proFormaInput: ProFormaInput, options?: RequestInit): Promise<ProFormaPreview> => {
 
@@ -145,7 +145,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type PreviewProFormaMutationError = ErrorType<void>
 
     /**
- * @summary Read CRM proposal and calculate a pro forma without saving or modifying data
+ * @summary Read CRM proposal with invoice-specific Admin Console access; only editors can submit invoice adjustments
  */
 export const usePreviewProForma = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewProForma>>, TError,{data: BodyType<ProFormaInput>}, TContext>, request?: SecondParameter<typeof customFetch>}

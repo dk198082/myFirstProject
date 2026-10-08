@@ -11,9 +11,8 @@ import { localPool } from "./lib/localDb";
 
 const app: Express = express();
 
-// Trust the reverse proxy (Replit preview, or Azure App Service/Container
-// Apps in production) so secure cookies and the forwarded protocol are
-// handled correctly.
+// Trust the Replit reverse proxy so secure cookies and the forwarded protocol
+// are handled correctly.
 app.set("trust proxy", 1);
 
 app.use(
@@ -70,10 +69,8 @@ app.use(
     // not let connect-pg-simple create it — its bundled table.sql is not available
     // after esbuild bundling. The table needs columns sid (PK), sess (jsonb),
     // expire, plus an index on expire, in every environment (dev and production).
-    name: "fieldservice.sid",
     store: new PgSession({
       pool: localPool,
-      schemaName: "crm",
       tableName: "sessions",
       createTableIfMissing: false,
     }),
@@ -93,14 +90,8 @@ app.use(
       // the Replit proxy (trust proxy is enabled above).
       // Production: keep the stricter Lax + auto-secure behavior.
       ...(process.env.NODE_ENV === "production"
-        ? {
-            secure: "auto" as const,
-            sameSite:
-            (process.env.COOKIE_SAME_SITE as "lax" | "none" | "strict") ??
-              "none",
-          }
-         : { secure: false, sameSite: "lax" }),
-
+        ? { secure: "auto" as const, sameSite: "lax" as const }
+        : { secure: true, sameSite: "none" as const }),
     },
   }),
 );

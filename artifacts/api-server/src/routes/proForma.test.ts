@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import express from "express";
 import session from "express-session";
 import request from "supertest";
@@ -40,21 +40,37 @@ async function signedIn() {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.configured.mockReturnValue(true);
+  vi.stubEnv("ADMIN_CONSOLE_URL", "https://admin.example.invalid");
+  vi.stubEnv("PROFORMA_ADMIN_CONSOLE_API_KEY", "test-invoice-key");
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+    allowed: true, reason: null, roles: ["Pro Forma Service Invoice - Read / Write"],
+  }))));
   mocks.query.mockImplementation(async (sql: string) => ({
     rows: sql.includes("FROM crm.proposalheader") ? [header] : sql.includes("FROM crm.proposalline") ? [line] : [],
   }));
 });
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 describe("read-only pro forma endpoint", () => {
   it("requires the real login middleware", async () => {
     await request(app()).post("/api/pro-forma/preview").send(input).expect(401);
     expect(mocks.query).not.toHaveBeenCalled();
   });
-  it("returns precise totals to an authenticated viewer without writes", async () => {
+  it("returns precise totals to an invoice editor without CRM writes", async () => {
     const res = await (await signedIn()).post("/api/pro-forma/preview").send(input).expect(200);
-    expect(res.body.totals.total).toBe("13.75");
+    expect(res.body.totals.freightTax).toBe("0.03");
+    expect(res.body.totals.tax).toBe("0.28");
+    expect(res.body.taxRate).toBe("2.5");
+    expect(res.body.lines[0].taxAmount).toBe("0.25");
+    expect(res.body.totals.total).toBe("11.53");
     expect(res.headers["cache-control"]).toBe("no-store");
     expect(mocks.query.mock.calls.some(([sql]) => /\b(INSERT|UPDATE|DELETE)\b/.test(sql))).toBe(false);
     expect(mocks.release).toHaveBeenCalled();
+  });
+  it("returns an optional customer tax number exactly, preserving leading zeroes", async () => {
+    const res = await (await signedIn()).post("/api/pro-forma/preview")
+      .send({ ...input, customerTaxNumber: "001234-AB" }).expect(200);
+    expect(res.body.customerTaxNumber).toBe("001234-AB");
+    expect(mocks.query.mock.calls.some(([sql]) => /\b(INSERT|UPDATE|DELETE)\b/.test(sql))).toBe(false);
   });
   it.each(["839709", "SV-001360"])("accepts %s and joins lines using the resolved CRM identifiers", async (number) => {
     const resolved = { ...header, workordernumber: "839709", serviceordernumber: "SV-001360", territory_name: "R4", currency: "GBP", company_name: "TOUK" };
@@ -78,6 +94,7 @@ describe("read-only pro forma endpoint", () => {
   it.each([
     { tax: "-1" }, { tax: "" }, { tax: "1.234" }, { freight: "-1" }, { freight: "NaN" },
     { freight: 2 }, { serviceOrderNumber: "   " }, { serviceOrderNumber: "bad\u0000order" },
+    { customerTaxNumber: "x".repeat(101) }, { customerTaxNumber: "bad\nnumber" }, { customerTaxNumber: 123 },
   ])("rejects invalid input %j", async (patch) => {
     await (await signedIn()).post("/api/pro-forma/preview").send({ ...input, ...patch }).expect(400);
     expect(mocks.query).not.toHaveBeenCalled();

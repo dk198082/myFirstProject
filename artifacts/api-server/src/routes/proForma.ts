@@ -1,18 +1,22 @@
 import { Router, type IRouter } from "express";
 import { PreviewProFormaBody } from "@workspace/api-zod";
-import { requireLogin } from "../lib/auth.js";
+import { requireInvoiceAccess } from "../lib/appAccess.js";
 import { getCrmPool, isCrmConfigured } from "../lib/crmDb.js";
 import { buildProposal, ProposalError } from "../lib/proForma.js";
 
 const router: IRouter = Router();
-router.post("/pro-forma/preview", requireLogin, async (req, res) => {
+router.post("/pro-forma/preview", requireInvoiceAccess, async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   const result = PreviewProFormaBody.safeParse(req.body);
   if (!result.success) {
-    res.status(400).json({ error: "Enter a service order number and non-negative tax and freight amounts with at most two decimal places." });
+    res.status(400).json({ error: "Enter a valid service order number, a non-negative sales tax percentage and freight amount with at most two decimal places, and an optional customer tax number of at most 100 characters with no control characters." });
     return;
   }
   const input = { ...result.data, serviceOrderNumber: result.data.serviceOrderNumber.trim() };
+  if (res.locals.invoiceRole !== "editor" &&
+      (!/^0+(?:\.0+)?$/.test(input.tax.trim()) || !/^0+(?:\.0+)?$/.test(input.freight.trim()) || input.customerTaxNumber?.trim())) {
+    res.status(403).json({ error: "Read-only users cannot change tax, freight or customer Tax #." }); return;
+  }
   if (!input.serviceOrderNumber || /[\x00-\x1f\x7f]/.test(input.serviceOrderNumber)) {
     res.status(400).json({ error: "Enter a valid service order number." }); return;
   }

@@ -674,7 +674,7 @@ describe("GET /api/auth/callback", () => {
     expect(fetchSpy).toHaveBeenCalledOnce();
     const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(url).toContain("entraObjectId=entra-oid-abc");
-    expect(url).toContain("app=Field Service Calendar");
+    expect(new URL(url).searchParams.get("app")).toBe("Field Service Calendar");
     expect((opts.headers as Record<string, string>)["X-API-Key"]).toBe(
       "test-key",
     );

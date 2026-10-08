@@ -23,7 +23,7 @@ paths:
     post:
       operationId: previewProForma
       tags: [proForma]
-      summary: Read CRM proposal and calculate a pro forma without saving or modifying data
+      summary: Read CRM proposal with invoice-specific Admin Console access; only editors can submit invoice adjustments
       requestBody:
         required: true
         content:
@@ -41,6 +41,8 @@ paths:
           description: Invalid input
         "401":
           description: Login required
+        "403":
+          description: Invoice access denied or a read-only user submitted invoice adjustments
         "404":
           description: Service order not found
         "409":
@@ -1209,13 +1211,19 @@ components:
           maxLength: 100
         tax:
           type: string
+          description: Sales tax percentage applied to each line's net amount and to freight. Round each line's tax and freight tax separately to two decimal places, then sum for invoice tax.
           pattern: '^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$'
         freight:
           type: string
           pattern: '^(0|[1-9][0-9]{0,9})(\.[0-9]{1,2})?$'
+        customerTaxNumber:
+          type: string
+          description: Optional customer tax identifier entered by the user, printed below the Invoice to address. Not written to CRM.
+          maxLength: 100
+          pattern: '^[^\x00-\x1f\x7f]*$'
     ProFormaLine:
       type: object
-      required: [lineNumber, type, description, uom, quantity, unitAmount, netAmount]
+      required: [lineNumber, type, description, uom, quantity, unitAmount, netAmount, taxAmount]
       properties:
         lineNumber: { type: integer }
         type: { type: string }
@@ -1224,22 +1232,32 @@ components:
         quantity: { type: string }
         unitAmount: { type: string }
         netAmount: { type: string }
+        taxAmount:
+          type: string
+          description: Tax on this line's displayed net amount, rounded half-up to two decimal places.
     ProFormaTotals:
       type: object
-      required: [gross, discount, net, freight, tax, total]
+      required: [gross, discount, net, freight, freightTax, tax, total]
       properties:
         gross: { type: string }
         discount: { type: string }
         net: { type: string }
         freight: { type: string }
+        freightTax:
+          type: string
+          description: Tax on entered freight, rounded half-up to two decimal places. Included in the summed tax amount.
         tax: { type: string }
         total: { type: string }
     ProFormaPreview:
       type: object
-      required: [serviceOrderNumber, reference, generatedAt, region, currency, header, lines, totals, warnings]
+      required: [serviceOrderNumber, reference, generatedAt, region, currency, header, lines, totals, warnings, taxRate]
       properties:
         serviceOrderNumber: { type: string }
         reference: { type: string }
+        customerTaxNumber: { type: string }
+        taxRate:
+          type: string
+          description: Entered sales tax percentage used for every line and freight.
         generatedAt: { type: string }
         region: { type: string, enum: [US, UK] }
         currency: { type: string, enum: [USD, GBP] }

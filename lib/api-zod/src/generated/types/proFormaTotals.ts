@@ -11,6 +11,8 @@ export interface ProFormaTotals {
   discount: string;
   net: string;
   freight: string;
+  /** Tax on entered freight, rounded half-up to two decimal places. Included in the summed tax amount. */
+  freightTax: string;
   tax: string;
   total: string;
 }

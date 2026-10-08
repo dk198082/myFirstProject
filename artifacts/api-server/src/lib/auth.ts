@@ -83,11 +83,17 @@ export interface SessionUser {
   email: string | undefined;
   displayName: string | undefined;
   role: string;
+  // Absent only on legacy sessions, which were issued exclusively for Calendar.
+  calendarAccess?: boolean;
 }
 
 export function requireLogin(req: Request, res: Response, next: NextFunction): void {
   if (!req.session.user) {
     res.status(401).json({ message: "Login required" });
+    return;
+  }
+  if (req.session.user.calendarAccess === false) {
+    res.status(403).json({ message: "Access denied to Field Service Calendar" });
     return;
   }
   next();
@@ -97,6 +103,10 @@ export function requireRole(...roles: string[]) {
   return function (req: Request, res: Response, next: NextFunction): void {
     if (!req.session.user) {
       res.status(401).json({ message: "Login required" });
+      return;
+    }
+    if (req.session.user.calendarAccess === false) {
+      res.status(403).json({ message: "Access denied to Field Service Calendar" });
       return;
     }
     if (!roles.includes(req.session.user.role)) {
@@ -119,5 +129,6 @@ declare module "express-session" {
     user?: SessionUser;
     authState?: string;
     returnTo?: string;
+    authApp?: "calendar" | "proforma";
   }
 }

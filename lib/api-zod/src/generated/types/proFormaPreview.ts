@@ -14,6 +14,9 @@ import type { ProFormaTotals } from './proFormaTotals';
 export interface ProFormaPreview {
   serviceOrderNumber: string;
   reference: string;
+  customerTaxNumber?: string;
+  /** Entered sales tax percentage used for every line and freight. */
+  taxRate: string;
   generatedAt: string;
   region: ProFormaPreviewRegion;
   currency: ProFormaPreviewCurrency;

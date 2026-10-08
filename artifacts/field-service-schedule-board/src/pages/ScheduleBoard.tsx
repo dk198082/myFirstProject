@@ -3379,6 +3379,7 @@ export default function ScheduleBoard() {
             : "CRM live sync is unavailable. The calendar may not show the latest booking changes."}
         </div>
       )}
+
       {isLoading && (
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
