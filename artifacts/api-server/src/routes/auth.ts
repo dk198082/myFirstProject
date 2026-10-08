@@ -97,6 +97,7 @@ router.get("/login", async (req, res) => {
   res.redirect(authUrl);
 });
 
+
 /* -------------------------------------------------------------------------- */
 /* Workspace Embedded SSO                                                     */
 /*                                                                            */
@@ -217,6 +218,135 @@ router.get("/auth/embedded-sso", async (req, res): Promise<void> => {
       .send("Embedded sign-in could not be completed.");
   }
 });
+
+// ---------------------------------------------------------------------------
+// Workspace Embedded SSO for Pro Forma Service Invoice
+//
+// Workspace is already authenticated.
+// Workspace sends a short-lived signed token.
+// Pro Forma verifies the token, checks invoice access,
+// creates the Field Service API session, and redirects to Pro Forma.
+//
+// No popup.
+// No second Microsoft login.
+// ---------------------------------------------------------------------------
+
+router.get(
+  "/auth/embedded-sso-proforma",
+  async (req, res): Promise<void> => {
+    const token =
+      typeof req.query.token === "string"
+        ? req.query.token
+        : "";
+
+    const requestedReturnTo =
+      typeof req.query.returnTo === "string"
+        ? sanitizeReturnTo(req.query.returnTo)
+        : "/pro-forma-service-invoice/";
+
+    const returnTo =
+      requestedReturnTo === "/"
+        ? "/pro-forma-service-invoice/"
+        : requestedReturnTo;
+
+    req.log.info(
+      {
+        hasToken: Boolean(token),
+        returnTo,
+      },
+      "Pro Forma embedded SSO started",
+    );
+
+    if (!token) {
+      res
+        .status(400)
+        .type("text")
+        .send("Missing SSO token.");
+      return;
+    }
+
+    const identity = verifyEmbeddedSsoToken(
+      token,
+      "pro-forma-service-invoice",
+    );
+
+    if (!identity) {
+      req.log.warn(
+        "Pro Forma embedded SSO token invalid or expired",
+      );
+
+      res
+        .status(401)
+        .type("text")
+        .send("Invalid or expired SSO token.");
+
+      return;
+    }
+
+    try {
+      // Verify that the Workspace user is authorized
+      // specifically for Pro Forma Service Invoice.
+      const role = await checkAppAccess(
+        identity.sub,
+        INVOICE_APP,
+      );
+
+      // Create this application's own session.
+      req.session.user = {
+        entraOid: identity.sub,
+        email: identity.email,
+        displayName: identity.name,
+        role,
+        // Calendar access is not assumed from invoice access.
+        // If the user later opens Calendar, it will be checked separately.
+        calendarAccess: false,
+      };
+
+      req.session.authApp = "proforma";
+
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((error) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      req.log.info(
+        {
+          email: identity.email,
+          displayName: identity.name,
+          role,
+          sessionId: req.sessionID,
+        },
+        "Pro Forma embedded session created",
+      );
+
+      res.redirect(returnTo);
+    } catch (err) {
+      if (err instanceof AccessError) {
+        res
+          .status(err.status)
+          .type("text")
+          .send(err.message);
+        return;
+      }
+
+      req.log.error(
+        { err },
+        "Pro Forma embedded SSO failed",
+      );
+
+      res
+        .status(503)
+        .type("text")
+        .send("Embedded Pro Forma sign-in could not be completed.");
+    }
+  },
+);
+
 
 /* -------------------------------------------------------------------------- */
 /* Microsoft OAuth Callback                                                   */
