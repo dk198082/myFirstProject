@@ -204,21 +204,55 @@ export default function Workspace({ user, onUnauthorized, onAccessCheck, onSignO
 
   return (
     <div className="min-h-[100dvh]">
-      <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
-          {brand}
-          <div className="flex items-center gap-3 text-right">
-            <Badge variant="outline" data-testid="badge-invoice-role">{canPrepare ? "Read / Write" : "Read Only"}</Badge>
-            <div className="leading-tight">
-              <div className="text-xs font-semibold" data-testid="text-user-name">{user.displayName ?? user.email ?? "Signed in"}</div>
-              {user.email && user.displayName && <div className="text-[11px] text-muted-foreground">{user.email}</div>}
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => void signOut()} disabled={signingOut} data-testid="button-sign-out">
-              <LogOut className="mr-2 h-4 w-4" />{signingOut ? "Signing out…" : "Sign out"}
-            </Button>
+
+      {!(() => {
+  try {
+    return window.top !== window.self;
+  } catch {
+    return true;
+  }
+})() && (
+  <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
+    <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
+      {brand}
+
+      <div className="flex items-center gap-3 text-right">
+        <Badge
+          variant="outline"
+          data-testid="badge-invoice-role"
+        >
+          {canPrepare ? "Read / Write" : "Read Only"}
+        </Badge>
+
+        <div className="leading-tight">
+          <div
+            className="text-xs font-semibold"
+            data-testid="text-user-name"
+          >
+            {user.displayName ?? user.email ?? "Signed in"}
           </div>
+
+          {user.email && user.displayName && (
+            <div className="text-[11px] text-muted-foreground">
+              {user.email}
+            </div>
+          )}
         </div>
-      </header>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => void signOut()}
+          disabled={signingOut}
+          data-testid="button-sign-out"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          {signingOut ? "Signing out…" : "Sign out"}
+        </Button>
+      </div>
+    </div>
+  </header>
+)}
 
       <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:px-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-[76px] lg:self-start">
