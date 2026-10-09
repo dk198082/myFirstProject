@@ -51,13 +51,11 @@ COPY . .
 # Do not run the workspace-wide typecheck here because it currently
 # fails on missing test dependencies and test-only TypeScript errors.
 # --------------------------------------------------------------------
+# --------------------------------------------------------------------
+# Build API server only
+# --------------------------------------------------------------------
 
-RUN pnpm \
-    --filter "@workspace/api-server" \
-    --filter "./lib/**" \
-    --filter "./scripts" \
-    --if-present \
-    run build
+RUN pnpm --filter "@workspace/api-server" run build
 
 # --------------------------------------------------------------------
 # Build Field Service Calendar frontend at /
@@ -72,6 +70,7 @@ RUN PORT=4173 BASE_PATH=/ \
 
 RUN PORT=19475 BASE_PATH=/pro-forma-service-invoice/ \
     pnpm --filter "@workspace/pro-forma-service-invoice" run build
+
 
 # --------------------------------------------------------------------
 # Runtime configuration
