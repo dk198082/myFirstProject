@@ -464,7 +464,15 @@ router.get("/auth/callback", async (req, res) => {
       "User session created via OAuth callback",
     );
 
-    res.redirect(returnTo);
+    // 
+      const isLocalDevelopment = process.env.NODE_ENV !== "production";
+
+      if (invoice && isLocalDevelopment) {
+        res.redirect("http://localhost:5178/");
+      } else {
+        res.redirect(returnTo);
+      }
+
   } catch (err) {
     if (err instanceof AccessError) {
       res.status(err.status).send(err.message);
