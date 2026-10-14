@@ -65,9 +65,12 @@ export function buildProposal(header: Row, rows: Row[], input: ProFormaInput, no
     ["delivery_address1", "Delivery street address"], ["delivery_country", "Delivery country"],
     ["company_phone", "Company phone"], ["company_vat_ein", "Company tax identifier"],
   ]) if (!text(header[key])) warnings.push(`${label} is missing in CRM.`);
-  const normalizedHeader = Object.fromEntries(Object.entries(header).map(([k, v]) => [k, v == null ? null : text(v)]));
+  const normalizedHeader = Object.fromEntries(Object.entries(header)
+    .filter(([key]) => key !== "system_status_code")
+    .map(([k, v]) => [k, v == null ? null : text(v)]));
   return {
     serviceOrderNumber: text(header.serviceordernumber),
+    isInvoiced: Number(header.system_status_code) === 690970004,
     reference: `${text(header.workordernumber)} / ${text(header.serviceordernumber)}`,
     customerTaxNumber: input.customerTaxNumber?.trim() || "",
     taxRate: taxRate.toFixed(),

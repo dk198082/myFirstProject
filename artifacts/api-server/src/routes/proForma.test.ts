@@ -9,6 +9,7 @@ vi.mock("../lib/crmDb.js", () => ({
   getCrmPool: () => ({ connect: async () => ({ query: mocks.query, release: mocks.release }) }),
 }));
 import router from "./proForma";
+vi.mock("../lib/crmIngestion.js", () => ({ refreshCrmIngestion: async () => {} }));
 
 const input = { serviceOrderNumber: "SV123", freight: "1.25", tax: "2.50" };
 const header = {
@@ -65,6 +66,23 @@ describe("read-only pro forma endpoint", () => {
     expect(res.headers["cache-control"]).toBe("no-store");
     expect(mocks.query.mock.calls.some(([sql]) => /\b(INSERT|UPDATE|DELETE)\b/.test(sql))).toBe(false);
     expect(mocks.release).toHaveBeenCalled();
+  });
+  it.each([
+    [690970004, true],
+    [690970003, false],
+    [null, false],
+  ])("marks system status %s as invoiced=%s without changing the document header", async (status, invoiced) => {
+    mocks.query.mockImplementation(async (sql: string) => ({
+      rows: sql.includes("FROM crm.proposalheader") ? [{ ...header, system_status_code: status }]
+        : sql.includes("FROM crm.proposalline") ? [line] : [],
+    }));
+    const res = await (await signedIn()).post("/api/pro-forma/preview").send(input).expect(200);
+    expect(res.body.isInvoiced).toBe(invoiced);
+    expect(res.body.header).not.toHaveProperty("system_status_code");
+    expect(res.body.totals.total).toBe("11.53");
+    const lookup = mocks.query.mock.calls.find(([sql]) => sql.includes("FROM crm.proposalheader"));
+    expect(lookup?.[0]).toContain("wo.msdyn_workorderid = ph.workorderid");
+    expect(mocks.query.mock.calls.some(([sql]) => /\b(INSERT|UPDATE|DELETE)\b/.test(sql))).toBe(false);
   });
   it("returns an optional customer tax number exactly, preserving leading zeroes", async () => {
     const res = await (await signedIn()).post("/api/pro-forma/preview")

@@ -4,6 +4,10 @@ import { Button } from "@workspace/production-priority-design-system/components/
 import { Input } from "@workspace/production-priority-design-system/components/ui/input";
 import { Label } from "@workspace/production-priority-design-system/components/ui/label";
 import { Badge } from "@workspace/production-priority-design-system/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@workspace/production-priority-design-system/components/ui/alert-dialog";
 import { Skeleton } from "@workspace/production-priority-design-system/components/ui/skeleton";
 import {
   Table,
@@ -15,10 +19,11 @@ import {
 } from "@workspace/production-priority-design-system/components/ui/table";
 import { cn } from "@workspace/production-priority-design-system/lib/utils";
 import { toast } from "@workspace/production-priority-design-system/hooks/use-toast";
-import { AlertTriangle, Download, FileSearch, FileText, LogOut, Printer, RefreshCw, Search, X } from "lucide-react";
+import { AlertTriangle, Download, FileSearch, FileText, LogOut, Mail, Printer, RefreshCw, Search, X } from "lucide-react";
 import { buildInvoicePdf } from "@/lib/invoice-pdf";
 import { invoiceFilename } from "@/lib/invoice-filename";
 import { TaxBreakdownDialog } from "@/components/TaxBreakdownDialog";
+import { EmailInvoiceDialog } from "@/components/EmailInvoiceDialog";
 import type { SessionUser } from "@/lib/auth";
 import { formatDateTime, groupHeader, humanize, money, validateAmount } from "@/lib/format";
 import { formatDecimal } from "@/lib/decimal-format";
@@ -65,8 +70,10 @@ export default function Workspace({ user, onUnauthorized, onAccessCheck, onSignO
   const [fields, setFields] = useState<Fields>({ ...DEFAULT_FIELDS });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [preview, setPreview] = useState<ProFormaPreview | null>(null);
+  const [pendingPreview, setPendingPreview] = useState<ProFormaPreview | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [emailOpen, setEmailOpen] = useState(false);
   const [pdfState, setPdfState] = useState<"idle" | "building" | "error">("idle");
   const reqSeq = useRef(0);
   const pdfSeq = useRef(0);
@@ -96,6 +103,8 @@ export default function Workspace({ user, onUnauthorized, onAccessCheck, onSignO
     reqSeq.current++;
     pdfSeq.current++;
     setPreview(null);
+    setEmailOpen(false);
+    setPendingPreview(null);
     setFailure(null);
     setPdfState("idle");
     setBlobUrl(null);
@@ -113,12 +122,14 @@ export default function Workspace({ user, onUnauthorized, onAccessCheck, onSignO
     pdfSeq.current++;
     setFailure(null);
     setPreview(null);
+    setPendingPreview(null);
     setPdfState("idle");
     setBlobUrl(null);
     try {
       const result = await mutateAsyncRef.current({ data: input });
       if (id !== reqSeq.current) return;
-      setPreview(result);
+      if (result.isInvoiced) setPendingPreview(result);
+      else setPreview(result);
     } catch (err) {
       if (id !== reqSeq.current) return;
       const f = describeError(err);
@@ -167,7 +178,11 @@ export default function Workspace({ user, onUnauthorized, onAccessCheck, onSignO
       if (current?.role !== "editor") { clearResult(); return; }
       const blob = await buildInvoicePdf(preview);
       if (id !== pdfSeq.current) return;
-      setBlobUrl(URL.createObjectURL(blob));
+      const url = URL.createObjectURL(blob);
+      setBlobUrl(url);
+      const link = document.createElement("a");
+      link.href = url; link.download = invoiceFilename(preview);
+      document.body.appendChild(link); link.click(); link.remove();
       setPdfState("idle");
     } catch {
       if (id !== pdfSeq.current) return;
@@ -204,55 +219,39 @@ export default function Workspace({ user, onUnauthorized, onAccessCheck, onSignO
 
   return (
     <div className="min-h-[100dvh]">
-
-      {!(() => {
-  try {
-    return window.top !== window.self;
-  } catch {
-    return true;
-  }
-})() && (
-  <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
-    <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
-      {brand}
-
-      <div className="flex items-center gap-3 text-right">
-        <Badge
-          variant="outline"
-          data-testid="badge-invoice-role"
-        >
-          {canPrepare ? "Read / Write" : "Read Only"}
-        </Badge>
-
-        <div className="leading-tight">
-          <div
-            className="text-xs font-semibold"
-            data-testid="text-user-name"
-          >
-            {user.displayName ?? user.email ?? "Signed in"}
-          </div>
-
-          {user.email && user.displayName && (
-            <div className="text-[11px] text-muted-foreground">
-              {user.email}
+      <AlertDialog open={pendingPreview !== null} onOpenChange={(open) => { if (!open) setPendingPreview(null); }}>
+        <AlertDialogContent data-testid="dialog-invoiced-order">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Service order already invoiced</AlertDialogTitle>
+            <AlertDialogDescription>
+              Service order {pendingPreview?.serviceOrderNumber} has a System Status of Invoiced.
+              {" "}Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={clearResult} data-testid="button-cancel-invoiced-order">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (pendingPreview) setPreview(pendingPreview);
+              setPendingPreview(null);
+            }} data-testid="button-continue-invoiced-order">Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
+          {brand}
+          <div className="flex items-center gap-3 text-right">
+            <Badge variant="outline" data-testid="badge-invoice-role">{canPrepare ? "Read / Write" : "Read Only"}</Badge>
+            <div className="leading-tight">
+              <div className="text-xs font-semibold" data-testid="text-user-name">{user.displayName ?? user.email ?? "Signed in"}</div>
+              {user.email && user.displayName && <div className="text-[11px] text-muted-foreground">{user.email}</div>}
             </div>
-          )}
+            <Button variant="ghost" size="sm" onClick={() => void signOut()} disabled={signingOut} data-testid="button-sign-out">
+              <LogOut className="mr-2 h-4 w-4" />{signingOut ? "Signing out…" : "Sign out"}
+            </Button>
+          </div>
         </div>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => void signOut()}
-          disabled={signingOut}
-          data-testid="button-sign-out"
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          {signingOut ? "Signing out…" : "Sign out"}
-        </Button>
-      </div>
-    </div>
-  </header>
-)}
+      </header>
 
       <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:px-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-[76px] lg:self-start">
@@ -328,10 +327,12 @@ export default function Workspace({ user, onUnauthorized, onAccessCheck, onSignO
           {!loading && !failure && !preview && <EmptyState />}
           {!loading && preview && (
             <Review preview={preview} pdfUrl={pdfUrl} pdfState={pdfState} onGenerate={() => void generatePdf()}
-              canPrepare={canPrepare} onExport={(print) => void exportPdf(print)} />
+              canPrepare={canPrepare} onExport={(print) => void exportPdf(print)} onEmail={() => setEmailOpen(true)} />
           )}
         </section>
       </main>
+      {emailOpen && preview && canPrepare && <EmailInvoiceDialog preview={preview} user={user}
+        onClose={() => setEmailOpen(false)} onAccessCheck={onAccessCheck} onUnauthorized={onUnauthorized} />}
     </div>
   );
 }
@@ -373,9 +374,10 @@ function ReviewSkeleton() {
   );
 }
 
-function Review({ preview, pdfUrl, pdfState, onGenerate, canPrepare, onExport }: {
+function Review({ preview, pdfUrl, pdfState, onGenerate, canPrepare, onExport, onEmail }: {
   preview: ProFormaPreview; pdfUrl: string | null; pdfState: "idle" | "building" | "error"; onGenerate: () => void;
   canPrepare: boolean; onExport: (print: boolean) => void;
+  onEmail: () => void;
 }) {
   const { groups, empty } = useMemo(() => groupHeader(preview.header), [preview.header]);
   const cur = preview.currency;
@@ -401,7 +403,7 @@ function Review({ preview, pdfUrl, pdfState, onGenerate, canPrepare, onExport }:
               {!pdfUrl ? (
                 <Button onClick={onGenerate} disabled={pdfState === "building"} data-testid="button-generate-pdf">
                   {pdfState === "building" ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-                  {pdfState === "building" ? "Generating…" : "Generate PDF"}
+                  {pdfState === "building" ? "Preparing…" : "Download PDF"}
                 </Button>
               ) : (
                 <>
@@ -413,6 +415,7 @@ function Review({ preview, pdfUrl, pdfState, onGenerate, canPrepare, onExport }:
                   </Button>
                 </>
               )}
+              <Button variant="outline" onClick={onEmail} disabled={pdfState === "building"} data-testid="button-email-pdf"><Mail className="mr-2 h-4 w-4" />Email PDF</Button>
             </div>}
           </div>
         </div>

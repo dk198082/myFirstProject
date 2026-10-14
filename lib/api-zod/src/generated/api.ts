@@ -9,6 +9,36 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Email a reviewed PDF from the signed-in user's Microsoft 365 mailbox; invoice editors only
+ */
+export const emailProFormaBodyToMax = 254;
+
+export const emailProFormaBodySubjectMax = 200;
+
+
+export const emailProFormaBodySubjectRegExp = new RegExp('^[^\\x00-\\x1f\\x7f]+$');
+export const emailProFormaBodyMessageMax = 10000;
+
+export const emailProFormaBodyFilenameMin = 5;
+export const emailProFormaBodyFilenameMax = 512;
+
+
+export const emailProFormaBodyFilenameRegExp = new RegExp('^[^<>:\"\/\\\\|?\*\\x00-\\x1f\\x7f]+\\.pdf$');
+export const emailProFormaBodyPdfBase64Min = 8;
+export const emailProFormaBodyPdfBase64Max = 3495256;
+
+
+
+export const EmailProFormaBody = zod.object({
+  "to": zod.string().email().max(emailProFormaBodyToMax),
+  "subject": zod.string().min(1).max(emailProFormaBodySubjectMax).regex(emailProFormaBodySubjectRegExp),
+  "message": zod.string().min(1).max(emailProFormaBodyMessageMax),
+  "filename": zod.string().min(emailProFormaBodyFilenameMin).max(emailProFormaBodyFilenameMax).regex(emailProFormaBodyFilenameRegExp),
+  "pdfBase64": zod.string().min(emailProFormaBodyPdfBase64Min).max(emailProFormaBodyPdfBase64Max)
+})
+
+
+/**
  * @summary Read CRM proposal with invoice-specific Admin Console access; only editors can submit invoice adjustments
  */
 export const previewProFormaBodyServiceOrderNumberMax = 100;
@@ -30,6 +60,7 @@ export const PreviewProFormaBody = zod.object({
 
 export const PreviewProFormaResponse = zod.object({
   "serviceOrderNumber": zod.string(),
+  "isInvoiced": zod.boolean().describe('CRM work order has System Status Invoiced; require user confirmation before displaying the proposal.'),
   "reference": zod.string(),
   "customerTaxNumber": zod.string().optional(),
   "taxRate": zod.string().describe('Entered sales tax percentage used for every line and freight.'),

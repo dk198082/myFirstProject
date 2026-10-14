@@ -3,12 +3,13 @@ import { getCrmPool, isCrmConfigured } from "./crmDb.js";
 import { DataverseThrottleError, fetchBookingById, fetchModifiedEntities, fetchWorkOrderById, isDataverseConfigured } from "./dataverse.js";
 import type { BookingPatch } from "./dataverse.js";
 import { logger } from "./logger.js";
+import { mirrorFees } from "./crmFeeIngestion.js";
 
 const INTERVAL_MS = 8_000;
 const OVERLAP_MS = 10 * 60_000;
 const FIRST_RUN_LOOKBACK_MS = 7 * 24 * 60 * 60_000;
 const LOCK_ID = 92368413;
-const ENTITIES = ["msdyn_workorders", "bookableresourcebookings"] as const;
+const ENTITIES = ["msdyn_workorders", "bookableresourcebookings", "msdyn_workorderservices"] as const;
 let retryAt = 0;
 type Entity = typeof ENTITIES[number];
 type Row = Record<string, unknown>;
@@ -144,7 +145,7 @@ export async function mirrorSavedBooking(bookingId: string, expected: BookingPat
 }
 
 /** One serialized cycle across API instances. Checkpoints only advance on a full successful fetch and commit. */
-export async function ingestCrmChanges(): Promise<void> {
+export async function ingestCrmChanges(entities: readonly Entity[] = ENTITIES): Promise<void> {
   let client: pg.PoolClient | null = null;
   let locked = false;
   let currentEntity: Entity | null = null;
@@ -154,7 +155,7 @@ export async function ingestCrmChanges(): Promise<void> {
     if (!lock.rows[0]?.locked) return;
     locked = true;
     const through = new Date(Date.now() - 2_000).toISOString();
-    for (const entity of ENTITIES) {
+    for (const entity of entities) {
       currentEntity = entity;
       await client.query(
         `INSERT INTO crm.calendar_ingest_state(entity, last_attempt)
@@ -164,16 +165,23 @@ export async function ingestCrmChanges(): Promise<void> {
       const state = await client.query<{ checkpoint: Date | null }>(
         "SELECT checkpoint FROM crm.calendar_ingest_state WHERE entity = $1", [entity],
       );
-      
-      const from = windowStart(state.rows[0]?.checkpoint ?? null, new Date(through));
-      
+      let checkpoint = state.rows[0]?.checkpoint ?? null;
+      if (!checkpoint && entity === "msdyn_workorderservices") {
+        // Catch up from the existing fee snapshot, not just the calendar's
+        // seven-day first-run window. An empty fee mirror needs all history.
+        const existing = await client.query<{ checkpoint: Date | null }>(
+          "SELECT max(modifiedon) AT TIME ZONE 'UTC' AS checkpoint FROM crm.fees",
+        );
+        checkpoint = existing.rows[0]?.checkpoint ?? new Date(0);
+      }
+      const from = windowStart(checkpoint, new Date(through));
       const rows = await fetchModifiedEntities(entity, from, through);
-      
       // A booking created for a pre-existing (but absent from the mirror) work
       // order needs its parent; fail visibly rather than silently losing it.
       await client.query("BEGIN");
       try {
-        for (const row of rows) {
+        if (entity === "msdyn_workorderservices") await mirrorFees(client, rows);
+        else for (const row of rows) {
           if (entity === "msdyn_workorders") await workOrder(client, row);
           else await booking(client, row);
         }
@@ -185,7 +193,6 @@ export async function ingestCrmChanges(): Promise<void> {
           [entity, through, rows.length],
         );
         await client.query("COMMIT");
-        
         if (rows.length) logger.info({ entity, rows: rows.length, through }, "CRM ingestion succeeded");
       } catch (error) {
         await client.query("ROLLBACK");
@@ -216,27 +223,6 @@ let activeTick: Promise<void> | null = null;
 
 /** Called by board reads too: an autoscaled API may have slept between visits. */
 export function refreshCrmIngestion(): Promise<void> {
-
-  const enabled = process.env.CRM_INGESTION_ENABLED === "true";
-  const crmConfigured = isCrmConfigured();
-  const dataverseConfigured = isDataverseConfigured();
-
-  logger.info({
-    enabled,
-    crmConfigured,
-    dataverseConfigured,
-  }, "CRM ingestion configuration");
-
-  if (!enabled || !crmConfigured || !dataverseConfigured) {
-    logger.warn({
-      enabled,
-      crmConfigured,
-      dataverseConfigured,
-    }, "CRM ingestion skipped");
-    
-    return Promise.resolve();
-  }
-
   if (process.env.CRM_INGESTION_ENABLED !== "true" || !isCrmConfigured() || !isDataverseConfigured()) {
     return Promise.resolve();
   }

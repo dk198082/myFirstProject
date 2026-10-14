@@ -5,6 +5,37 @@
  * Technician Dashboard API
  * OpenAPI spec version: 0.1.0
  */
+export interface ProFormaEmailInput {
+  /** @maxLength 254 */
+  to: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     * @pattern ^[^\x00-\x1f\x7f]+$
+     */
+  subject: string;
+  /**
+     * @minLength 1
+     * @maxLength 10000
+     */
+  message: string;
+  /**
+     * @minLength 5
+     * @maxLength 512
+     * @pattern ^[^<>:"/\\|?*\x00-\x1f\x7f]+\.pdf$
+     */
+  filename: string;
+  /**
+     * @minLength 8
+     * @maxLength 3495256
+     */
+  pdfBase64: string;
+}
+
+export interface ProFormaEmailResult {
+  message: string;
+}
+
 export interface ProFormaInput {
   /**
      * Exact CRM serviceordernumber or workordernumber; the response contains the matched service order number.
@@ -70,6 +101,8 @@ export type ProFormaPreviewHeader = {[key: string]: string | null};
 
 export interface ProFormaPreview {
   serviceOrderNumber: string;
+  /** CRM work order has System Status Invoiced; require user confirmation before displaying the proposal. */
+  isInvoiced: boolean;
   reference: string;
   customerTaxNumber?: string;
   /** Entered sales tax percentage used for every line and freight. */

@@ -3,6 +3,7 @@ import { PreviewProFormaBody } from "@workspace/api-zod";
 import { requireInvoiceAccess } from "../lib/appAccess.js";
 import { getCrmPool, isCrmConfigured } from "../lib/crmDb.js";
 import { buildProposal, ProposalError } from "../lib/proForma.js";
+import { refreshCrmIngestion } from "../lib/crmIngestion.js";
 
 const router: IRouter = Router();
 router.post("/pro-forma/preview", requireInvoiceAccess, async (req, res) => {
@@ -25,11 +26,15 @@ router.post("/pro-forma/preview", requireInvoiceAccess, async (req, res) => {
   }
   let client;
   try {
+    // Invoice visits also wake the shared refresh cycle after autoscale sleep.
+    await refreshCrmIngestion();
     client = await getCrmPool().connect();
     await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
     await client.query("SET LOCAL statement_timeout = '15000ms'");
     const headers = await client.query(`
       SELECT workorderid, workordernumber, serviceordernumber, ponumber,
+        (SELECT wo.msdyn_systemstatus FROM crm.workorder wo
+         WHERE wo.msdyn_workorderid = ph.workorderid) AS system_status_code,
         customeraccount, currency, territory_name,
         account_name, account_address1_line1, account_address1_line2, account_address1_line3,
         account_address1_city, account_address1_stateorprovince, account_address1_postalcode,
@@ -39,7 +44,7 @@ router.post("/pro-forma/preview", requireInvoiceAccess, async (req, res) => {
         delivery_city, delivery_stateorprovince, delivery_postalcode, delivery_country,
         delivery_phonenumber, company_name, company_address, remit_to,
         company_phone, company_fax, company_vat_ein, company_url
-       FROM crm.proposalheader
+       FROM crm.proposalheader ph
        WHERE serviceordernumber = $1 OR workordernumber = $1
        LIMIT 2
     `, [input.serviceOrderNumber]);

@@ -44,6 +44,8 @@ import type {
   ListWbServiceLocationsParams,
   ListWbWorkOrdersParams,
   PlaceholderJob,
+  ProFormaEmailInput,
+  ProFormaEmailResult,
   ProFormaInput,
   ProFormaPreview,
   RegionGroup,
@@ -86,6 +88,77 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 
+
+export const getEmailProFormaUrl = () => {
+
+
+
+
+  return `/api/pro-forma/email`
+}
+
+/**
+ * @summary Email a reviewed PDF from the signed-in user's Microsoft 365 mailbox; invoice editors only
+ */
+export const emailProForma = async (proFormaEmailInput: ProFormaEmailInput, options?: RequestInit): Promise<ProFormaEmailResult> => {
+
+  return customFetch<ProFormaEmailResult>(getEmailProFormaUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      proFormaEmailInput,)
+  }
+);}
+
+
+
+
+export const getEmailProFormaMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof emailProForma>>, TError,{data: BodyType<ProFormaEmailInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof emailProForma>>, TError,{data: BodyType<ProFormaEmailInput>}, TContext> => {
+
+const mutationKey = ['emailProForma'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof emailProForma>>, {data: BodyType<ProFormaEmailInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  emailProForma(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EmailProFormaMutationResult = NonNullable<Awaited<ReturnType<typeof emailProForma>>>
+    export type EmailProFormaMutationBody = BodyType<ProFormaEmailInput>
+    export type EmailProFormaMutationError = ErrorType<void>
+
+    /**
+ * @summary Email a reviewed PDF from the signed-in user's Microsoft 365 mailbox; invoice editors only
+ */
+export const useEmailProForma = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof emailProForma>>, TError,{data: BodyType<ProFormaEmailInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof emailProForma>>,
+        TError,
+        {data: BodyType<ProFormaEmailInput>},
+        TContext
+      > => {
+      return useMutation(getEmailProFormaMutationOptions(options));
+    }
 
 export const getPreviewProFormaUrl = () => {
 

@@ -13,6 +13,8 @@ import type { ProFormaTotals } from './proFormaTotals';
 
 export interface ProFormaPreview {
   serviceOrderNumber: string;
+  /** CRM work order has System Status Invoiced; require user confirmation before displaying the proposal. */
+  isInvoiced: boolean;
   reference: string;
   customerTaxNumber?: string;
   /** Entered sales tax percentage used for every line and freight. */

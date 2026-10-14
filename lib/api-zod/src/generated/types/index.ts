@@ -47,6 +47,8 @@ export * from './listWbServiceLocationsParams';
 export * from './listWbWorkOrdersParams';
 export * from './placeholderJob';
 export * from './placeholderJobStatus';
+export * from './proFormaEmailInput';
+export * from './proFormaEmailResult';
 export * from './proFormaInput';
 export * from './proFormaLine';
 export * from './proFormaPreview';

@@ -267,6 +267,8 @@ describe("calendar ingestion freshness status", () => {
       const agent = request.agent(buildApp());
       await agent.get("/__test/seed-viewer").expect(200);
       const response = await agent.get("/wb/ingestion-status").expect(200);
+      expect(mocks.crmQuery.mock.calls.some(([sql]) =>
+        String(sql).includes("WHERE entity IN ('msdyn_workorders', 'bookableresourcebookings')"))).toBe(true);
       expect(mocks.refreshCrmIngestion).toHaveBeenCalled();
       expect(response.body).toMatchObject({ enabled: true, healthy: false });
       expect(response.body.max_lag_seconds).toBeGreaterThanOrEqual(35);

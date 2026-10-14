@@ -45,6 +45,51 @@ beforeEach(() => {
 });
 
 describe("CRM calendar ingestion", () => {
+  it("includes fee lines in the same serialized recurring cycle", async () => {
+    fakeClient();
+    await ingestCrmChanges();
+    expect(mocks.fetchModifiedEntities.mock.calls.map(([entity]) => entity)).toEqual([
+      "msdyn_workorders", "bookableresourcebookings", "msdyn_workorderservices",
+    ]);
+  });
+  it("catches up fees from the old mirror snapshot, beyond the seven-day calendar window", async () => {
+    const { query, statements } = fakeClient();
+    const original = query.getMockImplementation()!;
+    query.mockImplementation(async (text: string, params?: unknown[]) => {
+      if (text.includes("SELECT checkpoint")) return { rows: [{ checkpoint: null }], rowCount: 1 };
+      if (text.includes("max(modifiedon)")) return {
+        rows: [{ checkpoint: new Date("2026-09-25T19:36:10Z") }], rowCount: 1,
+      };
+      return original(text, params);
+    });
+    mocks.fetchModifiedEntities.mockResolvedValue([{
+      msdyn_workorderserviceid: id, _msdyn_workorder_value: woId,
+      modifiedon: "2026-10-09T09:53:05Z", msdyn_unitcost: 100,
+      "cf_projectcategorylist@OData.Community.Display.V1.FormattedValue": "Test Fee",
+    }]);
+    await ingestCrmChanges(["msdyn_workorderservices"]);
+    expect(mocks.fetchModifiedEntities.mock.calls[0][1]).toBe("2026-09-25T19:26:10.000Z");
+    const feeIndex = statements.findIndex((s) => s.text.includes("INSERT INTO crm.fees"));
+    const checkpointIndex = statements.findIndex((s) => s.text.includes("checkpoint = EXCLUDED.checkpoint"));
+    expect(feeIndex).toBeGreaterThan(-1);
+    expect(checkpointIndex).toBeGreaterThan(feeIndex);
+    expect(statements.findIndex((s) => s.text === "COMMIT")).toBeGreaterThan(checkpointIndex);
+  });
+  it("rolls back failed fee writes without advancing the fee checkpoint", async () => {
+    const { query, statements } = fakeClient();
+    const original = query.getMockImplementation()!;
+    query.mockImplementation(async (text: string, params?: unknown[]) => {
+      if (text.includes("INSERT INTO crm.fees")) throw new Error("Fee write failed");
+      return original(text, params);
+    });
+    mocks.fetchModifiedEntities.mockResolvedValue([{
+      msdyn_workorderserviceid: id, modifiedon: "2026-10-09T00:00:00Z",
+    }]);
+    await ingestCrmChanges(["msdyn_workorderservices"]);
+    expect(statements.some((s) => s.text === "ROLLBACK")).toBe(true);
+    expect(statements.some((s) => s.text.includes("checkpoint = EXCLUDED.checkpoint"))).toBe(false);
+    expect(statements.some((s) => s.text.includes("pg_advisory_unlock"))).toBe(true);
+  });
   it("overlaps the previous checkpoint so boundary changes are recaptured", () => {
     expect(windowStart(new Date("2026-09-22T12:00:00Z"), new Date("2026-09-22T12:05:00Z")))
       .toBe("2026-09-22T11:50:00.000Z");

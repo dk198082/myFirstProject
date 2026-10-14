@@ -19,6 +19,34 @@ tags:
   - name: writeback
     description: Dynamics write-back staging operations
 paths:
+  /pro-forma/email:
+    post:
+      operationId: emailProForma
+      tags: [proForma]
+      summary: Email a reviewed PDF from the signed-in user's Microsoft 365 mailbox; invoice editors only
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProFormaEmailInput"
+      responses:
+        "202":
+          description: Microsoft 365 accepted the message for sending; not a delivery confirmation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProFormaEmailResult"
+        "400":
+          description: Invalid recipient, content or PDF attachment
+        "401":
+          description: Login required
+        "403":
+          description: Invoice editor access required
+        "503":
+          description: Microsoft 365 mail access unavailable
+        "504":
+          description: Sending outcome could not be confirmed; check Sent Items before retrying
   /pro-forma/preview:
     post:
       operationId: previewProForma
@@ -1200,6 +1228,39 @@ paths:
 
 components:
   schemas:
+    ProFormaEmailInput:
+      type: object
+      additionalProperties: false
+      required: [to, subject, message, filename, pdfBase64]
+      properties:
+        to:
+          type: string
+          format: email
+          maxLength: 254
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: '^[^\x00-\x1f\x7f]+$'
+        message:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        filename:
+          type: string
+          minLength: 5
+          maxLength: 512
+          pattern: '^[^<>:"/\\|?*\x00-\x1f\x7f]+\.pdf$'
+        pdfBase64:
+          type: string
+          minLength: 8
+          maxLength: 3495256
+    ProFormaEmailResult:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
     ProFormaInput:
       type: object
       required: [serviceOrderNumber, tax, freight]
@@ -1250,9 +1311,12 @@ components:
         total: { type: string }
     ProFormaPreview:
       type: object
-      required: [serviceOrderNumber, reference, generatedAt, region, currency, header, lines, totals, warnings, taxRate]
+      required: [serviceOrderNumber, reference, generatedAt, region, currency, header, lines, totals, warnings, taxRate, isInvoiced]
       properties:
         serviceOrderNumber: { type: string }
+        isInvoiced:
+          type: boolean
+          description: CRM work order has System Status Invoiced; require user confirmation before displaying the proposal.
         reference: { type: string }
         customerTaxNumber: { type: string }
         taxRate:

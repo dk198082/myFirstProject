@@ -7,6 +7,24 @@ afterEach(() => {
 });
 
 describe("Dataverse modified entity pagination", () => {
+  it("reads fee changes with formatted category and unit annotations", async () => {
+    vi.stubEnv("TENANT_ID", "example-tenant");
+    vi.stubEnv("CLIENT_ID", "example-client");
+    vi.stubEnv("CLIENT_SECRET", "example-secret");
+    vi.stubEnv("DATAVERSE_URL", "https://crm.example.test");
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: "test-token", expires_in: 3600 }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ value: [{
+        msdyn_workorderserviceid: "test-fee",
+        "cf_projectcategorylist@OData.Community.Display.V1.FormattedValue": "Service fee",
+      }] }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const { fetchModifiedEntities } = await import("./dataverse.js");
+    const rows = await fetchModifiedEntities("msdyn_workorderservices", "2026-09-25T00:00:00Z", "2026-10-09T00:00:00Z");
+    expect(new URL(String(fetchMock.mock.calls[1][0])).pathname).toBe("/api/data/v9.2/msdyn_workorderservices");
+    expect(rows[0]["cf_projectcategorylist@OData.Community.Display.V1.FormattedValue"]).toBe("Service fee");
+    expect(fetchMock.mock.calls[1][1].headers.Prefer).toContain("FormattedValue");
+  });
   it("reads all pages and keeps annotation fields for board status rendering", async () => {
     vi.stubEnv("TENANT_ID", "example-tenant");
     vi.stubEnv("CLIENT_ID", "example-client");

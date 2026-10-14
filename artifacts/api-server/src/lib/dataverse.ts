@@ -282,7 +282,7 @@ export class DataverseThrottleError extends Error {
  * throws so the ingestion checkpoint is never advanced past missing data.
  */
 export async function fetchModifiedEntities(
-  entitySet: "msdyn_workorders" | "bookableresourcebookings",
+  entitySet: "msdyn_workorders" | "bookableresourcebookings" | "msdyn_workorderservices",
   from: string,
   through: string,
 ): Promise<DataverseEntity[]> {

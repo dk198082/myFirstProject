@@ -21,6 +21,7 @@ vi.mock("../lib/crmDb.js", () => ({
 import authRouter from "./auth.js";
 import invoiceRouter from "./proForma.js";
 import { requireLogin, requireRole } from "../lib/auth.js";
+vi.mock("../lib/crmIngestion.js", () => ({ refreshCrmIngestion: async () => {} }));
 
 function app() {
   const server = express();

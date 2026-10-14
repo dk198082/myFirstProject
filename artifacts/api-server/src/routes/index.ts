@@ -11,6 +11,7 @@ import unscheduledJobsRouter from "./unscheduledJobs.js";
 import resourceUtilizationRouter from "./resourceUtilization.js";
 import writebackRouter from "./writeback.js";
 import proFormaRouter from "./proForma.js";
+import proFormaEmailRouter from "./proFormaEmail.js";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(unscheduledJobsRouter);
 router.use(resourceUtilizationRouter);
 router.use(writebackRouter);
 router.use(proFormaRouter);
+router.use(proFormaEmailRouter);
 
 export default router;
